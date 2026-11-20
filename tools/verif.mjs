@@ -223,9 +223,13 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
 
 /* 8. JS budget */
 {
-  const total = siteJs.reduce((s, f) => s + statSync(f).size, 0);
+  // Budget = JavaScript shipped to visitors of the real site: vendor/ excluded, and also the test
+  // suite (tests.html only) and the demo simulation (never loaded when MODE = 'supabase').
+  const horsBudget = (f) => /site\/assets\/js\/(tests\/|api-demo\.js$|demo-data\.js$|pages\/tests\.js$)/.test(rel(f));
+  const total = siteJs.filter((f) => !horsBudget(f)).reduce((s, f) => s + statSync(f).size, 0);
+  const demo = siteJs.filter(horsBudget).reduce((s, f) => s + statSync(f).size, 0);
   const kb = Math.round(total / 1024);
-  check(`Poids du JavaScript du site : ${kb} Ko (limite 150 Ko, vendor exclu)`, total > 150 * 1024 ? [`${kb} Ko > 150 Ko`] : []);
+  check(`Poids du JavaScript du site : ${kb} Ko (limite 150 Ko ; hors vendor, tests et simulation démo : +${Math.round(demo / 1024)} Ko)`, total > 150 * 1024 ? [`${kb} Ko > 150 Ko`] : []);
 }
 
 /* Report */
