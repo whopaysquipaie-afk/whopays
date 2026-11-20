@@ -20,7 +20,10 @@ export const CONFIG = {
   SUPABASE_PUBLIC_KEY: 'sb_publishable_LEP6wln2QlpHwK5xn1ZbXg_LXu0uVvG',
 
   // Cloudflare Turnstile SITE key (public). The secret key goes into the Supabase dashboard only.
-  TURNSTILE_SITE_KEY: ''
+  TURNSTILE_SITE_KEY: '',
+
+  // Cloudflare Web Analytics token (public, cookieless). Empty = no analytics.
+  CF_ANALYTICS_TOKEN: ''
 };
 
 /** Host + path shown in the watermark, e.g. "whopaysquipaie-afk.github.io/whopays". */

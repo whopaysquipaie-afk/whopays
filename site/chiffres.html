@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com https://cloudflareinsights.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <title>Les chiffres — Qui paie ?</title>
+  <meta name="description" content="Combien de problèmes attendent un milliardaire ? Le score Riches contre Pauvres, les catégories les plus demandées. Et toujours 0 € financé.">
+  <meta name="theme-color" content="#0B0B0B">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:site_name" content="Qui paie ?">
+  <meta property="og:title" content="Les chiffres — Qui paie ?">
+  <meta property="og:description" content="Des problèmes en attente d'un milliardaire. 0 € financé. Riches contre Pauvres.">
+  <meta property="og:image" content="https://whopaysquipaie-afk.github.io/whopays/assets/img/og-image.png">
+  <meta property="og:url" content="https://whopaysquipaie-afk.github.io/whopays/chiffres.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script type="module" src="assets/js/pages/chiffres.js"></script>
+</head>
+<body>
+  <main id="contenu">
+    <section class="choc" aria-labelledby="titre-chiffres">
+      <div class="container">
+        <h1 class="visually-hidden" id="titre-chiffres">Les chiffres</h1>
+        <p>
+          <span class="montant" id="montant-total">0 €</span>
+          <span class="phrase">de problèmes en attente d'un milliardaire.</span>
+          <span class="zero">0 € <small>financé.</small></span>
+        </p>
+        <div class="hero-actions">
+          <button type="button" class="btn btn-primaire" id="partager-chiffres"><i data-icon="share"></i> Partager ces chiffres</button>
+          <button type="button" class="btn btn-secondaire" data-action="hasard"><i data-icon="dice"></i> Tombe sur un problème au hasard</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section revele" aria-labelledby="titre-score">
+      <div class="container">
+        <h2 class="section-titre" id="titre-score">Le score</h2>
+        <div class="match-wrap">
+          <div class="match match-compact">
+            <div class="match-camp match-riche">
+              <img class="icone-camp" src="assets/img/couronne-noire.svg" alt="" width="56" height="56">
+              <h3>Riches</h3>
+              <div class="gros-chiffre" data-compteur="riches">0</div>
+              <button type="button" class="btn btn-sombre btn-petit" data-rejoindre="riche">Rejoindre les riches</button>
+            </div>
+            <div class="match-camp match-pauvre">
+              <img class="icone-camp" src="assets/img/tirelire-violette.svg" alt="" width="56" height="56">
+              <h3>Pauvres</h3>
+              <div class="gros-chiffre" data-compteur="pauvres">0</div>
+              <button type="button" class="btn btn-sombre btn-petit" data-rejoindre="pauvre">Rejoindre les pauvres</button>
+            </div>
+          </div>
+          <div class="match-vs" aria-hidden="true">VS</div>
+        </div>
+        <div class="rapport" id="rapport">
+          <div class="rapport-barre" role="img" aria-label="Rapport de force entre riches et pauvres">
+            <div class="part-riche"></div>
+            <div class="part-pauvre"></div>
+          </div>
+          <div class="rapport-legende"><span data-part="riche">Riches 50 %</span><span data-part="pauvre">Pauvres 50 %</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section revele" aria-labelledby="titre-categories">
+      <div class="container container-etroit">
+        <h2 class="section-titre" id="titre-categories">Les catégories les plus demandées</h2>
+        <ul class="barres" id="barres-categories" aria-busy="true"></ul>
+      </div>
+    </section>
+
+    <section class="section revele" aria-labelledby="titre-4">
+      <div class="container">
+        <h2 class="section-titre" id="titre-4">En bref</h2>
+        <div class="stats-4">
+          <div class="stat"><div class="nombre" data-chiffre="membres">0</div><div class="libelle">membres</div></div>
+          <div class="stat"><div class="nombre" data-chiffre="problemes_publies">0</div><div class="libelle">problèmes publiés</div></div>
+          <div class="stat"><div class="nombre" data-chiffre="reactions">0</div><div class="libelle">réactions</div></div>
+          <div class="stat"><div class="nombre" data-chiffre="commentaires">0</div><div class="libelle">commentaires</div></div>
+        </div>
+        <p class="gris petit mt-24">Les problèmes d'exemple ne sont pas comptés. Aucun argent n'est collecté ni versé sur ce site : le seul chiffre qui ne bougera jamais, c'est le 0 € financé.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -362,7 +362,7 @@ body.avec-cta-mobile { --cta-mobile-h: 68px; }
   z-index: 2; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .5));
 }
 .badge-flottant {
-  position: absolute; z-index: 3; right: 0; bottom: 6px;
+  position: absolute; z-index: 3; right: -4px; top: 92px;
   display: inline-flex; align-items: center; gap: 8px;
   background: var(--anthracite); border: 1px solid var(--bordure); color: var(--blanc);
   padding: 10px 14px; border-radius: 14px; font-weight: 600; font-size: 14px;
@@ -915,3 +915,8 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
   .entete, .pied, .bandeau-transparence, .cta-mobile, .bandeau-demo { display: none !important; }
   body { background: #fff; color: #000; padding: 0; }
 }
+
+/* Cards appearing in the wall */
+.carte.apparait { animation: apparait 420ms var(--ease) both; }
+@media (prefers-reduced-motion: reduce) { .carte.apparait { animation: none; } }
+[aria-busy="true"] { cursor: progress; }
