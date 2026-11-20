@@ -1,6 +1,4 @@
-// Real backend: Supabase RPC functions (supabase/migrations/003_fonctions.sql).
-// Tables are never read or written directly (no grants): everything goes through rpc().
-// Same method names, arguments and return shapes as api-demo.js.
+// Real backend: Supabase RPC only (tables have no grants). Same interface as api-demo.js.
 
 import { CONFIG, siteUrl } from './config.js';
 import { getClient } from './supabase.js';
@@ -113,8 +111,8 @@ export function createSupabaseApi() {
       }
 
       // 2. Attach the e-mail (confirmation e-mail, non-blocking)
-      const { error: mailError } = await sb.auth.updateUser({ email: em }, { emailRedirectTo: siteUrl('espace.html') });
-      if (mailError && (mailError.code === 'email_exists' || /already been registered|already exists/i.test(mailError.message || ''))) {
+      const mailError = await lierEmail(em);
+      if (mailError && mailError.code === 'email_pris') {
         // E-mail already used by a confirmed account: remove the fresh anonymous user and send a magic link.
         try { await rpc('supprimer_utilisateur_anonyme'); } catch { /* best effort */ }
         await sb.auth.signOut({ scope: 'local' }).catch(() => {});
@@ -177,16 +175,40 @@ export function createSupabaseApi() {
       return { connecte: true, userId: session.user.id, profil: profilCache.profil };
     },
 
+    // R-024: accounts created while sending failed have no auth address → the profile one is used.
     async renvoyerConfirmation() {
-      const sb = await getClient();
-      const { data } = await sb.auth.getUser();
-      const email = data && data.user && (data.user.new_email || data.user.email);
+      const u = await userAuth();
+      if (!u) throw new ApiError('Ta session a expiré. Recharge la page.', 'non_connecte');
+      const email = u.new_email || u.email || (await emailProfil());
       if (!email) throw new ApiError('Aucune adresse e-mail à confirmer.', 'invalide');
-      const { error } = await sb.auth.updateUser({ email }, { emailRedirectTo: siteUrl('espace.html') });
-      if (error && error.status === 429) throw new ApiError('Trop de demandes. Attends une minute avant de réessayer.', 'limite');
+      const err = await lierEmail(email);
+      if (err) throw err;
       return { statut: 'envoye' };
+    },
+
+    // R-024 silent catch-up (once-per-session guard in api.js). Never throws.
+    async rattraperEmail() {
+      try {
+        const u = await userAuth();
+        const email = u && u.is_anonymous && !u.email && !u.new_email && (await emailProfil());
+        if (!email) return { statut: 'inutile' };
+        const err = await lierEmail(email);
+        return { statut: !err ? 'rattache' : (err.code === 'envoi' ? 'erreur' : err.code) };
+      } catch { return { statut: 'erreur' }; }
     }
   };
+
+  const userAuth = async () => (await (await getClient()).auth.getUser()).data?.user || null;
+  const emailProfil = () => rpc('get_mon_espace').then((e) => e.email || null, (e) => { if (e.code === 'profil_absent') return null; throw e; });
+
+  /** updateUser({ email }) → null, or an ApiError: email_pris | limite | envoi. */
+  async function lierEmail(email) {
+    const { error: e } = await (await getClient()).auth.updateUser({ email }, { emailRedirectTo: siteUrl('espace.html') });
+    if (!e) return null;
+    if (e.code === 'email_exists' || /already been registered|already exists/i.test(e.message || '')) return new ApiError('Cette adresse est déjà liée à un autre compte. Utilise « Déjà membre ? » avec cette adresse.', 'email_pris');
+    if (e.status === 429) return new ApiError('Trop de demandes. Attends une minute avant de réessayer.', 'limite');
+    return new ApiError('L’envoi a échoué, réessaie dans un instant.', 'envoi');
+  }
 
   if (!CONFIG.TURNSTILE_SITE_KEY) {
     // Without a Turnstile site key, Supabase must have CAPTCHA protection disabled (development only).

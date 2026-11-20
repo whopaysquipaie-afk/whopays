@@ -107,14 +107,31 @@ for (const camp of ['riche', 'pauvre']) {
   let monCommentaire = null;
   let monMessage = null;
   try {
-    const join = await step(`[${camp}] Rejoindre (connexion anonyme sans Turnstile, e-mail non bloquant)`, async () => {
-      const r = await api.rejoindre({ camp, pseudo, email, newsletter: false, majeur: true, regles: true });
-      assert(r.statut === 'cree', `statut ${r.statut}`);
+    // The Brevo SMTP is live (20/11 19:45): api.rejoindre() would call updateUser({ email }) and send a real
+    // e-mail to an invented address (bounce = sender reputation damage). So the test joins WITHOUT attaching
+    // the e-mail: anonymous session + creer_profil only. updateUser / renvoyerConfirmation / rattraperEmail
+    // are never called here (they are covered by the demo contract tests, R-024).
+    const join = await step(`[${camp}] Rejoindre (connexion anonyme + profil, sans envoi d'e-mail)`, async () => {
+      const sb = await getClient();
+      const { error } = await sb.auth.signInAnonymously();
+      if (error) throw new Error(`signInAnonymously : ${error.message}`);
+      const r = await api.creerProfil({ camp, pseudo, email, newsletter: false });
+      assert(r && r.code_partage, 'code de partage absent');
       const s = await api.getSession();
       assert(s.connecte && s.profil && s.profil.camp === camp && s.profil.pseudo === pseudo, 'session/profil');
       return r;
     });
     if (!join.ok) continue;
+
+    // R-024: this account is exactly the case of the silent catch-up (anonymous, no auth e-mail, profile e-mail).
+    await step(`[${camp}] R-024 : compte sans e-mail côté auth, adresse dans le profil (cas du rattrapage)`, async () => {
+      const sb = await getClient();
+      const { data } = await sb.auth.getUser();
+      const u = data.user;
+      assert(u && u.is_anonymous === true && !u.email && !u.new_email, 'utilisateur anonyme sans e-mail attendu');
+      const e = await api.getMonEspace();
+      assert(e.email === email && e.email_confirme === false, 'adresse du profil lisible, non confirmée');
+    });
 
     // 005 (R-017): a clean problem is published at once; a sensitive one waits for review.
     // The published test problem is visible on the real wall for a few seconds only (deleted with the account).

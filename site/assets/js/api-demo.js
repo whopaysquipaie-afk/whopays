@@ -598,17 +598,47 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       };
     },
 
-    /** Demo: the confirmation e-mail is "clicked" immediately. */
+    /**
+     * Demo: the confirmation e-mail is "clicked" immediately. Like Supabase, an address already confirmed
+     * by another account is refused (email_pris), and an account without an auth address uses its profile one (R-024).
+     */
     async renvoyerConfirmation() {
       return tx((st) => {
         const id = uid(st);
         if (!id) throw ERR.nonConnecte();
         const user = st.users.find((u) => u.id === id);
-        if (user) { user.email_confirme = true; user.is_anonymous = false; }
+        if (user && emailPrisAilleurs(st, id)) {
+          throw new ApiError('Cette adresse est déjà liée à un autre compte. Utilise « Déjà membre ? » avec cette adresse.', 'email_pris');
+        }
+        if (user) { user.email_confirme = true; user.is_anonymous = false; user.email_non_rattache = false; }
         return { statut: 'confirme' };
+      });
+    },
+
+    /**
+     * Silent catch-up (= api-supabase.js): an account whose e-mail never reached the auth side
+     * (demoAdmin.simulerEmailNonRattache) gets its profile address attached. Never throws.
+     */
+    async rattraperEmail() {
+      return tx((st) => {
+        const id = uid(st);
+        const user = id && st.users.find((u) => u.id === id);
+        const p = id && st.profiles.find((x) => x.id === id);
+        if (!user || !p || !p.email || !user.is_anonymous || !user.email_non_rattache) return { statut: 'inutile' };
+        if (emailPrisAilleurs(st, id)) return { statut: 'email_pris' };
+        user.email_non_rattache = false;
+        return { statut: 'rattache' };
       });
     }
   };
+
+  /** True when the profile address of `userId` belongs to another confirmed account. */
+  function emailPrisAilleurs(st, userId) {
+    const p = st.profiles.find((x) => x.id === userId);
+    if (!p || !p.email) return false;
+    return st.profiles.some((o) => o.id !== userId && o.email === p.email
+      && st.users.some((u) => u.id === o.id && u.email_confirme));
+  }
 
   /* ================= Moderation page (= mod_* functions of 006_moderateurs.sql) ================= */
   // Same rules as SQL: every function except suisJe() requires the caller to be in st.moderateurs
@@ -774,6 +804,15 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         if (!st.users.some((u) => u.id === userId)) throw ERR.introuvable('Membre introuvable.');
         const autres = (st.moderateurs || []).filter((m) => m !== userId);
         st.moderateurs = valeur === false ? autres : [...autres, userId];
+        return true;
+      });
+    },
+    /** Simulates an account created while e-mail sending was failing (no address on the auth side, R-024). */
+    async simulerEmailNonRattache(userId) {
+      return tx((st) => {
+        const u = st.users.find((x) => x.id === userId);
+        if (!u) throw ERR.introuvable('Membre introuvable.');
+        u.email_non_rattache = true; u.email_confirme = false; u.is_anonymous = true;
         return true;
       });
     },

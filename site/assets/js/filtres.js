@@ -1,8 +1,6 @@
-// Shared content filters (brief dev §5.5). Pure functions: browser + Node, no DOM.
-// The SAME patterns are reproduced in SQL (supabase/migrations/002_securite.sql → public.wp_raison_filtre).
-// Keep both in sync when you change one.
+// Content filters (brief dev §5.5), pure functions. Same patterns in SQL (002_securite.sql): keep in sync.
 
-/** Starter list of banned words (normalized: lowercase, no accents). Mirrors supabase/seed/mots_interdits.sql. */
+/** Banned words (normalized). Mirrors supabase/seed/mots_interdits.sql. */
 export const MOTS_INTERDITS_DEFAUT = [
   'connard', 'connasse', 'conasse', 'salope', 'salaud', 'encule', 'enculee', 'enculer', 'pute', 'putain de ta mere',
   'batard', 'batarde', 'fdp', 'fils de pute', 'ntm', 'nique ta mere', 'niquer', 'tg', 'ta gueule', 'pd', 'pede',
@@ -23,8 +21,7 @@ export function normaliser(texte) {
     .replace(/[̀-ͯ]/g, '');
 }
 
-// --- Patterns (applied on the normalized text) ---
-// Phone numbers: French (06 12 34 56 78, 06.12.34.56.78, +33 6 12 34 56 78, 0033…) and international (+44 20 7946 0958…)
+// Patterns (on the normalized text). Phones: French (06 12…, +33 6…, 0033…) and international
 export const RE_TEL_FR = /(?:(?:\+|00)\s?33\s?\(?0?\)?\s?|\b0)[1-9](?:[\s.-]?\d{2}){4}\b/;
 export const RE_TEL_INTL = /(?:\+|\b00)\s?[1-9]\d{0,2}(?:[\s.-]?\d{2,4}){3,5}\b/;
 export const RE_CHIFFRES_LONGS = /\d{10,}/; // 10+ digits in a row

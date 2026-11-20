@@ -1,33 +1,20 @@
-// Site configuration — the ONLY place where the site URL and public keys live.
-// Every value below is public by design. NEVER put a secret here
-// (no Supabase secret/admin key, no Turnstile secret key, no Brevo key).
+// Site configuration: the ONLY place for the site URL and keys. All public: NEVER put a secret here.
 
 export const CONFIG = {
-  // 'demo'     → fake data stored in the browser (localStorage), no backend needed
-  // 'supabase' → real backend (see docs/CONFIGURATION.md); visitors can still add ?demo=1
+  // 'demo' (localStorage, no backend) | 'supabase' (docs/CONFIGURATION.md; ?demo=1 still works)
   MODE: 'supabase',
-
-  // Public URL of the site (used for share links, watermark, story card, manifest checks).
   SITE_URL: 'https://whopaysquipaie-afk.github.io/whopays/',
-
-  // Source code repository (footer link "Code source").
   REPO_URL: 'https://github.com/whopaysquipaie-afk/whopays',
-
-  // Supabase project URL
   SUPABASE_URL: 'https://jitjbwlxwyeiqyruezkz.supabase.co',
-
-  // Supabase PUBLIC key ("publishable" or "anon"). Public by design: security relies on RLS + RPC.
+  // PUBLIC key by design: security relies on RLS + RPC
   SUPABASE_PUBLIC_KEY: 'sb_publishable_LEP6wln2QlpHwK5xn1ZbXg_LXu0uVvG',
-
-  // Cloudflare Turnstile SITE key (public). The secret key goes into the Supabase dashboard only.
+  // Turnstile SITE key (the secret goes into the Supabase dashboard only)
   TURNSTILE_SITE_KEY: '',
-
-  // Cloudflare Web Analytics token (public, cookieless). Empty = no analytics.
+  // Cloudflare Web Analytics token (cookieless). Empty = no analytics.
   CF_ANALYTICS_TOKEN: ''
 };
 
-// Demo on demand: ?demo=1 switches THIS tab to demo mode (no call to Supabase) until ?demo=0 or
-// "Quitter la démo" (demo-ui.js). Flag kept in sessionStorage; demo-ui.js propagates demo=1 in links.
+// ?demo=1: demo mode in THIS tab (sessionStorage flag) until ?demo=0 or "Quitter la démo" (demo-ui.js).
 export const DEMO_FLAG = 'whopays_demo_a_la_demande';
 export const MODE_CONFIGURE = CONFIG.MODE;
 

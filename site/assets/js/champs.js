@@ -9,10 +9,7 @@ import { openRules } from './layout.js';
 let seq = 0;
 const uid = (p) => `${p}-${++seq}`;
 
-/**
- * Text field. Returns { wrap, input, error, validate() → message|null, value() }.
- * opts: { label, type, name, max, min, multiline, required, help, placeholder, autocomplete, check: 'texte'|'email'|'none', libelle }
- */
+/** Text field → { wrap, input, error, validate() → message|null, value() }. opts.check: 'texte'|'email'|'none'. */
 export function champ(opts) {
   const id = uid(opts.name || 'champ');
   const errId = `${id}-err`;

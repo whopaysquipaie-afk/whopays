@@ -61,6 +61,29 @@ for (const name of METHODS) {
   };
 }
 
+/**
+ * R-024: attaches the profile e-mail of accounts created while sending failed, at most once per
+ * browser session (sessionStorage guard set before the call). { statut, deja? }; never throws.
+ */
+const rattrapages = new Map();
+api.rattraperEmail = async () => {
+  try {
+    const s = await api.getSession();
+    if (!s.profil || s.profil.email_confirme) return { statut: 'inutile' };
+    if (!rattrapages.has(s.userId)) {
+      rattrapages.set(s.userId, (async (k) => {
+        const deja = sessionStorage.getItem(k);
+        if (deja) return { statut: deja === 'en_cours' ? 'erreur' : deja, deja: true };
+        sessionStorage.setItem(k, 'en_cours');
+        const { statut } = await (await backend()).rattraperEmail();
+        sessionStorage.setItem(k, statut);
+        return { statut };
+      })('wp:rattrapage:' + s.userId));
+    }
+    return await rattrapages.get(s.userId);
+  } catch { return { statut: 'erreur' }; }
+};
+
 /** Forces the next getSession() to hit the backend. */
 api.rafraichirSession = () => notifySession();
 

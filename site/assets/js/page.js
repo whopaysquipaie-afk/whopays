@@ -1,5 +1,4 @@
-// Common bootstrap for every page: session, layout, intents (join / publish / reconnect),
-// referral memory, reveal animations, watermark, service worker, analytics.
+// Common bootstrap of every page: session, layout, intents, referral, animations, SW, analytics.
 
 import { CONFIG, siteLabel } from './config.js';
 import { api } from './api.js';
@@ -77,6 +76,9 @@ export async function initPage(page, { mobileCta = true } = {}) {
 
   // Manifest shortcut "Publier un problème" (index.html?publier=1)
   if (new URLSearchParams(location.search).get('publier') === '1') setTimeout(() => intent('publier'), 300);
+
+  // R-024: attach the profile e-mail if it never reached the auth side (once per session)
+  if (current.profil && !current.profil.email_confirme) api.rattraperEmail();
 
   initReveal();
   registerServiceWorker();

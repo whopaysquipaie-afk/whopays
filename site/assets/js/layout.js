@@ -1,6 +1,4 @@
-// Shared layout: demo banner, header, mobile menu, footer, transparency banner,
-// mobile "Publier" button, "Règles du jeu" dialog, install link.
-// Pages call initLayout() once; auth.js calls updateHeaderSession() when the session changes.
+// Shared layout (header, menus, footer, banners, mobile CTA, rules, install). initLayout() once per page.
 
 import { CONFIG, MODE_CONFIGURE } from './config.js';
 import { h, $, openDialog, clear } from './ui.js';
@@ -58,10 +56,7 @@ export function initLayout({ page = '', session = null, mobileCta = true } = {})
   updateHeaderSession(session);
 }
 
-/**
- * Hides the sticky mobile "Publier" button while an identical button is on screen
- * (hero of the home page), so that two identical buttons are never stacked.
- */
+/** Hides the mobile "Publier" button while the identical hero button is on screen. */
 function hideCtaWhileVisible(cta, targets) {
   if (!targets.length || !('IntersectionObserver' in window)) return;
   const visible = new Set();
@@ -70,7 +65,6 @@ function hideCtaWhileVisible(cta, targets) {
     if (hide) cta.setAttribute('aria-hidden', 'true'); else cta.removeAttribute('aria-hidden');
     cta.tabIndex = hide ? -1 : 0;
   };
-  // Hidden from the start (the hero is at the top of the page); the observer fires at once.
   setHidden(true);
   const observer = new IntersectionObserver((entries) => {
     for (const entry of entries) {

@@ -21,13 +21,9 @@ function loadImage(src) {
   });
 }
 
-// Logo A (Montserrat Black Italic glyphs): viewBox only, width / height ratio 3.958.
-const LOGO_RATIO = 7468 / 1887;
+const LOGO_RATIO = 7468 / 1887; // logo: viewBox only, ratio 3.958
 
-/**
- * Loads an SVG that has a viewBox but no width / height (the logo) with an explicit
- * intrinsic size, so that every browser can draw it on a canvas (Firefox refuses otherwise).
- */
+/** Loads a viewBox-only SVG with an explicit size (Firefox cannot draw it on a canvas otherwise). */
 async function loadSvgSized(src, width, height) {
   try {
     const res = await fetch(src);

@@ -277,6 +277,56 @@ test('C. Se reconnecter', 'compte non confirmé : pas de connexion par lien', as
   await rejects(api.seReconnecter(m.email), 'aucun_compte');
 });
 
+/* ================= C bis. E-mail never attached (R-024) ================= */
+
+test('C. Se reconnecter', 'R-024 : compte sans e-mail côté auth → rattrapage avec l’adresse du profil, une seule fois', async () => {
+  const { api, admin, join } = fresh();
+  const m = await join('pauvre', 'Sans adresse');
+  await admin.simulerEmailNonRattache(m.userId);
+  eq((await api.rattraperEmail()).statut, 'rattache');
+  const u = admin.etatBrut().users.find((x) => x.id === m.userId);
+  eq(u.email_non_rattache, false, 'adresse rattachée :');
+  eq(u.email_confirme, false, 'pas encore confirmée (e-mail envoyé) :');
+  eq((await api.rattraperEmail()).statut, 'inutile', 'second appel :');
+  // Account that already has its address: nothing to do
+  await api.seDeconnecter();
+  await join('riche', 'Normal');
+  eq((await api.rattraperEmail()).statut, 'inutile');
+  // Visitor: nothing to do
+  await api.seDeconnecter();
+  eq((await api.rattraperEmail()).statut, 'inutile');
+});
+test('C. Se reconnecter', 'R-024 : « Renvoyer l’e-mail » utilise l’adresse du profil si l’auth n’en a pas', async () => {
+  const { api, admin, join } = fresh();
+  const m = await join('pauvre', 'Sans adresse 2');
+  await admin.simulerEmailNonRattache(m.userId);
+  eq((await api.renvoyerConfirmation()).statut, 'confirme');
+  eq((await api.getSession()).profil.email_confirme, true);
+  await rejects(fresh().api.renvoyerConfirmation(), 'non_connecte', 'visiteur :');
+});
+test('C. Se reconnecter', 'R-024 : adresse déjà confirmée par un autre compte → email_pris, rien ne casse', async () => {
+  const { api, admin } = fresh();
+  // Two unconfirmed accounts with the same address; the first one confirms it.
+  const a = await api.rejoindre({ camp: 'pauvre', pseudo: 'Premier', email: 'meme@exemple.test', majeur: true, regles: true });
+  eq(a.statut, 'cree');
+  const idA = (await api.getSession()).userId;
+  await api.seDeconnecter();
+  await api.rejoindre({ camp: 'riche', pseudo: 'Second', email: 'meme@exemple.test', majeur: true, regles: true });
+  const idB = (await api.getSession()).userId;
+  await admin.connecterEnTantQue(idA);
+  eq((await api.renvoyerConfirmation()).statut, 'confirme');
+  await admin.connecterEnTantQue(idB);
+  await admin.simulerEmailNonRattache(idB);
+  eq((await api.rattraperEmail()).statut, 'email_pris');
+  const e = await rejects(api.renvoyerConfirmation(), 'email_pris');
+  assert(/déjà liée à un autre compte/.test(e.message));
+  // Nothing broken: B keeps its profile and its session, A stays confirmed
+  const s = await api.getSession();
+  eq(s.profil.pseudo, 'Second');
+  eq(s.profil.email_confirme, false);
+  eq(admin.etatBrut().users.find((x) => x.id === idA).email_confirme, true);
+});
+
 /* ================= D. Publish ================= */
 
 test('D. Publier', 'un problème sans mot sensible est publié tout de suite', async () => {

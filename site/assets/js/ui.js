@@ -1,13 +1,9 @@
-// UI helpers: safe DOM builder, dialogs, toasts, "…" menus, formatting.
-// Rule: user or database content is ALWAYS set with textContent (never innerHTML).
+// UI helpers. User or database content is ALWAYS set with textContent (never innerHTML).
 
 import { icon } from './icons.js';
 import { checkAttribute } from './dom-safe.js';
 
-/**
- * h('div', { class: 'x', onclick: fn, dataset: {...} }, child1, 'text', [children…])
- * Strings become text nodes (safe). Attributes are set with setAttribute.
- */
+/** h('div', { class, onclick: fn, dataset }, child, 'text', [children]) — strings become text nodes. */
 export function h(tag, attrs = {}, ...children) {
   if (!/^[a-z][a-z0-9-]*$/i.test(tag) || /^(script|iframe|object|embed|base|meta|link|style)$/i.test(tag)) {
     throw new Error(`h(): balise refusée (${tag})`);
@@ -19,7 +15,7 @@ export function h(tag, attrs = {}, ...children) {
     if (key === 'text') { el.textContent = value; continue; }
     if (key === 'dataset') { Object.assign(el.dataset, value); continue; }
     if (key === 'style' && typeof value === 'object') { Object.assign(el.style, value); continue; }
-    // R-004: on* only accepts functions; URL attributes only accept relative, http(s) or mailto.
+    // R-004: on* = functions only; URLs = relative, http(s), mailto only
     const verdict = checkAttribute(key, value);
     if (!verdict.ok) {
       console.warn(`h(): ${verdict.reason}`);

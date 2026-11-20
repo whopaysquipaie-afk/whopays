@@ -1,5 +1,4 @@
-// Problem card (brief visuel §7.2) — built with DOM APIs only (textContent for every user value).
-// Forbidden on purpose: progress bar, "collectés", "contributeurs", percentage.
+// Problem card (brief visuel §7.2). Never: progress bar, "collectés", "contributeurs", percentage.
 
 import { h, formatEuros, formatNumber } from './ui.js';
 import { icon } from './icons.js';
@@ -25,10 +24,7 @@ function statsCompactes(p) {
   );
 }
 
-/**
- * @param {object} p  row from get_problemes_publics / get_probleme_public
- * @param {object} o  { large: big version for p.html, lien: wrap in a link }
- */
+/** p = public problem row; large = p.html version; lien = wrap in a link. */
 export function carteProbleme(p, { large = false, lien = !large, titreNiveau = large ? 'h1' : 'h3' } = {}) {
   const cat = category(p.categorie) || { label: 'Problème', icon: 'help' };
   const tag = lien ? 'a' : 'article';

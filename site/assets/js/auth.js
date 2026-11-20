@@ -13,10 +13,7 @@ import { confetti } from './animations.js';
 export const INFO_DONNEES = 'Ton pseudo et ton e-mail servent uniquement à faire fonctionner ton compte, et à t’envoyer des nouvelles si tu le demandes. Tu peux supprimer ton compte à tout moment depuis Mon espace. Responsable : Hassen Bamri.';
 export const SOUS_BOUTON = 'Pas de mot de passe. Pas de carte bancaire. Pas de milliardaire non plus (pour l’instant).';
 
-/**
- * Builds the join fields (camp, pseudo, e-mail, checkboxes). Used by the join dialog and,
- * for visitors, at the top of the "Publier un problème" form (single submit).
- */
+/** Join fields, for the join dialog and the top of the "Publier" form (visitors). */
 export function champsRejoindre({ camp = null } = {}) {
   const camps = choixCamp({ valeur: camp });
   const pseudo = champ({ name: 'pseudo', label: 'Pseudo', min: 2, max: 30, autocomplete: 'nickname', libelle: 'Ton pseudo', help: 'C’est le seul nom qui apparaîtra sur le site.' });

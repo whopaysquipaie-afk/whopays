@@ -112,16 +112,27 @@ function invitation(zone) {
 
 function confirmation() {
   const btn = h('button', { type: 'button', class: 'btn btn-fantome btn-petit' }, icon('mail'), 'Renvoyer l’e-mail de confirmation');
+  const note = h('p', { class: 'erreur-form mt-8', role: 'status', hidden: true }, 'Cette adresse est déjà liée à un autre compte. Pour le retrouver, utilise « Déjà membre ? » avec cette adresse.');
+  const emailPris = () => { note.hidden = false; };
   btn.addEventListener('click', async () => {
     chargement(btn, true, 'Envoi…');
     try {
       const r = await api.renvoyerConfirmation();
+      note.hidden = true;
       toast(r.statut === 'confirme' ? 'Mode démo : e-mail considéré comme confirmé.' : 'E-mail envoyé. Pense à regarder les indésirables.');
-    } catch (err) { toastError(err); } finally { chargement(btn, false); }
+    } catch (err) {
+      if (err.code === 'email_pris') emailPris(); else toastError(err);
+    } finally { chargement(btn, false); }
+  });
+  // R-024: same attempt as page.js (never a second e-mail)
+  api.rattraperEmail().then((r) => {
+    if (r.statut === 'email_pris') emailPris();
+    else if (r.statut === 'rattache' && !r.deja) toast('On vient de t’envoyer l’e-mail de confirmation. Pense à regarder les indésirables.');
   });
   return h('div', { class: 'avertissement' }, icon('info'),
     h('div', {},
       h('p', {}, 'Ton e-mail n’est pas encore confirmé. Sans confirmation, ton compte reste lié à ce navigateur : si tu le vides, tu perds l’accès.'),
+      note,
       h('p', { class: 'mt-8' }, btn)));
 }
 
