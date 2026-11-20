@@ -49,6 +49,7 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 4. `supabase/migrations/004_moderation.sql`
 5. `supabase/migrations/005_publication_auto.sql` (publication immédiate, mots sensibles)
 6. `supabase/migrations/006_moderateurs.sql` (modérateurs et page de modération mobile)
+7. `supabase/migrations/007_mots_sensibles_v2.sql` (liste des mots sensibles ajustée : moins de faux positifs)
 7. `supabase/seed/mots_interdits.sql`
 8. `supabase/seed/exemples.sql`
 

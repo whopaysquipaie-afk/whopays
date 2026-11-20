@@ -308,6 +308,16 @@ test('D. Publier', 'mots sensibles : mots entiers seulement (« violon », « ab
   const r = await api.soumettreProbleme({ categorie: 'plaisir', titre: 'Un violon pour mon chat', texte: 'Le prix est abusé, mais il chante faux sans.' });
   eq(r.statut, 'publie');
 });
+test('D. Publier', 'mots sensibles v2 (R-020) : « mourir de rire », « enceinte Bluetooth » publiés ; « envie de mourir » en relecture', async () => {
+  const { api, join } = fresh();
+  await join('pauvre');
+  eq((await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Je vais mourir de rire', texte: 'Mon chat a encore raté son saut sur le canapé.' })).statut, 'publie');
+  eq((await api.soumettreProbleme({ categorie: 'plaisir', titre: 'Mon enceinte Bluetooth me trahit', texte: 'Elle se connecte toute seule chez le voisin, abus de pouvoir.' })).statut, 'publie');
+  eq((await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Une période difficile', texte: 'J’ai envie de mourir depuis quelques semaines.' })).statut, 'recu');
+  const { contientMotSensible } = await import('../mots-sensibles.js');
+  for (const t of ['Je suis drogué au café', 'Mon chat frappe à la porte', 'Un abus de pouvoir']) assert(!contientMotSensible(t), `publié : ${t}`);
+  for (const t of ['Je veux mourir', 'Je suis enceinte', 'Il me frappe', 'J’ai des idées noires', 'Des pensées suicidaires', 'Je me drogue']) assert(contientMotSensible(t), `relecture : ${t}`);
+});
 test('D. Publier', 'publication automatique coupée : tout part en relecture', async () => {
   const { api, join, admin } = fresh();
   await join('pauvre');

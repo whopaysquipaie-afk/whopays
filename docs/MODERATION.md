@@ -58,7 +58,7 @@ update public.reglages set valeur = 'false' where cle = 'publication_auto';
 update public.reglages set valeur = 'true' where cle = 'publication_auto';
 ```
 
-**Ajouter une expression sensible** : Table Editor → `mots_sensibles`, en minuscules et sans accents (la comparaison ignore accents et majuscules, et porte sur des mots entiers : « viol » ne touche pas « violon »). L'ajouter aussi à `MOTS_SENSIBLES_DEFAUT` dans `site/assets/js/mots-sensibles.js` et dans le `insert` de `005_publication_auto.sql` (`tools/verif.mjs` vérifie que les deux listes sont identiques).
+**Ajouter une expression sensible** : Table Editor → `mots_sensibles`, en minuscules et sans accents (la comparaison ignore accents et majuscules, et porte sur des mots entiers : « viol » ne touche pas « violon »). L'ajouter aussi à `MOTS_SENSIBLES_DEFAUT` dans `site/assets/js/mots-sensibles.js` et dans une nouvelle migration (`delete from public.mots_sensibles where mot in (…);` pour retirer, `insert into public.mots_sensibles (mot) values (…) on conflict (mot) do nothing;` pour ajouter, comme `007_mots_sensibles_v2.sql`) : `tools/verif.mjs` rejoue 005 puis les migrations suivantes et vérifie que la liste obtenue est identique à celle du JS. **Préférer des expressions explicites à la première personne** (« je suis enceinte », « il me frappe ») aux mots seuls ambigus sur un site d'humour (« mort de rire », « enceinte Bluetooth », « abus de pouvoir »).
 
 ## 1. Problèmes à relire
 

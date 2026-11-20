@@ -256,16 +256,25 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
   check('Service worker, manifeste et ressources des pages présents', problems);
 }
 
-/* 7c. Sensitive words: the demo list (mots-sensibles.js) and the SQL seed (005) are identical (R-017) */
+/* 7c. Sensitive words: the demo list (mots-sensibles.js) and the SQL list are identical (R-017, R-020).
+   SQL list = seed of 005, then the deletions and insertions of every later migration, in order. */
 {
   const problems = [];
   const js = join(SITE, 'assets/js/mots-sensibles.js');
-  const sql = join(ROOT, 'supabase/migrations/005_publication_auto.sql');
+  const dossier = join(ROOT, 'supabase/migrations');
+  const sql = join(dossier, '005_publication_auto.sql');
   if (!existsSync(js) || !existsSync(sql)) problems.push('mots-sensibles.js ou 005_publication_auto.sql absent');
   else {
     const listeJs = [...((read(js).match(/MOTS_SENSIBLES_DEFAUT = \[([\s\S]*?)\];/) || [])[1] || '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
-    const bloc = (read(sql).match(/insert into public\.mots_sensibles \(mot\) values([\s\S]*?)on conflict/) || [])[1] || '';
-    const listeSql = [...bloc.matchAll(/\('((?:[^']|'')+)'\)/g)].map((m) => m[1].replace(/''/g, "'"));
+    const mots = (bloc) => [...bloc.matchAll(/'((?:[^']|'')+)'/g)].map((m) => m[1].replace(/''/g, "'"));
+    const effectif = new Set();
+    const migrations = readdirSync(dossier).filter((f) => /^\d{3}_.*\.sql$/.test(f) && f >= '005').sort();
+    for (const f of migrations) {
+      const src = read(join(dossier, f)).replace(/--.*$/gm, '');
+      for (const m of src.matchAll(/delete from public\.mots_sensibles\s+where mot in \(([\s\S]*?)\);/g)) for (const w of mots(m[1])) effectif.delete(w);
+      for (const m of src.matchAll(/insert into public\.mots_sensibles \(mot\) values([\s\S]*?)on conflict/g)) for (const w of mots(m[1])) effectif.add(w);
+    }
+    const listeSql = [...effectif];
     const a = [...listeJs].sort().join('|');
     const b = [...listeSql].sort().join('|');
     if (!listeJs.length) problems.push('mots-sensibles.js : liste vide');
@@ -274,7 +283,7 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
       for (const m of listeSql) if (!listeJs.includes(m)) problems.push(`absent du JS : ${m}`);
     }
   }
-  check('Mots sensibles identiques en JS (démo) et en SQL (005)', problems);
+  check('Mots sensibles identiques en JS (démo) et en SQL (005 + migrations suivantes)', problems);
 }
 
 /* 7d. Private moderation page (R-018): noindex, linked from nowhere, never cached by the service worker */

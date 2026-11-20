@@ -455,7 +455,19 @@ begin
         ('J''ai subi un viol',                  true),
         ('Un violon pour mon chat',             false),
         ('Mon chat dort dans la rue du four',   false),
-        ('Bonjour à tous, on y croit !',        false)
+        ('Bonjour à tous, on y croit !',        false),
+        -- 007: fewer false positives, explicit first-person expressions
+        ('Je vais mourir de rire',              false),
+        ('Mon enceinte Bluetooth est cassée',   false),
+        ('Un abus de pouvoir de mon chef',      false),
+        ('Je suis drogué au café',              false),
+        ('Mon chat frappe à la porte',          false),
+        ('J''ai envie de mourir',               true),
+        ('Je veux mourir',                      true),
+        ('Je suis enceinte de 3 mois',          true),
+        ('Il me frappe quand il a bu',          true),
+        ('J''ai des idées noires',              true),
+        ('Des pensées suicidaires',             true)
       ) as f(texte, attendu)
     loop
       v_res := v_res || pg_temp.wp_ligne(public.wp_contient_mot_sensible(v_t) = v_ok,
@@ -469,6 +481,21 @@ begin
     insert into public.reglages (cle, valeur) values ('publication_auto', 'true'::jsonb);
     v_res := v_res || pg_temp.wp_ligne(v_ok and public.wp_publication_auto(),
       'réglage publication_auto absent = pré-modération ; présent à true = publication immédiate');
+
+    -- 7f. Through soumettre_probleme (007): humour published at once, real distress waits
+    perform pg_temp.wp_jouer('authenticated', v_pauvre4);
+    v_j := public.soumettre_probleme('quotidien', 'Je vais mourir de rire',
+                                     'Mon chat a encore raté son saut sur le canapé.', null);
+    v_txt := v_j ->> 'statut';
+    v_j := public.soumettre_probleme('plaisir', 'Mon enceinte Bluetooth me trahit',
+                                     'Elle se connecte toute seule chez le voisin.', 30);
+    v_txt := v_txt || ' ' || (v_j ->> 'statut');
+    v_j := public.soumettre_probleme('quotidien', 'Une période difficile',
+                                     'J''ai envie de mourir depuis quelques semaines.', null);
+    v_txt := v_txt || ' ' || (v_j ->> 'statut');
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(v_txt = 'publie publie recu',
+      '007 : « mourir de rire » et « enceinte Bluetooth » publiés, « envie de mourir » en relecture', v_txt);
     -- No function a member can call takes a status / mask / block / example / verified argument,
     -- except the moderators' mod_* functions (006), which refuse non-moderators (section 16)
     select string_agg(p.proname, ', ') into v_txt
