@@ -116,6 +116,7 @@ declare
   v_modo2       uuid := gen_random_uuid();
   v_avant       integer;
   v_annonce     uuid;
+  v_moment      uuid;
 begin
   begin  -- sub-transaction: rolled back on purpose at the end (P0999)
 
@@ -1599,6 +1600,70 @@ begin
       not exists (select 1 from jsonb_array_elements(public.get_annonces()) x where x ->> 'pseudo' = 'Riche patient'),
       'une annonce de plus de 72 h n''est plus affichée');
     perform pg_temp.wp_jouer(null);
+
+    -- =================================================================
+    -- 22. R-034 (013): « Le problème du moment » (hero card of the home page)
+    -- =================================================================
+    perform pg_temp.wp_jouer(null);
+    delete from public.reactions;
+    perform pg_temp.wp_jouer('anon');
+    v_j := public.get_probleme_du_moment();
+    perform pg_temp.wp_jouer(null);
+    v_moment := (select p.id from public.problems p join public.profiles pr on pr.id = p.user_id and not pr.bloque
+                 where p.type = 'pauvre' and p.statut = 'publie' and not p.masque and not p.est_exemple
+                 order by coalesce(p.modere_le, p.cree_le) desc, p.id desc limit 1);
+    v_res := v_res || pg_temp.wp_ligne(v_j is not null and (v_j ->> 'id')::uuid = v_moment and v_j ->> 'type' = 'pauvre',
+      'problème du moment (anon) : sans réaction depuis 7 jours, le problème de pauvre le plus récent', v_j::text);
+    v_res := v_res || pg_temp.wp_ligne(not (v_j ? 'user_id') and v_j::text not like '%@%' and v_j ? 'pseudo' and v_j ? 'montant',
+      'problème du moment : projection publique (pseudo, montant), ni id d''utilisateur ni e-mail', v_j::text);
+    -- the oldest candidate receives 2 reactions yesterday → it becomes the problem of the moment
+    v_moment := (select p.id from public.problems p join public.profiles pr on pr.id = p.user_id and not pr.bloque
+                 where p.type = 'pauvre' and p.statut = 'publie' and not p.masque and not p.est_exemple
+                 order by coalesce(p.modere_le, p.cree_le) asc, p.id asc limit 1);
+    insert into public.reactions (problem_id, user_id, type, cree_le) values
+      (v_moment, v_riche, 'rire', now() - interval '1 day'),
+      (v_moment, v_pauvre2, 'courage', now() - interval '2 days');
+    -- a rich problem and a masked problem get more reactions: never chosen
+    insert into public.reactions (problem_id, user_id, type, cree_le)
+    select p.id, u.id, 'rire', now() - interval '1 hour'
+    from public.problems p cross join (values (v_riche), (v_pauvre), (v_pauvre3)) u(id)
+    where p.id in (v_pb_riche, v_pb_masque)
+       or p.id = (select q.id from public.problems q where q.type <> 'pauvre' and q.statut = 'publie' and not q.masque limit 1);
+    perform pg_temp.wp_jouer('authenticated', v_pauvre);
+    v_j := public.get_probleme_du_moment();
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne((v_j ->> 'id')::uuid = v_moment and (v_j ->> 'courage')::int = 1,
+      'problème du moment : le plus de réactions sur 7 jours (problèmes de riches, publications et masqués exclus)', v_j::text);
+    -- reactions older than 7 days do not count
+    update public.reactions r set cree_le = now() - interval '8 days' where r.problem_id = v_moment;
+    perform pg_temp.wp_jouer('anon');
+    v_j := public.get_probleme_du_moment();
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne((v_j ->> 'id')::uuid <> v_moment,
+      'problème du moment : les réactions de plus de 7 jours ne comptent pas', v_j::text);
+    -- a blocked author, a masked problem: never shown
+    update public.reactions r set cree_le = now() - interval '1 day' where r.problem_id = v_moment;
+    update public.profiles pr set bloque = true where pr.id = (select p.user_id from public.problems p where p.id = v_moment);
+    perform pg_temp.wp_jouer('anon');
+    v_ok := (public.get_probleme_du_moment() ->> 'id')::uuid is distinct from v_moment;
+    perform pg_temp.wp_jouer(null);
+    update public.profiles pr set bloque = false where pr.id = (select p.user_id from public.problems p where p.id = v_moment);
+    update public.problems p set masque = true where p.id = v_moment;
+    perform pg_temp.wp_jouer('anon');
+    v_ok := v_ok and (public.get_probleme_du_moment() ->> 'id')::uuid is distinct from v_moment;
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(v_ok, 'problème du moment : jamais un problème masqué ni celui d''un membre bloqué');
+    -- nothing to show → null (the page keeps its static card)
+    update public.problems p set masque = true where p.type = 'pauvre';
+    perform pg_temp.wp_jouer('anon');
+    v_j := public.get_probleme_du_moment();
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(v_j is null, 'problème du moment : null quand aucun problème de pauvre n''est visible', coalesce(v_j::text, 'null'));
+    v_res := v_res || pg_temp.wp_ligne(
+      has_function_privilege('anon', 'public.get_probleme_du_moment()', 'execute')
+        and (select p.prosecdef and coalesce(p.proconfig, '{}') @> array['search_path=""'] and p.provolatile = 's'
+             from pg_proc p where p.oid = 'public.get_probleme_du_moment()'::regprocedure),
+      'get_probleme_du_moment : public, SECURITY DEFINER, search_path vide, lecture seule');
 
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';

@@ -90,7 +90,7 @@ flowchart LR
 git clone https://github.com/whopaysquipaie-afk/whopays.git && cd whopays && python -m http.server 8080 --directory site
 ```
 
-Ouvrir http://localhost:8080/?demo=1. Tout fonctionne avec des données fictives stockées dans le navigateur (sans `?demo=1`, le site parle au projet Supabase indiqué dans `config.js`). Pour se connecter comme un membre fictif : *Déjà membre ?* → `membre1@exemple.invalid`. Tests : http://localhost:8080/tests.html?demo=1.
+Ouvrir http://localhost:8080/?demo=1. Tout fonctionne avec des données fictives stockées dans le navigateur (sans `?demo=1`, le site parle au projet Supabase indiqué dans `config.js`). Pour se connecter comme un membre fictif : *Déjà membre ?* → `membre1@demo.invalid`. Tests : http://localhost:8080/tests.html?demo=1.
 
 ## Déployer ta propre version en 10 minutes
 

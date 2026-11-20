@@ -55,6 +55,8 @@ export function createSupabaseApi() {
     getPalmares: ({ limite = 100 } = {}) => rpc('get_palmares', { p_limite: limite }),
     getMonRang: () => rpc('get_mon_rang'),
     getAnnonces: () => rpc('get_annonces').then((d) => d || []),
+    // R-034: hero card of the home page (null when nothing can be shown)
+    getProblemeDuMoment: () => rpc('get_probleme_du_moment').then((d) => d || null),
     seDesinscrire: (jeton) => (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(jeton || ''))
       ? rpc('se_desinscrire', { p_jeton: jeton }) : Promise.resolve(false)),
 

@@ -135,7 +135,7 @@ export function ouvrirReconnexion({ email = '' } = {}) {
   const submit = h('button', { type: 'submit', class: 'btn btn-primaire btn-bloc mt-24' }, CONFIG.MODE === 'demo' ? 'Me connecter' : 'Recevoir mon lien', icon('arrow-right', { className: 'fleche' }));
   form.append(
     h('p', { class: 'gris' }, CONFIG.MODE === 'demo'
-      ? 'Mode démo : pas d’e-mail, on te connecte directement. Essaie par exemple membre1@exemple.invalid (un riche) ou membre20@exemple.invalid (un pauvre).'
+      ? 'Mode démo : pas d’e-mail, on te connecte directement. Essaie membre1@demo.invalid (un riche) ou membre20@demo.invalid (un pauvre).'
       : 'On t’envoie un lien de connexion par e-mail. Pas de mot de passe, jamais.'),
     mail.wrap, zoneTs, erreur.el, submit,
     h('p', { class: 'sous-bouton' }, 'Pas encore membre ? ', h('button', { type: 'button', class: 'lien', onclick: () => { close(); ouvrirRejoindre(); } }, 'Rejoins un camp'))

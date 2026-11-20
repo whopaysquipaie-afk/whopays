@@ -326,7 +326,7 @@ body.avec-cta-mobile { --cta-mobile-h: 68px; }
   font-weight: 600; font-size: 12px; line-height: 1.2; white-space: nowrap;
 }
 .badge svg { width: 14px; height: 14px; }
-.badge-exemple { background: #DADAD4; color: #3A3A36; }
+.badge-moment { background: var(--noir); color: var(--citron); }
 .badge-riche { background: var(--citron); color: var(--noir); }
 .badge-pauvre { background: var(--lavande); color: var(--lavande-texte); }
 .badge-sombre { background: var(--anthracite-2); color: var(--blanc); border: 1px solid var(--bordure); }
@@ -433,13 +433,15 @@ a.carte:focus-visible { outline-offset: 4px; border-radius: var(--r-carte); }
   width: 18px; height: 18px; border-radius: 5px; background: var(--noir); color: var(--citron);
   font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: 13px; line-height: 1;
 }
-.carte-exemple-hero {
+.carte-hero {
   width: 100%; max-width: 380px; transform: rotate(-3deg);
   box-shadow: var(--ombre), 0 0 0 3px var(--citron);
 }
-.carte-exemple-hero .carte-tuile { width: 96px; height: 96px; background: #222; }
+.carte-hero .carte-tuile { width: 96px; height: 96px; background: #222; }
 /* The punchline is at the end of the title: never truncate it in the hero card. */
-.carte-exemple-hero .carte-titre { font-size: 18px; -webkit-line-clamp: unset; line-clamp: none; display: block; overflow: visible; }
+a.carte-hero:hover { transform: rotate(-3deg) translateY(-4px); }
+.carte-hero .carte-meta { margin-top: 10px; }
+.carte-hero .carte-titre { font-size: 18px; -webkit-line-clamp: unset; line-clamp: none; display: block; overflow: visible; }
 .carte-ligne-bas {
   display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
   margin-top: 14px; font-weight: 600; font-size: 14px;
@@ -909,7 +911,7 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
   .match-pauvre p { margin-left: auto; }
   .etapes { grid-template-columns: repeat(3, 1fr); }
   .carte-titre { font-size: 22px; }
-  .carte-exemple-hero .carte-titre { font-size: 20px; }
+  .carte-hero .carte-titre { font-size: 20px; }
   .carte-large .carte-titre { font-size: 32px; }
   .btn { font-size: 16px; }
   .entete-actions .btn-rejoindre { display: inline-flex; }
@@ -947,7 +949,7 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
     transition-duration: .001ms !important;
   }
   .revele { opacity: 1; transform: none; }
-  .carte-exemple-hero { transform: none; }
+  .carte-hero, a.carte-hero:hover { transform: none; }
 }
 
 /* ---------- Print (keep the watermark) ---------- */

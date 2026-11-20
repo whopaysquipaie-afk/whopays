@@ -284,11 +284,11 @@ test('B. Rejoindre', 'exige 18 ans, les règles, un camp, un pseudo et un e-mail
 test('B. Rejoindre', 'e-mail déjà confirmé : lien de connexion, pas de doublon', async () => {
   const { api, admin } = fresh();
   const avant = await api.getCompteurs();
-  const r = await api.rejoindre({ camp: 'pauvre', pseudo: 'Doublon', email: 'MEMBRE1@exemple.invalid', majeur: true, regles: true });
+  const r = await api.rejoindre({ camp: 'pauvre', pseudo: 'Doublon', email: 'MEMBRE1@demo.invalid', majeur: true, regles: true });
   eq(r.statut, 'deja_membre');
   eq((await api.getCompteurs()).membres, avant.membres);
   eq((await api.getSession()).connecte, false);
-  eq(admin.etatBrut().profiles.filter((p) => p.email === 'membre1@exemple.invalid').length, 1);
+  eq(admin.etatBrut().profiles.filter((p) => p.email === 'membre1@demo.invalid').length, 1);
 });
 test('B. Rejoindre', 'parrainage : code valide résolu, code inconnu ignoré', async () => {
   const { api, join } = fresh();
@@ -312,7 +312,7 @@ test('B. Rejoindre', 'creer_profil refuse un second profil', async () => {
 
 test('C. Se reconnecter', 'compte confirmé : connexion ; inconnu : message dédié', async () => {
   const { api } = fresh();
-  eq((await api.seReconnecter('membre3@exemple.invalid')).statut, 'connecte');
+  eq((await api.seReconnecter('membre3@demo.invalid')).statut, 'connecte');
   eq((await api.getSession()).profil.pseudo, MEMBRES[2][0]);
   await api.seDeconnecter();
   const e = await rejects(api.seReconnecter('inconnu@exemple.test'), 'aucun_compte');
@@ -1104,6 +1104,55 @@ test('K. Nouveau riche', 'désinscription par jeton ; case de l’inscription re
   eq(LIBELLE_NEWSLETTER, 'Préviens-moi par e-mail quand un riche débarque (et les nouvelles du projet)');
 });
 
+/* ================= L. « Le problème du moment » (= 013, R-034) ================= */
+test('L. Problème du moment', 'le plus de réactions sur 7 jours, sinon le plus récent ; jamais riche, masqué, bloqué ni exemple', async () => {
+  const { api, admin, join, as, advance } = fresh();
+  await api.getCompteurs();  // seeds the demo at T0
+  advance(30 * DAY);  // every seeded reaction is now older than 7 days
+  const auteur = await join('pauvre', 'Auteur du moment');
+  const x = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon frigo fait la grève', texte: 'Il ne refroidit plus que les ambiances.', montant: 450 });
+  let m = await api.getProblemeDuMoment();
+  eq(m.id, x.id, 'sans réaction récente, le plus récent :');
+  assertNoPrivateData(m, 'get_probleme_du_moment');
+  eq(m.type, 'pauvre'); eq(m.pseudo, 'Auteur du moment'); eq(m.est_exemple, false);
+  advance(HOUR);
+  const y = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Ma box internet me boude', texte: 'Elle clignote en rouge dès que je la regarde.', montant: 80 });
+  eq((await api.getProblemeDuMoment()).id, y.id, 'le plus récent :');
+  const r1 = await join('pauvre'); await api.reagir(x.id, 'rire'); await api.reagir(x.id, 'courage');
+  const riche = await join('riche');
+  await api.reagir(x.id, 'paierais');
+  const pub = await api.publierRiche({ type: 'riche', titre: 'Mon yacht est trop petit', texte: 'Il ne rentre que deux hélicoptères.', montant: 90000 });
+  for (const u of [r1.userId, auteur.userId]) { await as(u); await api.reagir(pub.id, 'rire'); await api.reagir(pub.id, 'courage'); }
+  await as(r1.userId); await api.reagir(pub.id, 'paierais');
+  m = await api.getProblemeDuMoment();
+  eq(m.id, x.id, 'le plus de réactions sur 7 jours (le problème de riche ne compte pas) :');
+  eq(m.rire + m.courage + m.paierais, 3);
+  await admin.masquer('probleme', x.id, true);
+  eq((await api.getProblemeDuMoment()).id, y.id, 'masqué :');
+  await admin.masquer('probleme', x.id, false);
+  eq((await api.getProblemeDuMoment()).id, x.id);
+  advance(8 * DAY);
+  eq((await api.getProblemeDuMoment()).id, y.id, 'réactions de plus de 7 jours :');
+  await admin.bloquer(auteur.userId, true);
+  const z = await api.getProblemeDuMoment();
+  assert(z && z.id !== x.id && z.id !== y.id, 'auteur bloqué');
+  assert(!(await api.getProblemesPublics({ limite: 48 })).some((p) => p.id === z.id && p.est_exemple), 'jamais un exemple');
+  void riche;
+});
+
+test('L. Problème du moment', 'plus jamais le mot « Exemple » : ni badge sur les cartes, ni dans la carte du hero, ni dans les adresses de démo', async () => {
+  const fs = await import('node:fs').catch(() => null);
+  if (!fs) return;  // browser: source files are not readable here
+  const lire = (f) => fs.readFileSync(new URL(`../../../${f}`, import.meta.url), 'utf8');
+  for (const f of ['index.html', 'chiffres.html', 'assets/js/carte.js', 'assets/js/story.js', 'assets/js/auth.js', 'assets/js/api-demo.js', 'assets/js/pages/accueil.js']) {
+    const s = lire(f).replace(/par exemple/gi, '');
+    assert(!/[>'"`« ]Exemple\b|badge-exemple|exemple\.invalid|Exemple de problème/.test(s), `« Exemple » dans ${f}`);
+  }
+  const { api } = fresh();
+  for (const p of await api.getProblemesPublics({ limite: 48 })) assert(!JSON.stringify(p).includes('Exemple'), p.titre);
+  eq((await api.seReconnecter('membre1@demo.invalid')).statut, 'connecte');
+});
+
 function assertNoEmail(payload, where) {
   const json = JSON.stringify(payload);
   assert(!/@/.test(json) && !/"email"/.test(json), `${where} : contient une adresse e-mail`);
@@ -1147,6 +1196,10 @@ export async function runPublicChecks(api, { onResult = () => {} } = {}) {
     ['get_commentaires : aucune donnée privée', async () => {
       const l = await api.getProblemesPublics({ limite: 5 });
       for (const p of l) assertNoPrivateData(await api.getCommentaires(p.id), 'get_commentaires');
+    }],
+    ['get_probleme_du_moment : problème de pauvre ou null, aucune donnée privée', async () => {
+      const p = await api.getProblemeDuMoment();
+      if (p !== null) { eq(p.type, 'pauvre'); assertNoPrivateData(p, 'get_probleme_du_moment'); }
     }],
     ['catégorie invalide refusée', async () => rejects(api.getProblemesPublics({ categorie: '<script>' }), 'invalide')]
   ];

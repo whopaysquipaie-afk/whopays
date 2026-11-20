@@ -110,7 +110,7 @@ More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 git clone https://github.com/whopaysquipaie-afk/whopays.git && cd whopays && python -m http.server 8080 --directory site
 ```
 
-Open http://localhost:8080/?demo=1. Everything works with fictional data stored in your browser (without `?demo=1`, the site talks to the Supabase project set in `config.js`). Sign in as an existing fictional member with *Déjà membre ?* → `membre1@exemple.invalid`. Run the test suite at http://localhost:8080/tests.html?demo=1.
+Open http://localhost:8080/?demo=1. Everything works with fictional data stored in your browser (without `?demo=1`, the site talks to the Supabase project set in `config.js`). Sign in as an existing fictional member with *Déjà membre ?* → `membre1@demo.invalid`. Run the test suite at http://localhost:8080/tests.html?demo=1.
 
 ## Deploy your own in 10 minutes
 

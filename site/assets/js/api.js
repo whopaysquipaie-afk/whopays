@@ -26,7 +26,7 @@ function backend() {
 const METHODS = [
   // public reads
   'getCompteurs', 'getChiffres', 'getProblemesPublics', 'getProblemePublic', 'getProblemeHasard', 'getCommentaires',
-  'getPalmares', 'getMonRang', 'getAnnonces', 'seDesinscrire',
+  'getPalmares', 'getMonRang', 'getAnnonces', 'seDesinscrire', 'getProblemeDuMoment',
   // members
   'creerProfil', 'majProfil', 'soumettreProbleme', 'publierRiche', 'reagir', 'getMesReactions', 'commenter',
   'supprimerMonCommentaire', 'masquerCommentaire', 'getClubMessages', 'envoyerMessageClub', 'signaler',

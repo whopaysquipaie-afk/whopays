@@ -142,15 +142,6 @@ export async function dessinerStory(p) {
   ctx.fillStyle = C.lavandeTexte;
   ctx.textBaseline = 'middle';
   ctx.fillText(label, M + 32, y + 40);
-  if (p.est_exemple) {
-    ctx.font = `600 32px ${TEXTE}`;
-    const ew = ctx.measureText('Exemple').width + 48;
-    ctx.fillStyle = '#DADAD4';
-    roundRect(ctx, M + pw + 16, y + 6, ew, 64, 32);
-    ctx.fill();
-    ctx.fillStyle = '#3A3A36';
-    ctx.fillText('Exemple', M + pw + 40, y + 40);
-  }
   ctx.textBaseline = 'alphabetic';
 
   // Title (Montserrat Black Italic, auto size, keyword in lemon)

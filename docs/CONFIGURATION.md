@@ -55,6 +55,7 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 10. `supabase/migrations/010_riches_payants.sql` (riches payants : en attente tant qu'un modérateur ne les a pas activés)
 11. `supabase/migrations/011_publications_riches.sql` (problèmes et publications des riches actifs, filtres du mur par type)
 12. `supabase/migrations/012_annonces_riches.sql` (« Un nouveau riche est arrivé », désinscription, envois d'e-mails : voir 4.2)
+13. `supabase/migrations/013_probleme_du_moment.sql` (carte « Le problème du moment » de l'accueil : `get_probleme_du_moment()`, publique, lecture seule)
 13. `supabase/seed/mots_interdits.sql`
 14. `supabase/seed/exemples.sql`
 

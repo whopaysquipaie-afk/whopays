@@ -7,6 +7,8 @@ import { CATEGORIES, HOME_TILES, category } from '../categories.js';
 import { countUp, countUpWhenVisible } from '../animations.js';
 import { initMur } from '../mur.js';
 import { afficherAnnonces } from '../annonces.js';
+import { badgeCamp, filigrane } from '../carte.js';
+import { montantAffiche } from '../riens.js';
 
 await initPage('accueil');
 
@@ -41,6 +43,36 @@ async function chargerCompteurs() {
 }
 chargerCompteurs();
 setInterval(() => { if (document.visibilityState === 'visible') chargerCompteurs(); }, 60000);
+
+/* ---------- Hero card: « Le problème du moment » (R-034) ---------- */
+// Loaded from the database; the static card of index.html stays as a fallback if the call fails.
+async function chargerProblemeDuMoment() {
+  const statique = $('.hero-visuel .carte-hero');
+  if (!statique) return;
+  let p = null;
+  try { p = await api.getProblemeDuMoment(); } catch { return; }
+  if (!p || !p.id || !p.titre) return;
+  const cat = category(p.categorie) || { label: 'Problème', icon: 'help' };
+  const m = montantAffiche(p.montant);
+  statique.replaceWith(h('a', {
+    class: 'carte carte-hero', href: `p.html?id=${encodeURIComponent(p.id)}`,
+    'aria-label': `Le problème du moment : ${p.titre} — ${cat.label}, par ${p.pseudo}`
+  },
+    h('div', { class: 'carte-haut' },
+      h('div', { class: 'carte-tuile' }, h('img', { src: 'assets/img/mascotte.svg', alt: '', width: '96', height: '96' })),
+      h('div', { class: 'carte-entete' },
+        h('span', { class: 'pastille' }, icon(cat.icon), ` ${cat.label}`),
+        h('span', { class: 'badge badge-moment' }, 'Le problème du moment'))),
+    h('h2', { class: 'carte-titre' }, p.titre),
+    h('p', { class: 'carte-texte' }, p.texte),
+    h('div', { class: 'carte-ligne-bas' },
+      m ? h('span', {}, h('span', { class: 'montant-riens' }, m.principal), ' recherchés ', h('span', { class: 'montant-euros' }, m.euros)) : null,
+      h('span', { class: 'zero' }, 'Milliardaires intéressés : 0')),
+    h('div', { class: 'carte-meta' },
+      h('span', { class: 'carte-auteur' }, h('span', { class: 'nom' }, p.pseudo), p.camp ? badgeCamp(p.camp) : null)),
+    filigrane()));
+}
+chargerProblemeDuMoment();
 
 /* ---------- Category tiles ---------- */
 const tuiles = $('#tuiles-categories');

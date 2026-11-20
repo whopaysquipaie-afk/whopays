@@ -53,7 +53,6 @@ export function carteProbleme(p, { large = false, lien = !large, titreNiveau = l
       h('div', { class: 'carte-tuile', 'aria-hidden': 'true' }, icon(cat.icon)),
       h('div', { class: 'carte-entete' },
         h('span', { class: 'pastille' }, cat.label),
-        p.est_exemple ? h('span', { class: 'badge badge-exemple' }, 'Exemple') : null,
         p.premiere ? h('span', { class: 'badge badge-sombre' }, 'Première publication') : null
       )
     ),

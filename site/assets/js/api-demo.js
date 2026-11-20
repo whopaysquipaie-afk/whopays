@@ -132,7 +132,7 @@ function buildSeed(now) {
     codes.add(code);
     st.users.push({ id, email_confirme: true, is_anonymous: false });
     st.profiles.push({
-      id, pseudo, email: `membre${i + 1}@exemple.invalid`, camp, newsletter: rand() > 0.5,
+      id, pseudo, email: `membre${i + 1}@demo.invalid`, camp, newsletter: rand() > 0.5,
       riche_message: richeMessage || null, riche_montant: richeMontant || null,
       statut_riche: camp === 'riche' ? 'actif' : 'en_attente', riche_formule: null, riche_jusqu_au: null,
       jeton_desinscription: uuid(rand),
@@ -210,6 +210,15 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         const st = JSON.parse(raw);
         if (st && st.version === 1) {
           // States saved before R-031: every member gets an unsubscribe token (= default of 012)
+          // R-034: the demo addresses of older saved states move to @demo.invalid
+          if (st.users && st.users.some((u) => /@exemple\.invalid$/.test(u.email || ''))) {
+            for (const u of st.users) if (u.email) u.email = u.email.replace(/@exemple\.invalid$/, '@demo.invalid');
+            for (const p of st.profiles) if (p.email) p.email = p.email.replace(/@exemple\.invalid$/, '@demo.invalid');
+            save(st);
+          } else if (st.profiles.some((p) => /@exemple\.invalid$/.test(p.email || ''))) {
+            for (const p of st.profiles) if (p.email) p.email = p.email.replace(/@exemple\.invalid$/, '@demo.invalid');
+            save(st);
+          }
           if (st.profiles.some((p) => !p.jeton_desinscription)) {
             for (const p of st.profiles) if (!p.jeton_desinscription) p.jeton_desinscription = uuid(Math.random);
             save(st);
@@ -364,6 +373,19 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       const pub = st.problems.filter(visibleProblem);
       if (!pub.length) return null;
       return pub[Math.floor(rand() * pub.length)].id;
+    },
+
+    /** R-034 (= 013): the poor problem with the most reactions over the last 7 days, else the most recent. */
+    async getProblemeDuMoment() {
+      const st = load();
+      const depuis = t() - 7 * DAY;
+      const auteurOk = (p) => { const a = st.profiles.find((x) => x.id === p.user_id); return !!a && !a.bloque; };
+      const cands = st.problems.filter((p) => visibleProblem(p) && typeDe(p) === 'pauvre' && !p.est_exemple && p.user_id && auteurOk(p));
+      if (!cands.length) return null;
+      const score = (p) => st.reactions.filter((r) => r.problem_id === p.id && Date.parse(r.cree_le) > depuis).length;
+      const best = cands.map((p) => ({ p, s: score(p) }))
+        .sort((a, b) => b.s - a.s || sortDate(b.p).localeCompare(sortDate(a.p)) || b.p.id.localeCompare(a.p.id))[0].p;
+      return problemRow(st, best);
     },
 
     async getCommentaires(problemId, avant = null) {
