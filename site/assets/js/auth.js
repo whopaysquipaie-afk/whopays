@@ -9,6 +9,7 @@ import { champ, caseACocher, choixCamp, lienRegles, boiteErreur, chargement } fr
 import { creerTurnstile } from './turnstile.js';
 import { lireRef, oublierRef } from './parrainage.js';
 import { confetti } from './animations.js';
+import { LIBELLE_NEWSLETTER } from './auth-textes.js';
 
 export const INFO_DONNEES = 'Ton pseudo et ton e-mail servent uniquement à faire fonctionner ton compte, et à t’envoyer des nouvelles si tu le demandes. Tu peux supprimer ton compte à tout moment depuis Mon espace. Responsable : Hassen Bamri.';
 export const SOUS_BOUTON = 'Pas de mot de passe. Pas de carte bancaire. Pas de milliardaire non plus (pour l’instant).';
@@ -20,7 +21,7 @@ export function champsRejoindre({ camp = null } = {}) {
   const email = champ({ name: 'email', label: 'E-mail', type: 'email', check: 'email', autocomplete: 'email', inputmode: 'email' });
   const majeur = caseACocher({ name: 'majeur', label: 'J’ai 18 ans ou plus', required: true });
   const regles = caseACocher({ name: 'regles', label: ['J’accepte les ', lienRegles(), ''], required: true });
-  const newsletter = caseACocher({ name: 'newsletter', label: 'Je veux recevoir les nouvelles du projet' });
+  const newsletter = caseACocher({ name: 'newsletter', label: LIBELLE_NEWSLETTER });
   const caseErreur = h('p', { class: 'erreur', role: 'alert', hidden: true });
 
   const nodes = [camps.wrap, pseudo.wrap, email.wrap, majeur.wrap, regles.wrap, newsletter.wrap, caseErreur];

@@ -6,6 +6,7 @@ import { icon } from '../icons.js';
 import { CATEGORIES, HOME_TILES, category } from '../categories.js';
 import { countUp, countUpWhenVisible } from '../animations.js';
 import { initMur } from '../mur.js';
+import { afficherAnnonces } from '../annonces.js';
 
 await initPage('accueil');
 
@@ -61,3 +62,6 @@ const categorieUrl = new URLSearchParams(location.search).get('categorie');
 mur = initMur({ grille: $('#grille-mur'), filtres: $('#filtres'), voirPlus: $('#voir-plus'), categorieInitiale: categorieUrl, typeInitial: new URLSearchParams(location.search).get('type') });
 document.addEventListener('wp:probleme-soumis', () => chargerCompteurs());
 document.addEventListener('wp:session-maj', () => chargerCompteurs());
+
+// R-031: « Un nouveau riche vient d'arriver » (72 h)
+afficherAnnonces([$('#annonces-haut'), $('#annonces-mur')]);

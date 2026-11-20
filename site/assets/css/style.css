@@ -1082,3 +1082,11 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .carte-riche .filigrane { border-top-color: rgba(11, 11, 11, .25); }
 .carte-texte-seul { font-size: 17px; font-weight: 600; -webkit-line-clamp: 5; margin-top: 14px; }
 .carte-large .carte-texte-seul { -webkit-line-clamp: unset; font-size: 20px; }
+
+/* ---------- « Un nouveau riche est arrivé » (R-031) ---------- */
+.annonces-zone { display: grid; gap: 8px; }
+#annonces-haut { padding-top: 16px; }
+#annonces-mur { margin: 16px 0; }
+.annonce-riche { margin: 0; padding: 12px 16px; border-radius: var(--r-carte); background: var(--citron); color: var(--noir); font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.annonce-riche a { color: var(--noir); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.annonce-riche a:focus-visible { outline: 3px solid var(--noir); outline-offset: 2px; }

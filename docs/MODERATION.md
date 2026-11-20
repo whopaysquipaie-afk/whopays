@@ -37,6 +37,8 @@ Adresse : `moderation.html` à la racine du site (après `CONFIG.SITE_URL`). Ell
 
 **Riches payants (R-029)** : aucun compte riche n'est actif sans validation d'un modérateur. Un riche qui s'inscrit (ou un pauvre qui passe chez les riches) est **en attente** : il lit le site, mais ne peut ni publier, ni réagir, ni commenter, ni signaler, ni lire ou écrire au club des riches (contrôle dans la base, `wp_exiger_membre`). Le site lui affiche les prix (300 € par mois, 3 000 € par an) et un bouton « Contacter le support » (e-mail). Après accord avec lui, onglet **Riches** → « Activer 1 mois » ou « Activer 1 an » ; une nouvelle activation prolonge à partir de la date de fin en cours. Une date de fin passée remet le compte en attente tout seul (aucune tâche planifiée). Les modérateurs sont toujours actifs. Le compteur « Riches » du site ne compte que les riches actifs.
 
+**« Un nouveau riche est arrivé » (R-031)** : activer un riche **en attente** crée une annonce affichée 72 h en haut de l'accueil et du mur (une prolongation n'annonce rien). Elle apparaît aussi en haut de l'onglet **Riches**, avec le bouton « Annoncer ce riche par e-mail » : les pauvres qui ont coché la case reçoivent un e-mail (250 par 24 h au plus, jamais deux fois, lien de désinscription). Le bouton nécessite la fonction Edge `annoncer-riche` (voir `docs/CONFIGURATION.md`, 4.2). En démo, rien n'est envoyé.
+
 En mode démo (`?demo=1`), la page est simulée : le bouton « (Démo) Essayer en modérateur » donne le rôle au membre connecté (ou au premier membre fictif).
 
 ## 0. Publication immédiate (depuis `005_publication_auto.sql`)

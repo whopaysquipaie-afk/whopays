@@ -23,6 +23,7 @@ const main = $('#contenu');
 const mod = await createModerationApi();
 let onglet = 'a-relire';
 let donnees = { 'a-relire': [], recents: [], signales: [], masques: [], riches: [] };
+let annoncesModo = [];
 
 await afficher();
 document.addEventListener('wp:session-maj', () => afficher());
@@ -98,10 +99,11 @@ async function devenirModoDemo() {
 /* ---------------- Data ---------------- */
 
 async function chargerTout() {
-  const [aRelire, recents, signales, masques, riches] = await Promise.all([
-    mod.aRelire(), mod.recents(48), mod.signalements24h(), mod.masques(), mod.riches()
+  const [aRelire, recents, signales, masques, riches, annonces] = await Promise.all([
+    mod.aRelire(), mod.recents(48), mod.signalements24h(), mod.masques(), mod.riches(), mod.annonces()
   ]);
   donnees = { 'a-relire': aRelire, recents, signales, masques, riches };
+  annoncesModo = annonces;
   dessiner();
 }
 
@@ -141,6 +143,7 @@ function dessiner() {
 
   const liste = donnees[onglet];
   const def = ONGLETS.find((o) => o.id === onglet);
+  if (onglet === 'riches') for (const a of annoncesModo) panneau.appendChild(carteAnnonce(a));
   if (!liste.length) panneau.appendChild(h('p', { class: 'modo-vide' }, def.vide));
   for (const item of liste) {
     panneau.appendChild(onglet === 'riches' ? carteRiche(item)
@@ -259,8 +262,8 @@ function carteRiche(r) {
   const actions = [];
   if (!r.est_moderateur) {
     actions.push(
-      bouton(actif ? 'Prolonger 1 mois' : 'Activer 1 mois', 'btn-primaire', () => action(() => mod.activerRiche(r.user_id, 'mensuel'), `${r.pseudo} : riche pour un mois de plus.`)),
-      bouton(actif ? 'Prolonger 1 an' : 'Activer 1 an', 'btn-primaire', () => action(() => mod.activerRiche(r.user_id, 'annuel'), `${r.pseudo} : riche pour un an de plus.`)));
+      bouton(actif ? 'Prolonger 1 mois' : 'Activer 1 mois', 'btn-primaire', () => action(() => mod.activerRiche(r.user_id, 'mensuel'), actif ? `${r.pseudo} : riche pour un mois de plus.` : `${r.pseudo} est riche pour un mois. Annonce publiée sur le site pendant 72 h.`)),
+      bouton(actif ? 'Prolonger 1 an' : 'Activer 1 an', 'btn-primaire', () => action(() => mod.activerRiche(r.user_id, 'annuel'), actif ? `${r.pseudo} : riche pour un an de plus.` : `${r.pseudo} est riche pour un an. Annonce publiée sur le site pendant 72 h.`)));
     if (actif) actions.push(bouton('Désactiver', 'btn-fantome', () => action(() => mod.desactiverRiche(r.user_id), `${r.pseudo} repasse en attente.`)));
     actions.push(h('button', { type: 'button', class: 'btn btn-danger', onclick: () => refuserRiche(r) }, 'Refuser'));
   }
@@ -283,4 +286,35 @@ async function refuserRiche(r) {
     confirmLabel: 'Refuser', danger: true
   });
   if (ok) await action(() => mod.refuserRiche(r.user_id), `${r.pseudo} repasse chez les pauvres.`);
+}
+
+/* ---------------- « Un nouveau riche est arrivé » (R-031, 012_annonces_riches.sql) ---------------- */
+// Created by the activation of a pending rich member, shown on the site for 72 h. The e-mail to the
+// poor goes through the Edge Function « annoncer-riche » (250 e-mails per 24 h at most, never twice).
+
+function carteAnnonce(a) {
+  const bouton = h('button', { type: 'button', class: 'btn btn-primaire' }, 'Annoncer ce riche par e-mail');
+  bouton.addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: 'Envoyer l’annonce par e-mail ?',
+      message: `Les pauvres qui ont coché la case recevront « Un nouveau riche vient d’arriver : ${a.pseudo} ». 250 e-mails par 24 h au plus ; personne ne la reçoit deux fois.`,
+      confirmLabel: 'Envoyer'
+    });
+    if (!ok) return;
+    bouton.disabled = true;
+    await action(async () => {
+      const r = await mod.annoncerParEmail(a.id);
+      toast(r.demo
+        ? `Mode démo : aucun e-mail envoyé (${r.envoyes} destinataire${r.envoyes > 1 ? 's' : ''} simulé${r.envoyes > 1 ? 's' : ''}).`
+        : `${r.envoyes} e-mail${r.envoyes > 1 ? 's' : ''} envoyé${r.envoyes > 1 ? 's' : ''}${r.echecs ? `, ${r.echecs} en échec` : ''}${r.reste_a_envoyer ? `, ${r.reste_a_envoyer} à envoyer plus tard` : ''}.`);
+    }, 'Annonce traitée.');
+  });
+  return h('article', { class: 'modo-item modo-annonce' },
+    h('div', { class: 'modo-badges' },
+      h('span', { class: 'badge badge-sombre' }, 'Annonce'),
+      h('span', { class: `badge badge-statut ${a.en_cours ? 'publie' : ''}` }, a.en_cours ? 'En cours' : 'Terminée')),
+    h('h3', { class: 'modo-titre' }, `🚨 Un nouveau riche vient d’arriver : ${a.pseudo || 'membre parti'}`),
+    h('p', { class: 'modo-meta' }, `Affichée jusqu’au ${formatJour(a.expire_le)} · e-mails envoyés : ${a.envoyes} sur ${a.destinataires} pauvres inscrits`),
+    a.en_cours ? h('div', { class: 'modo-actions' }, bouton, h('a', { class: 'btn btn-fantome', href: a.lien, target: '_blank', rel: 'noopener' }, 'Voir le lien')) : null
+  );
 }

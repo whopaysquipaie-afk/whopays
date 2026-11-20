@@ -3,7 +3,7 @@
 
 const VERSION = 'whopays-__BUILD__';
 const STATIC = [
-  './', 'index.html', 'p.html', 'chiffres.html', 'palmares.html', 'club.html', 'espace.html', 'aide.html', '404.html',
+  './', 'index.html', 'p.html', 'chiffres.html', 'palmares.html', 'club.html', 'espace.html', 'aide.html', 'desinscription.html', '404.html',
   'manifest.webmanifest',
   'assets/css/style.css',
   'assets/js/config.js', 'assets/js/api.js', 'assets/js/api-demo.js', 'assets/js/demo-data.js', 'assets/js/demo-ui.js', 'assets/js/mots-sensibles.js', 'assets/js/api-supabase.js',
@@ -11,9 +11,9 @@ const STATIC = [
   'assets/js/categories.js', 'assets/js/filtres.js', 'assets/js/animations.js', 'assets/js/carte.js', 'assets/js/riens.js', 'assets/js/mur.js',
   'assets/js/auth.js', 'assets/js/champs.js', 'assets/js/publier.js', 'assets/js/turnstile.js', 'assets/js/parrainage.js',
   'assets/js/partage.js', 'assets/js/reactions.js', 'assets/js/commentaires.js', 'assets/js/signalement.js', 'assets/js/story.js',
-  'assets/js/club.js', 'assets/js/espace.js', 'assets/js/palmares.js', 'assets/js/riche-attente.js',
+  'assets/js/club.js', 'assets/js/espace.js', 'assets/js/palmares.js', 'assets/js/riche-attente.js', 'assets/js/annonces.js', 'assets/js/auth-textes.js',
   'assets/js/pages/accueil.js', 'assets/js/pages/probleme.js', 'assets/js/pages/chiffres.js', 'assets/js/pages/palmares.js', 'assets/js/pages/club.js',
-  'assets/js/pages/espace.js', 'assets/js/pages/aide.js',
+  'assets/js/pages/espace.js', 'assets/js/pages/aide.js', 'assets/js/pages/desinscription.js',
   'assets/img/logo.svg', 'assets/img/favicon.svg', 'assets/img/couronne.svg', 'assets/img/couronne-noire.svg',
   'assets/img/tirelire.svg', 'assets/img/tirelire-violette.svg', 'assets/img/pinceau.svg', 'assets/img/mascotte.svg',
   'assets/img/question.svg', 'assets/img/icone-192.png', 'assets/img/icone-512.png',

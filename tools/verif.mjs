@@ -38,7 +38,7 @@ function walk(dir, acc = []) {
 }
 
 const allFiles = walk(ROOT);
-const textExt = new Set(['.js', '.mjs', '.html', '.css', '.md', '.sql', '.json', '.webmanifest', '.yml', '.yaml', '.svg', '.txt', '']);
+const textExt = new Set(['.js', '.mjs', '.ts', '.html', '.css', '.md', '.sql', '.json', '.webmanifest', '.yml', '.yaml', '.svg', '.txt', '']);
 const textFiles = allFiles.filter((f) => textExt.has(extname(f)) && statSync(f).size < 2_000_000);
 const siteFiles = allFiles.filter((f) => f.startsWith(SITE));
 const isVendor = (f) => rel(f).startsWith('site/assets/vendor/');
@@ -50,7 +50,9 @@ const read = (f) => readFileSync(f, 'utf8');
 {
   const problems = [];
   const tmp = mkdtempSync(join(tmpdir(), 'whopays-verif-'));
-  const files = [...siteJs, ...allFiles.filter((f) => rel(f).startsWith('tools/') && extname(f) === '.mjs')];
+  // Edge Functions (supabase/functions/*/index.ts) are written as plain JavaScript: same check (R-031)
+  const files = [...siteJs, ...allFiles.filter((f) => (rel(f).startsWith('tools/') && extname(f) === '.mjs')
+    || (rel(f).startsWith('supabase/functions/') && extname(f) === '.ts'))];
   for (const f of files) {
     const classic = basename(f) === 'sw.js';
     const copy = join(tmp, `${Math.random().toString(36).slice(2)}${classic ? '.cjs' : '.mjs'}`);

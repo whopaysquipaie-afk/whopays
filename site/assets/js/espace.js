@@ -11,6 +11,7 @@ import { barrePartage, urlProbleme, texteProbleme, partageNatif, copierLien } fr
 import { intent } from './layout.js';
 import { CLUBS } from './club.js';
 import { phraseRang, partagerRang } from './palmares.js';
+import { LIBELLE_NEWSLETTER } from './auth-textes.js';
 import { FORMULES, richeEnAttente, ecranPrixRiche, ouvrirPrixRiche } from './riche-attente.js';
 import { enRiens } from './riens.js';
 
@@ -99,7 +100,7 @@ export async function monterEspace(zone) {
   if (e.camp === 'riche') grille.appendChild(blocRiche(e));
 
   /* ---------- Preferences & account ---------- */
-  const news = caseACocher({ name: 'newsletter', label: 'Je veux recevoir les nouvelles du projet', checked: !!e.newsletter });
+  const news = caseACocher({ name: 'newsletter', label: LIBELLE_NEWSLETTER, checked: !!e.newsletter });
   news.input.addEventListener('change', async () => {
     try {
       await api.majProfil({ newsletter: news.input.checked });

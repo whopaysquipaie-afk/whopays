@@ -27,7 +27,29 @@ export async function createModerationApi() {
       riches: () => rpc('mod_riches').then(liste),
       activerRiche: (userId, formule) => rpc('mod_activer_riche', { p_user_id: userId, p_formule: formule }),
       desactiverRiche: (userId) => rpc('mod_desactiver_riche', { p_user_id: userId }),
-      refuserRiche: (userId) => rpc('mod_refuser_riche', { p_user_id: userId })
+      refuserRiche: (userId) => rpc('mod_refuser_riche', { p_user_id: userId }),
+      // R-031: announcements + e-mail to the poor through the Edge Function « annoncer-riche »
+      annonces: () => rpc('mod_annonces').then(liste),
+      annoncerParEmail: async (annonceId) => {
+        const { getClient } = await import('./supabase.js');
+        const sb = await getClient();
+        const { data } = await sb.auth.getSession();
+        const jeton = data && data.session ? data.session.access_token : null;
+        if (!jeton) throw Object.assign(new Error('Ta session a expiré. Recharge la page.'), { code: 'non_connecte' });
+        let r;
+        try {
+          r = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/annoncer-riche`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${jeton}`, apikey: CONFIG.SUPABASE_PUBLIC_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ annonce_id: annonceId })
+          });
+        } catch {
+          throw Object.assign(new Error('Envoi impossible : la fonction « annoncer-riche » est-elle déployée ?'), { code: 'reseau' });
+        }
+        const corps = await r.json().catch(() => ({}));
+        if (!r.ok) throw Object.assign(new Error(corps.erreur || `Envoi impossible (HTTP ${r.status}). La fonction « annoncer-riche » est-elle déployée ?`), { code: 'serveur' });
+        return corps;
+      }
     };
   }
   const { createDemoApi } = await import('./api-demo.js');

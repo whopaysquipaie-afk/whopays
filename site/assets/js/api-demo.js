@@ -120,7 +120,8 @@ function buildSeed(now) {
     mots_interdits: [...MOTS_INTERDITS_DEFAUT],
     mots_sensibles: [...MOTS_SENSIBLES_DEFAUT],
     reglages: { publication_auto: true },
-    moderateurs: []
+    moderateurs: [],
+    annonces: [], annonce_envois: []
   };
   const codes = new Set();
   // Members, registered over the last 30 days
@@ -134,6 +135,7 @@ function buildSeed(now) {
       id, pseudo, email: `membre${i + 1}@exemple.invalid`, camp, newsletter: rand() > 0.5,
       riche_message: richeMessage || null, riche_montant: richeMontant || null,
       statut_riche: camp === 'riche' ? 'actif' : 'en_attente', riche_formule: null, riche_jusqu_au: null,
+      jeton_desinscription: uuid(rand),
       code_partage: code, invite_par: i > 20 && rand() > 0.7 ? st.profiles[Math.floor(rand() * 10)].id : null,
       regles_acceptees_le: iso(created), bloque: false, cree_le: iso(created)
     });
@@ -206,7 +208,14 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     if (raw) {
       try {
         const st = JSON.parse(raw);
-        if (st && st.version === 1) return st;
+        if (st && st.version === 1) {
+          // States saved before R-031: every member gets an unsubscribe token (= default of 012)
+          if (st.profiles.some((p) => !p.jeton_desinscription)) {
+            for (const p of st.profiles) if (!p.jeton_desinscription) p.jeton_desinscription = uuid(Math.random);
+            save(st);
+          }
+          return st;
+        }
       } catch { /* corrupted: reseed */ }
     }
     const st = buildSeed(clock());
@@ -377,6 +386,31 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         });
     },
 
+    /* ===== « Un nouveau riche est arrivé » (= 012_annonces_riches.sql, R-031) ===== */
+
+    /** Current announcements (72 h): pseudo + link only, newest first, 5 max. */
+    async getAnnonces() {
+      const st = load();
+      return (st.annonces || [])
+        .filter((a) => Date.parse(a.expire_le) > t())
+        .map((a) => ({ a, p: st.profiles.find((x) => x.id === a.user_id) }))
+        .filter(({ p }) => p && richeActif(st, p) && !p.bloque)
+        .sort((x, y) => y.a.cree_le.localeCompare(x.a.cree_le))
+        .slice(0, 5)
+        .map(({ a, p }) => ({ pseudo: p.pseudo, lien: lienAnnonce(st, a.user_id) }));
+    },
+
+    /** Unticks the newsletter of the member owning this token (desinscription.html). */
+    async seDesinscrire(jeton) {
+      if (!isUuid(jeton)) return false;
+      return tx((st) => {
+        const p = st.profiles.find((x) => x.jeton_desinscription === jeton);
+        if (!p) return false;
+        p.newsletter = false;
+        return true;
+      });
+    },
+
     /* ===== Leaderboard of the poor (= 009_palmares.sql, R-028) ===== */
 
     async getPalmares({ limite = 100 } = {}) {
@@ -414,7 +448,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         }
         st.profiles.push({
           id, pseudo: ps, email: em, camp, newsletter: newsletter === true, riche_message: null, riche_montant: null,
-          statut_riche: 'en_attente', riche_formule: null, riche_jusqu_au: null,
+          statut_riche: 'en_attente', riche_formule: null, riche_jusqu_au: null, jeton_desinscription: uuid(rand),
           code_partage: code, invite_par: invitePar, regles_acceptees_le: iso(t()), bloque: false, cree_le: iso(t())
         });
         return { code_partage: code };
@@ -757,6 +791,17 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     if (!modoOk && (st.moderateurs || []).includes(p.id)) throw ERR.invalide('Un modérateur reste toujours actif.');
     return p;
   }
+  /** = wp_lien_annonce: first visible rich post of the member, otherwise the rich posts of the wall. */
+  function lienAnnonce(st, userId) {
+    const posts = st.problems.filter((p) => p.user_id === userId && typeDe(p) !== 'pauvre' && visibleProblem(p))
+      .sort((a, b) => (b.premiere ? 1 : 0) - (a.premiere ? 1 : 0) || a.cree_le.localeCompare(b.cree_le));
+    return posts.length ? `p.html?id=${posts[0].id}` : 'index.html?type=publication#mur';
+  }
+  /** Poor members who ticked the newsletter, e-mail confirmed, not blocked (= srv_reserver_envois). */
+  function destinatairesAnnonce(st) {
+    return st.profiles.filter((p) => p.camp === 'pauvre' && p.newsletter && !p.bloque
+      && st.users.some((u) => u.id === p.id && u.email_confirme && !u.is_anonymous));
+  }
   /** End of a paid period: + 1 month or + 1 year (= interval in mod_activer_riche). */
   function finFormule(depuis, formule) {
     const d = new Date(depuis);
@@ -893,8 +938,48 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         if (formule !== 'mensuel' && formule !== 'annuel') throw ERR.invalide('Formule inconnue (mensuel ou annuel).');
         const p = richeModifiable(st, userId, { modoOk: true });
         const encours = p.statut_riche === 'actif' && p.riche_jusqu_au && Date.parse(p.riche_jusqu_au) > t();
+        const etait = richeActif(st, p);
         Object.assign(p, { statut_riche: 'actif', riche_formule: formule, riche_jusqu_au: finFormule(encours ? Date.parse(p.riche_jusqu_au) : t(), formule) });
-        return { user_id: userId, statut: 'actif', formule, jusqu_au: p.riche_jusqu_au };
+        if (!etait) {
+          st.annonces = st.annonces || [];
+          st.annonces.push({ id: uuid(rand), user_id: userId, cree_le: iso(t()), expire_le: iso(t() + 72 * HOUR) });
+        }
+        return { user_id: userId, statut: 'actif', formule, jusqu_au: p.riche_jusqu_au, annonce: !etait };
+      });
+    },
+
+    /** = mod_annonces: announcements of the last 7 days with the e-mail progress. */
+    async annonces() {
+      const st = load();
+      exigerModo(st);
+      const dest = destinatairesAnnonce(st).length;
+      return (st.annonces || []).filter((a) => Date.parse(a.cree_le) > t() - 7 * DAY)
+        .sort((x, y) => y.cree_le.localeCompare(x.cree_le))
+        .map((a) => {
+          const p = st.profiles.find((x) => x.id === a.user_id);
+          return {
+            id: a.id, user_id: a.user_id, pseudo: p ? p.pseudo : null, lien: lienAnnonce(st, a.user_id), cree_le: a.cree_le,
+            expire_le: a.expire_le, en_cours: Date.parse(a.expire_le) > t(),
+            envoyes: (st.annonce_envois || []).filter((e) => e.annonce_id === a.id).length, destinataires: dest
+          };
+        });
+    },
+
+    /**
+     * Demo of the Edge Function « annoncer-riche »: same recipients and same 250 / 24 h budget as
+     * srv_reserver_envois, but NO e-mail is ever sent (the "sent" rows are only recorded).
+     */
+    async annoncerParEmail(annonceId) {
+      return tx((st) => {
+        exigerModo(st);
+        const a = (st.annonces || []).find((x) => x.id === annonceId);
+        if (!a) throw ERR.introuvable('Annonce introuvable.');
+        st.annonce_envois = st.annonce_envois || [];
+        const budget = Math.max(0, 250 - st.annonce_envois.filter((e) => Date.parse(e.envoye_le) > t() - DAY).length);
+        const restants = destinatairesAnnonce(st).filter((p) => !st.annonce_envois.some((e) => e.annonce_id === a.id && e.user_id === p.id));
+        const lot = restants.slice(0, budget);
+        for (const p of lot) st.annonce_envois.push({ annonce_id: a.id, user_id: p.id, envoye_le: iso(t()) });
+        return { envoyes: lot.length, echecs: 0, restant_24h: budget - lot.length, reste_a_envoyer: restants.length - lot.length, demo: true };
       });
     },
 

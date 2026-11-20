@@ -54,8 +54,9 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 9. `supabase/migrations/009_palmares.sql` (palmarès des pauvres : `get_palmares`, `get_mon_rang`)
 10. `supabase/migrations/010_riches_payants.sql` (riches payants : en attente tant qu'un modérateur ne les a pas activés)
 11. `supabase/migrations/011_publications_riches.sql` (problèmes et publications des riches actifs, filtres du mur par type)
-12. `supabase/seed/mots_interdits.sql`
-13. `supabase/seed/exemples.sql`
+12. `supabase/migrations/012_annonces_riches.sql` (« Un nouveau riche est arrivé », désinscription, envois d'e-mails : voir 4.2)
+13. `supabase/seed/mots_interdits.sql`
+14. `supabase/seed/exemples.sql`
 
 Pour modérer depuis un téléphone, inscrire son propre compte de membre dans `public.moderateurs` (voir `docs/MODERATION.md`, « Page de modération »).
 
@@ -105,6 +106,52 @@ Puis vérifier la sécurité : exécuter `supabase/tests/verif_securite.sql`. Ch
 4. Dans Supabase *Authentication → Emails → SMTP Settings* : coller ces valeurs ; expéditeur = l'adresse Gmail dédiée, nom = « Qui paie ? ».
 
 Sans nom de domaine, les e-mails peuvent arriver en indésirables : c'est sans conséquence, la création de compte ne dépend jamais de l'e-mail.
+
+### 4.1 E-mail de confirmation : une version pour les riches (R-031)
+
+Au moment de rattacher l'e-mail (`updateUser`), le site enregistre le camp dans les métadonnées de l'utilisateur (`data: { camp }`). Le modèle Supabase peut donc afficher un texte différent pour un riche.
+
+*Authentication → Emails → Templates → **Change email address*** (c'est ce modèle qui part à l'inscription : le compte est d'abord anonyme, puis l'adresse lui est rattachée) :
+
+- **Objet :** `Confirme ton adresse — Qui paie ?`
+- **Corps** (à coller tel quel, onglet *Source*) :
+
+```html
+<h2>{{ if eq .Data.camp "riche" }}Bienvenue chez les riches !{{ else }}Bienvenue chez les pauvres !{{ end }}</h2>
+{{ if eq .Data.camp "riche" }}
+<p>Confirme ton adresse pour garder ton compte riche, même si tu changes de navigateur :</p>
+<p><a href="{{ .ConfirmationURL }}">Confirmer mon adresse</a></p>
+<p>Ton compte doit encore être validé par un modérateur. Dès qu'il l'est, toute la communauté des pauvres saura que ton compte est créé : un bandeau « Un nouveau riche vient d'arriver » s'affiche sur le site, et les pauvres qui l'ont demandé reçoivent un e-mail. Prépare ta première publication, ils vont tous aller la lire.</p>
+<p>Rappel : ton abonnement paie ton statut de riche sur la plateforme, il ne finance aucun problème. Aucun argent ne circule entre membres.</p>
+{{ else }}
+<p>Confirme ton adresse pour garder ton compte, même si tu changes de navigateur :</p>
+<p><a href="{{ .ConfirmationURL }}">Confirmer mon adresse</a></p>
+<p>Publie tes problèmes (jusqu'à 10x Rien, soit 10 000 €), grimpe au palmarès et attends ton milliardaire. Personne ne paiera ici : c'est un projet humoristique.</p>
+{{ end }}
+<p>Tu n'as rien demandé ? Ignore simplement cet e-mail.</p>
+```
+
+Les comptes créés avant cette version n'ont pas de camp dans leurs métadonnées : ils reçoivent la version « pauvres » (branche `else`), sans conséquence.
+
+### 4.2 E-mail « Un nouveau riche est arrivé » : fonction Edge `annoncer-riche` (R-031)
+
+Le code est dans `supabase/functions/annoncer-riche/index.ts` (aucune dépendance). Rien n'est déployé automatiquement, et **aucun test n'envoie d'e-mail**.
+
+**Ce qu'elle fait.** Le bouton « Annoncer ce riche par e-mail » de la page de modération (onglet **Riches**, sur l'annonce en cours) l'appelle avec la session du modérateur. Elle vérifie le jeton et le rôle de modérateur (`mod_suis_je`), puis envoie, via l'API Brevo, un e-mail aux **pauvres qui ont coché la case** « Préviens-moi par e-mail quand un riche débarque… » (e-mail confirmé, compte non bloqué). Elle s'arrête à **250 e-mails par 24 h glissantes** (l'offre gratuite de Brevo en autorise 300 par jour). Personne ne reçoit deux fois la même annonce. Les e-mails refusés par Brevo seront retentés au prochain clic. Chaque e-mail contient un lien de désinscription `desinscription.html?jeton=…`.
+
+**Déploiement** (une fois, depuis un ordinateur avec la [CLI Supabase](https://supabase.com/docs/guides/cli), ou depuis le tableau de bord : *Edge Functions → Deploy a new function → Via Editor*, nom `annoncer-riche`, coller le fichier) :
+
+1. Brevo → *SMTP & API → **API Keys*** → générer une clé API (différente de la clé SMTP).
+2. Supabase → *Edge Functions → Secrets* (ou `supabase secrets set …`) :
+   - `BREVO_API_KEY` = la clé API Brevo ;
+   - `SENDER_EMAIL` = l'adresse d'expéditeur vérifiée dans Brevo (l'adresse du projet) ;
+   - `SITE_URL` = l'adresse publique du site, avec la barre finale (même valeur que `CONFIG.SITE_URL`).
+   `SUPABASE_URL`, `SUPABASE_ANON_KEY` et `SUPABASE_SERVICE_ROLE_KEY` sont fournis automatiquement par Supabase.
+3. Déployer : `supabase functions deploy annoncer-riche --project-ref <ref du projet>`.
+   Laisser **« Verify JWT »** activé (option par défaut) : seul un utilisateur connecté peut l'appeler, et la fonction vérifie en plus qu'il est modérateur.
+4. Tester : activer un riche de test dans `moderation.html` (onglet **Riches** → « Activer 1 mois »). L'annonce apparaît en haut de l'onglet ; cliquer sur « Annoncer ce riche par e-mail ». Le message indique le nombre d'e-mails envoyés, ceux en échec et ceux qui restent pour plus tard.
+
+Sans la fonction déployée, le bouton affiche « Envoi impossible : la fonction « annoncer-riche » est-elle déployée ? ». Le reste du site n'en dépend pas : le bandeau du site s'affiche dès l'activation.
 
 ---
 

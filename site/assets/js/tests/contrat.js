@@ -1022,6 +1022,69 @@ test('J. Publications de riches', 'même modération : signalements, masquage, r
   assert((await api.moderation.aRelire()).some((x) => x.id === s.id && x.type === 'publication'), 'à relire avec le type');
 });
 
+/* ================= K. « Un nouveau riche est arrivé » (= 012, R-031) ================= */
+
+test('K. Nouveau riche', 'l’activation par un modérateur crée une annonce de 72 h (pseudo + lien) ; prolonger n’annonce rien', async () => {
+  const { api, join, as, advance } = fresh();
+  eq((await api.getAnnonces()).length, 0);
+  const r = await join('riche', 'Crésus Junior', { enAttente: true });
+  const modo = await join('pauvre', 'Modo Annonces');
+  await api.demoAdmin.setModerateur(modo.userId);
+  eq((await api.moderation.activerRiche(r.userId, 'mensuel')).annonce, true);
+  eq((await api.moderation.activerRiche(r.userId, 'annuel')).annonce, false, 'prolongation :');
+  await api.seDeconnecter();
+  let l = await api.getAnnonces();
+  eq(l.length, 1);
+  eq(Object.keys(l[0]).sort().join(','), 'lien,pseudo');
+  eq(l[0].pseudo, 'Crésus Junior');
+  eq(l[0].lien, 'index.html?type=publication#mur', 'sans publication :');
+  await as(r.userId);
+  const pub = await api.publierRiche({ type: 'publication', texte: 'Bonjour les pauvres, je suis enfin validé !' });
+  eq((await api.getAnnonces())[0].lien, `p.html?id=${pub.id}`, 'vers sa première publication :');
+  assertNoPrivateData(await api.getAnnonces(), 'get_annonces');
+  advance(73 * HOUR);
+  eq((await api.getAnnonces()).length, 0, 'après 72 h :');
+});
+test('K. Nouveau riche', 'e-mail (démo, aucun envoi réel) : pauvres inscrits seulement, jamais deux fois, modérateurs seulement', async () => {
+  const { api, join, as } = fresh();
+  const r = await join('riche', 'Riche Annoncé', { enAttente: true });
+  const p1 = await join('pauvre', 'Pauvre Inscrit', { newsletter: true });
+  await api.renvoyerConfirmation();
+  await join('pauvre', 'Pauvre Discret', { newsletter: false });
+  await api.renvoyerConfirmation();
+  const modo = await join('pauvre', 'Modo Mail');
+  await api.demoAdmin.setModerateur(modo.userId);
+  await api.moderation.activerRiche(r.userId, 'annuel');
+  const [annonce] = await api.moderation.annonces();
+  eq(annonce.pseudo, 'Riche Annoncé'); eq(annonce.en_cours, true); eq(annonce.envoyes, 0);
+  assertNoEmail(await api.moderation.annonces(), 'mod_annonces');
+  const brut = api.demoAdmin.etatBrut();
+  const attendus = brut.profiles.filter((p) => p.camp === 'pauvre' && p.newsletter && !p.bloque
+    && brut.users.some((u) => u.id === p.id && u.email_confirme && !u.is_anonymous));
+  assert(attendus.some((p) => p.id === p1.userId), 'le pauvre inscrit est destinataire');
+  const e1 = await api.moderation.annoncerParEmail(annonce.id);
+  eq(e1.demo, true); eq(e1.envoyes, Math.min(250, attendus.length)); eq(e1.echecs, 0);
+  const envois = api.demoAdmin.etatBrut().annonce_envois;
+  assert(!envois.some((e) => brut.profiles.find((p) => p.id === e.user_id).pseudo === 'Pauvre Discret'), 'pas de case cochée, pas d’e-mail');
+  eq((await api.moderation.annoncerParEmail(annonce.id)).envoyes, 0, 'jamais deux fois :');
+  await as(p1.userId);
+  await rejects(api.moderation.annoncerParEmail(annonce.id), 'interdit');
+  await rejects(api.moderation.annonces(), 'interdit');
+});
+test('K. Nouveau riche', 'désinscription par jeton ; case de l’inscription renommée', async () => {
+  const { api, join } = fresh();
+  const p = await join('pauvre', 'Pauvre Lassé', { newsletter: true });
+  const jeton = api.demoAdmin.etatBrut().profiles.find((x) => x.id === p.userId).jeton_desinscription;
+  assert(/^[0-9a-f-]{36}$/.test(jeton), 'jeton');
+  await api.seDeconnecter();
+  eq(await api.seDesinscrire('pas-un-jeton'), false);
+  eq(await api.seDesinscrire('00000000-0000-4000-8000-000000000000'), false);
+  eq(await api.seDesinscrire(jeton), true);
+  eq(api.demoAdmin.etatBrut().profiles.find((x) => x.id === p.userId).newsletter, false);
+  const { LIBELLE_NEWSLETTER } = await import('../auth-textes.js');
+  eq(LIBELLE_NEWSLETTER, 'Préviens-moi par e-mail quand un riche débarque (et les nouvelles du projet)');
+});
+
 function assertNoEmail(payload, where) {
   const json = JSON.stringify(payload);
   assert(!/@/.test(json) && !/"email"/.test(json), `${where} : contient une adresse e-mail`);

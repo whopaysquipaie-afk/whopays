@@ -96,10 +96,10 @@ declare
   -- direct table access
   v_tables   text[] := array['profiles', 'problems', 'reactions', 'comments', 'club_messages',
                              'reports', 'verifications', 'mots_interdits', 'reglages', 'mots_sensibles',
-                             'moderateurs'];
+                             'moderateurs', 'annonces', 'annonce_envois'];
   v_colonnes text[] := array['pseudo', 'titre', 'type', 'texte', 'texte',
                              'cible_type', 'verifie_le', 'mot', 'valeur', 'mot',
-                             'user_id'];
+                             'user_id', 'user_id', 'user_id'];
   v_pb_auto     uuid;
   v_pb_sensible uuid;
   v_pb_premod   uuid;
@@ -115,6 +115,7 @@ declare
   v_r_ex        uuid := gen_random_uuid();
   v_modo2       uuid := gen_random_uuid();
   v_avant       integer;
+  v_annonce     uuid;
 begin
   begin  -- sub-transaction: rolled back on purpose at the end (P0999)
 
@@ -1470,6 +1471,133 @@ begin
       exists (select 1 from jsonb_array_elements(v_j -> 'problemes') x
               where x ->> 'type' = 'publication' and x ->> 'titre' like 'Bonjour les pauvres%'),
       'Mon espace liste les publications avec le début du texte');
+    perform pg_temp.wp_jouer(null);
+
+    -- =================================================================
+    -- 21. R-031 (012): « Un nouveau riche est arrivé », unsubscribe, e-mail budget
+    -- =================================================================
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      not exists (select 1 from public.profiles pr where pr.jeton_desinscription is null)
+        and (select count(distinct pr.jeton_desinscription) from public.profiles pr) = (select count(*) from public.profiles),
+      'chaque membre a un jeton de désinscription unique');
+    -- v_r_att is a pending rich member (end of section 19): the moderator activates him
+    delete from public.annonces a where a.user_id = v_r_att;  -- created by the activations of section 19
+    perform pg_temp.wp_jouer('authenticated', v_modo2);
+    v_j := public.mod_activer_riche(v_r_att, 'mensuel');
+    v_res := v_res || pg_temp.wp_ligne((v_j ->> 'annonce')::boolean, 'activer un riche en attente crée une annonce', v_j::text);
+    v_j := public.mod_activer_riche(v_r_att, 'annuel');
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(not (v_j ->> 'annonce')::boolean
+        and (select count(*) from public.annonces a where a.user_id = v_r_att) = 1
+        and (select a.expire_le from public.annonces a where a.user_id = v_r_att)
+            between now() + interval '71 hours' and now() + interval '73 hours',
+      'prolonger un riche déjà actif n''annonce rien ; une annonce dure 72 h', v_j::text);
+    v_annonce := (select a.id from public.annonces a where a.user_id = v_r_att);
+    perform pg_temp.wp_jouer('anon');
+    v_j := public.get_annonces();
+    v_res := v_res || pg_temp.wp_ligne(
+      exists (select 1 from jsonb_array_elements(v_j) x
+              where x ->> 'pseudo' = 'Riche patient' and x ->> 'lien' = 'index.html?type=publication#mur')
+        and not exists (select 1 from jsonb_array_elements(v_j) x
+                        where (select array_agg(k order by k) from jsonb_object_keys(x) k) <> array['lien', 'pseudo'])
+        and position(v_suffixe in v_j::text) = 0,
+      'get_annonces (anon) : pseudo et lien seulement ; sans publication, lien vers les publications de riches', v_j::text);
+    perform pg_temp.wp_jouer('authenticated', v_r_att);
+    v_pb_test := (public.publier_riche('publication', 'Bonjour les pauvres, je suis enfin validé !') ->> 'id')::uuid;
+    perform pg_temp.wp_jouer('anon');
+    v_res := v_res || pg_temp.wp_ligne(
+      exists (select 1 from jsonb_array_elements(public.get_annonces()) x
+              where x ->> 'pseudo' = 'Riche patient' and x ->> 'lien' = 'p.html?id=' || v_pb_test::text),
+      'l''annonce pointe vers sa première publication');
+    -- moderation list of announcements
+    foreach v_role in array array['anon', 'authenticated'] loop
+      perform pg_temp.wp_jouer(v_role, case when v_role = 'authenticated' then v_pauvre end);
+      begin
+        perform public.mod_annonces();
+        v_hint := 'exécuté';
+      exception when insufficient_privilege then v_hint := 'droits';
+                when others then get stacked diagnostics v_hint = pg_exception_hint;
+      end;
+      v_res := v_res || pg_temp.wp_ligne(v_hint in ('droits', 'interdit'), v_role || ' ne peut pas exécuter mod_annonces', v_hint);
+    end loop;
+    perform pg_temp.wp_jouer('authenticated', v_modo2);
+    v_j := public.mod_annonces();
+    v_res := v_res || pg_temp.wp_ligne(
+      exists (select 1 from jsonb_array_elements(v_j) x where x ->> 'pseudo' = 'Riche patient'
+              and (x ->> 'en_cours')::boolean and (x ->> 'envoyes')::integer = 0)
+        and position(v_suffixe in v_j::text) = 0,
+      'mod_annonces liste l''annonce en cours (sans e-mail)', left(v_j::text, 200));
+    -- e-mail functions: service_role only
+    foreach v_t in array array[
+      format('select public.srv_reserver_envois(%L::uuid, 10)', v_annonce),
+      format('select public.srv_annuler_envois(%L::uuid, array[%L::uuid])', v_annonce, v_pauvre)
+    ] loop
+      foreach v_role in array array['anon', 'authenticated'] loop
+        perform pg_temp.wp_jouer(v_role, case when v_role = 'authenticated' then v_modo2 end);
+        begin
+          execute v_t;
+          v_hint := 'exécuté';
+        exception when insufficient_privilege then v_hint := null;
+                  when others then v_hint := 'erreur ' || sqlstate;
+        end;
+        v_res := v_res || pg_temp.wp_ligne(v_hint is null, format('%s ne peut pas exécuter : %s', v_role, left(v_t, 60)), v_hint);
+      end loop;
+    end loop;
+    perform pg_temp.wp_jouer('service_role');
+    v_j := public.srv_reserver_envois(v_annonce, 100);
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      jsonb_array_length(v_j -> 'destinataires') > 0
+        and v_j -> 'annonce' ->> 'pseudo' = 'Riche patient'
+        and not exists (
+          select 1 from jsonb_array_elements(v_j -> 'destinataires') x
+          join public.profiles d on d.id = (x ->> 'user_id')::uuid
+          join auth.users u on u.id = d.id
+          where d.camp <> 'pauvre' or not d.newsletter or d.bloque or u.email_confirmed_at is null
+             or u.is_anonymous or x ->> 'email' <> d.email or (x ->> 'jeton')::uuid <> d.jeton_desinscription)
+        and exists (select 1 from jsonb_array_elements(v_j -> 'destinataires') x where (x ->> 'user_id')::uuid = v_pauvre),
+      'srv_reserver_envois : seulement des pauvres inscrits à la lettre, e-mail confirmé, non bloqués', left(v_j::text, 200));
+    v_i := jsonb_array_length(v_j -> 'destinataires');
+    perform pg_temp.wp_jouer('service_role');
+    v_j := public.srv_reserver_envois(v_annonce, 100);
+    v_k := public.srv_annuler_envois(v_annonce, array[v_pauvre]);
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      not exists (select 1 from jsonb_array_elements(v_j -> 'destinataires') x where (x ->> 'user_id')::uuid = v_pauvre)
+        and v_k = 1
+        and (select count(*) from public.annonce_envois e
+             where e.annonce_id = v_annonce) = v_i - 1 + jsonb_array_length(v_j -> 'destinataires'),
+      'jamais deux fois la même annonce ; srv_annuler_envois libère un envoi raté', v_k::text);
+    -- 250 e-mails per rolling 24 h at most
+    insert into public.annonces (id, user_id, expire_le)
+    select gen_random_uuid(), v_riche, now() - interval '1 day' from generate_series(1, 250);
+    insert into public.annonce_envois (annonce_id, user_id)
+    select a.id, v_pauvre2 from public.annonces a where a.user_id = v_riche;
+    perform public.srv_annuler_envois(v_annonce, array[v_pauvre]);
+    perform pg_temp.wp_jouer('service_role');
+    v_j := public.srv_reserver_envois(v_annonce, 100);
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      jsonb_array_length(v_j -> 'destinataires') = 0 and (v_j ->> 'restant_24h')::integer = 0
+        and (v_j ->> 'reste_a_envoyer')::integer >= 1,
+      'plafond de 250 e-mails par 24 h', left(v_j::text, 200));
+    delete from public.annonces a where a.user_id = v_riche;
+    -- unsubscribe
+    v_txt := (select pr.jeton_desinscription::text from public.profiles pr where pr.id = v_pauvre);
+    perform pg_temp.wp_jouer('anon');
+    v_ok := public.se_desinscrire(v_txt::uuid);
+    v_res := v_res || pg_temp.wp_ligne(v_ok and not public.se_desinscrire(gen_random_uuid()) and not public.se_desinscrire(null),
+      'se_desinscrire : vrai avec le bon jeton, faux sinon');
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(not (select pr.newsletter from public.profiles pr where pr.id = v_pauvre),
+      'après désinscription, la case newsletter est décochée');
+    -- an expired announcement disappears
+    update public.annonces a set expire_le = now() - interval '1 second' where a.user_id = v_r_att;
+    perform pg_temp.wp_jouer('anon');
+    v_res := v_res || pg_temp.wp_ligne(
+      not exists (select 1 from jsonb_array_elements(public.get_annonces()) x where x ->> 'pseudo' = 'Riche patient'),
+      'une annonce de plus de 72 h n''est plus affichée');
     perform pg_temp.wp_jouer(null);
 
     -- End: undo everything written above

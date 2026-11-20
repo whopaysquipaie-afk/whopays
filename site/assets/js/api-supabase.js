@@ -54,6 +54,9 @@ export function createSupabaseApi() {
     getCommentaires: (problemId, avant = null) => rpc('get_commentaires', { p_problem_id: problemId, p_avant: avant }).then((d) => d || []),
     getPalmares: ({ limite = 100 } = {}) => rpc('get_palmares', { p_limite: limite }),
     getMonRang: () => rpc('get_mon_rang'),
+    getAnnonces: () => rpc('get_annonces').then((d) => d || []),
+    seDesinscrire: (jeton) => (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(jeton || ''))
+      ? rpc('se_desinscrire', { p_jeton: jeton }) : Promise.resolve(false)),
 
     /* ================= Members ================= */
     creerProfil: ({ camp, pseudo, email, newsletter = false, codeRef = null } = {}) =>
@@ -115,7 +118,7 @@ export function createSupabaseApi() {
       }
 
       // 2. Attach the e-mail (confirmation e-mail, non-blocking)
-      const mailError = await lierEmail(em);
+      const mailError = await lierEmail(em, camp);
       if (mailError && mailError.code === 'email_pris') {
         // E-mail already used by a confirmed account: remove the fresh anonymous user and send a magic link.
         try { await rpc('supprimer_utilisateur_anonyme'); } catch { /* best effort */ }
@@ -204,10 +207,17 @@ export function createSupabaseApi() {
 
   const userAuth = async () => (await (await getClient()).auth.getUser()).data?.user || null;
   const emailProfil = () => rpc('get_mon_espace').then((e) => e.email || null, (e) => { if (e.code === 'profil_absent') return null; throw e; });
+  const campProfil = () => rpc('get_mon_espace').then((e) => e.camp || null, () => null);
 
-  /** updateUser({ email }) → null, or an ApiError: email_pris | limite | envoi. */
-  async function lierEmail(email) {
-    const { error: e } = await (await getClient()).auth.updateUser({ email }, { emailRedirectTo: siteUrl('espace.html') });
+  /**
+   * updateUser({ email, data: { camp } }) → null, or an ApiError: email_pris | limite | envoi.
+   * The camp is stored in the user metadata: the « Change email address » template of Supabase uses it
+   * ({{ if eq .Data.camp "riche" }}, docs/CONFIGURATION.md, R-031).
+   */
+  async function lierEmail(email, camp = null) {
+    const c = camp || (await campProfil());
+    const attrs = c ? { email, data: { camp: c } } : { email };
+    const { error: e } = await (await getClient()).auth.updateUser(attrs, { emailRedirectTo: siteUrl('espace.html') });
     if (!e) return null;
     if (e.code === 'email_exists' || /already been registered|already exists/i.test(e.message || '')) return new ApiError('Cette adresse est déjà liée à un autre compte. Utilise « Déjà membre ? » avec cette adresse.', 'email_pris');
     if (e.status === 429) return new ApiError('Trop de demandes. Attends une minute avant de réessayer.', 'limite');
