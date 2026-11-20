@@ -835,7 +835,9 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
 .page-texte h2 { font-weight: 800; font-size: 22px; margin-top: 32px; }
 .page-texte p, .page-texte li { color: #D4D4D4; margin-top: 10px; }
 .page-texte ul { padding-left: 20px; }
-.page-texte a { color: var(--citron); }
+.page-texte a:not(.btn) { color: var(--citron); }
+.page-texte .bloc h2, .page-texte .reserve h2 { margin-top: 0; }
+.page-texte .bloc p.gris { color: var(--gris); }
 .page-texte strong { color: var(--blanc); }
 .introuvable { text-align: center; padding: 72px 0 40px; }
 .introuvable .q-geant { width: 120px; margin: 0 auto; }

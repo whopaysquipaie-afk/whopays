@@ -54,7 +54,9 @@ for (const name of METHODS) {
       return sessionCache;
     }
     const result = await b[name](...args);
-    if (SESSION_CHANGING.has(name)) notifySession();
+    // maj_profil only changes the session (header badge, club) when the pseudo or the camp changes
+    const majSansImpact = name === 'majProfil' && !(args[0] && (args[0].pseudo || args[0].camp));
+    if (SESSION_CHANGING.has(name) && !majSansImpact) notifySession();
     return result;
   };
 }
