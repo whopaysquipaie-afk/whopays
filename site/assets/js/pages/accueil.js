@@ -58,6 +58,6 @@ tuiles.appendChild(h('a', {
 
 /* ---------- Wall ---------- */
 const categorieUrl = new URLSearchParams(location.search).get('categorie');
-mur = initMur({ grille: $('#grille-mur'), filtres: $('#filtres'), voirPlus: $('#voir-plus'), categorieInitiale: categorieUrl });
+mur = initMur({ grille: $('#grille-mur'), filtres: $('#filtres'), voirPlus: $('#voir-plus'), categorieInitiale: categorieUrl, typeInitial: new URLSearchParams(location.search).get('type') });
 document.addEventListener('wp:probleme-soumis', () => chargerCompteurs());
 document.addEventListener('wp:session-maj', () => chargerCompteurs());

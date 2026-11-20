@@ -53,8 +53,9 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 8. `supabase/migrations/008_plafond_pauvres.sql` (montant obligatoire de 1 à 10 000 € pour un pauvre, 10 problèmes par 24 h)
 9. `supabase/migrations/009_palmares.sql` (palmarès des pauvres : `get_palmares`, `get_mon_rang`)
 10. `supabase/migrations/010_riches_payants.sql` (riches payants : en attente tant qu'un modérateur ne les a pas activés)
-11. `supabase/seed/mots_interdits.sql`
-12. `supabase/seed/exemples.sql`
+11. `supabase/migrations/011_publications_riches.sql` (problèmes et publications des riches actifs, filtres du mur par type)
+12. `supabase/seed/mots_interdits.sql`
+13. `supabase/seed/exemples.sql`
 
 Pour modérer depuis un téléphone, inscrire son propre compte de membre dans `public.moderateurs` (voir `docs/MODERATION.md`, « Page de modération »).
 

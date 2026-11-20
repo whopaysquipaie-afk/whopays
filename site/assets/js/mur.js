@@ -4,7 +4,7 @@ import { api } from './api.js';
 import { h, clear, toastError } from './ui.js';
 import { icon } from './icons.js';
 import { CATEGORIES, category, isCategory } from './categories.js';
-import { carteProbleme, carteSquelette } from './carte.js';
+import { carteProbleme, carteSquelette, TYPES_POST } from './carte.js';
 import { intent } from './layout.js';
 
 const PAGE = 12;
@@ -15,8 +15,34 @@ const VIDES = [
   ['Ici, tout va bien. Trop bien.', 'Impossible. Il doit bien y avoir un problème quelque part.']
 ];
 
-export function initMur({ grille, filtres, voirPlus, categorieInitiale = null }) {
-  const state = { categorie: isCategory(categorieInitiale) ? categorieInitiale : null, avant: null, chargement: false, fini: false, jeton: 0 };
+export function initMur({ grille, filtres, voirPlus, categorieInitiale = null, typeInitial = null }) {
+  const state = {
+    categorie: isCategory(categorieInitiale) ? categorieInitiale : null, type: TYPES_POST[typeInitial] ? typeInitial : null,
+    avant: null, chargement: false, fini: false, jeton: 0
+  };
+
+  // R-030: kinds of posts (all / problems of the poor / problems of the rich / posts of the rich)
+  const types = h('div', { class: 'filtres filtres-types', role: 'group', 'aria-label': 'Filtrer par type de publication' });
+  const chipsTypes = [];
+  for (const [id, label] of [[null, 'Tout'], ...Object.entries(TYPES_POST).map(([k, v]) => [k, v.label])]) {
+    const b = h('button', { type: 'button', class: `filtre${id && id !== 'pauvre' ? ' filtre-riche' : ''}`, 'aria-pressed': String(state.type === id), dataset: { type: id || '' } },
+      id && id !== 'pauvre' ? icon('crown') : null, label);
+    b.addEventListener('click', () => choisirType(id));
+    chipsTypes.push(b);
+    types.appendChild(b);
+  }
+  filtres.before(types);
+  const majCategories = () => { filtres.hidden = state.type === 'riche' || state.type === 'publication'; };
+  majCategories();
+  function choisirType(id) {
+    state.type = id;
+    if (id === 'riche' || id === 'publication') state.categorie = null;
+    for (const b of chipsTypes) b.setAttribute('aria-pressed', String((b.dataset.type || null) === state.type));
+    majChips();
+    majCategories();
+    majUrl();
+    charger(true);
+  }
 
   // Filter chips
   const chips = [];
@@ -34,12 +60,22 @@ export function initMur({ grille, filtres, voirPlus, categorieInitiale = null })
     for (const b of chips) b.setAttribute('aria-pressed', String((b.dataset.categorie || null) === state.categorie));
   }
 
+  function majUrl() {
+    const url = new URL(location.href);
+    if (state.categorie) url.searchParams.set('categorie', state.categorie); else url.searchParams.delete('categorie');
+    if (state.type) url.searchParams.set('type', state.type); else url.searchParams.delete('type');
+    history.replaceState(null, '', url.pathname.split('/').pop() + url.search + '#mur');
+  }
+
   function choisir(id) {
     state.categorie = id;
+    if (id && state.type && state.type !== 'pauvre') {
+      state.type = null;
+      for (const b of chipsTypes) b.setAttribute('aria-pressed', String(!b.dataset.type));
+      majCategories();
+    }
     majChips();
-    const url = new URL(location.href);
-    if (id) url.searchParams.set('categorie', id); else url.searchParams.delete('categorie');
-    history.replaceState(null, '', url.pathname.split('/').pop() + url.search + '#mur');
+    majUrl();
     charger(true);
   }
 
@@ -57,11 +93,11 @@ export function initMur({ grille, filtres, voirPlus, categorieInitiale = null })
     const squelettes = Array.from({ length: reset ? 6 : 3 }, () => carteSquelette());
     squelettes.forEach((s) => grille.appendChild(s));
     try {
-      const rows = await api.getProblemesPublics({ categorie: state.categorie, limite: PAGE, avant: state.avant });
+      const rows = await api.getProblemesPublics({ categorie: state.categorie, type: state.type, limite: PAGE, avant: state.avant });
       if (jeton !== state.jeton) return; // a newer request won
       squelettes.forEach((s) => s.remove());
       if (reset && rows.length === 0) {
-        grille.appendChild(etatVide(state.categorie));
+        grille.appendChild(state.type === 'riche' || state.type === 'publication' ? etatVideRiche(state.type) : etatVide(state.categorie));
       }
       for (const p of rows) {
         const card = carteProbleme(p);
@@ -90,7 +126,13 @@ export function initMur({ grille, filtres, voirPlus, categorieInitiale = null })
 
   voirPlus.addEventListener('click', () => charger(false));
   charger(true);
-  return { choisir, recharger: () => charger(true) };
+  return { choisir, choisirType, recharger: () => charger(true) };
+}
+
+function etatVideRiche(type) {
+  return h('div', { class: 'etat-vide' },
+    h('p', { class: 'grand' }, type === 'riche' ? 'Aucun problème de riche. Pour l’instant.' : 'Aucune publication de riche. Ils sont sur leur yacht.'),
+    h('p', {}, 'Seuls les riches validés publient ici. Les problèmes de pauvres, eux, ne manquent pas.'));
 }
 
 function etatVide(categorieId) {

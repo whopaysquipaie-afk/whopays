@@ -185,8 +185,8 @@ begin
     v_pb_masque := (public.soumettre_probleme('patron', 'Mon patron masqué',
                     'Ce problème est publié puis masqué.', 300) ->> 'id')::uuid;
     perform pg_temp.wp_jouer('authenticated', v_riche);
-    v_pb_riche  := (public.soumettre_probleme('projet', 'Le projet du riche',
-                    'Un projet de riche, publié pour les tests.', 5000) ->> 'id')::uuid;
+    v_pb_riche  := (public.publier_riche('riche', 'Un projet de riche, publié pour les tests.',
+                    'Le projet du riche', 5000) ->> 'id')::uuid;
 
     -- Moderation (as postgres, with the 004 helpers)
     perform pg_temp.wp_jouer(null);
@@ -888,7 +888,7 @@ begin
       'supprimer_utilisateur_anonyme ne supprime qu''un utilisateur anonyme sans profil');
 
     perform pg_temp.wp_jouer('authenticated', v_partant);
-    perform public.soumettre_probleme('amour', 'Problème du partant', 'Ce problème part avec son auteur.', null);
+    perform public.publier_riche('publication', 'Cette publication part avec son auteur.');
     perform public.reagir(v_pb_publie, 'courage');
     v_ok := public.supprimer_mon_compte();
     perform pg_temp.wp_jouer(null);
@@ -1346,6 +1346,131 @@ begin
       'un riche actif qui quitte puis revient chez les riches repasse en attente', v_j::text);
     perform pg_temp.wp_jouer(null);
     update public.profiles pr set statut_riche = 'actif' where pr.id = v_riche;
+
+    -- =================================================================
+    -- 20. R-030 (011): problems and posts of the rich
+    -- =================================================================
+    perform pg_temp.wp_jouer('anon');
+    v_avant := (public.get_chiffres() ->> 'montant_total')::integer;
+    -- a rich member never posts a problem of the poor, a poor member never posts as rich
+    perform pg_temp.wp_jouer('authenticated', v_modo2);
+    begin
+      perform public.soumettre_probleme('reve', 'Un yacht de plus', 'Le premier est trop petit.', 100);
+      v_hint := '(aucune erreur)';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'interdit', 'un riche ne publie pas de problème de pauvre', v_hint);
+    perform pg_temp.wp_jouer('authenticated', v_pauvre2);
+    begin
+      perform public.publier_riche('publication', 'Je me fais passer pour un riche.');
+      v_hint := '(aucune erreur)';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'interdit', 'un pauvre ne publie pas comme un riche', v_hint);
+    perform pg_temp.wp_jouer('authenticated', v_r_att);
+    begin
+      perform public.publier_riche('publication', 'Je ne suis pas encore validé.');
+      v_hint := '(aucune erreur)';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'riche_en_attente', 'un riche en attente ne publie pas', v_hint);
+    perform pg_temp.wp_jouer('anon');
+    begin
+      perform public.publier_riche('publication', 'Un visiteur anonyme.');
+      v_hint := 'exécuté';
+    exception when insufficient_privilege then v_hint := null;
+              when others then v_hint := 'erreur ' || sqlstate;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint is null, 'anon ne peut pas exécuter publier_riche', v_hint);
+    -- an active rich member: first post, then a rich problem without the 10 000 cap
+    perform pg_temp.wp_jouer('authenticated', v_modo2);
+    v_j := public.publier_riche('publication', 'Bonjour les pauvres, je viens d''arriver avec mon yacht.', 'Titre ignoré', 999);
+    v_pb_m_pub := (v_j ->> 'id')::uuid;
+    v_res := v_res || pg_temp.wp_ligne(v_j ->> 'statut' = 'publie' and (v_j ->> 'premiere')::boolean,
+      'première publication d''un riche : publiée, premiere = vrai', v_j::text);
+    v_j := public.publier_riche('riche', 'Mon majordome refuse de repasser mes chaussettes en soie.', 'Problème de majordome', 50000);
+    v_pb_test := (v_j ->> 'id')::uuid;
+    v_res := v_res || pg_temp.wp_ligne(v_j ->> 'statut' = 'publie' and not (v_j ->> 'premiere')::boolean,
+      'problème de riche à 50 000 € accepté (pas de plafond à 10 000), premiere = faux', v_j::text);
+    foreach v_t in array array[
+      format('select public.publier_riche(%L, %L, %L, 1000001)', 'riche', 'Un texte de test assez long.', 'Titre trop cher'),
+      format('select public.publier_riche(%L, %L)', 'riche', 'Un problème de riche sans titre.'),
+      format('select public.publier_riche(%L, %L)', 'publication', repeat('x', 601)),
+      format('select public.publier_riche(%L, %L)', 'publication', 'court'),
+      format('select public.publier_riche(%L, %L)', 'pauvre', 'Un riche qui se déguise en pauvre.'),
+      format('select public.publier_riche(%L, %L)', 'publication', 'Appelez-moi au 06 12 34 56 78 pour mon yacht.')
+    ] loop
+      begin
+        execute v_t;
+        v_hint := '(aucune erreur)';
+      exception when others then
+        get stacked diagnostics v_hint = pg_exception_hint;
+      end;
+      v_res := v_res || pg_temp.wp_ligne(v_hint in ('invalide', 'filtre'), 'publier_riche refuse : ' || left(v_t, 110), v_hint);
+    end loop;
+    v_j := public.publier_riche('publication', 'Ma mère commence sa chimio, je ne sais pas quoi faire.');
+    v_res := v_res || pg_temp.wp_ligne(v_j ->> 'statut' = 'recu', 'une publication avec un mot sensible part en relecture', v_j::text);
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      exists (select 1 from public.problems p where p.id = v_pb_m_pub and p.type = 'publication'
+              and p.titre is null and p.montant is null and p.categorie is null and p.premiere),
+      'une publication n''a ni titre, ni montant, ni catégorie');
+    -- the wall: type filter and public fields
+    perform pg_temp.wp_jouer('anon');
+    v_j := public.get_problemes_publics(null, 48, null, 'publication');
+    v_res := v_res || pg_temp.wp_ligne(
+      jsonb_array_length(v_j) > 0
+        and not exists (select 1 from jsonb_array_elements(v_j) x where x ->> 'type' <> 'publication')
+        and exists (select 1 from jsonb_array_elements(v_j) x where (x ->> 'id')::uuid = v_pb_m_pub and (x ->> 'premiere')::boolean),
+      'filtre « Publications de riches » : seulement des publications (avec type et premiere)');
+    v_j := public.get_problemes_publics(null, 48, null, 'riche');
+    v_res := v_res || pg_temp.wp_ligne(
+      not exists (select 1 from jsonb_array_elements(v_j) x where x ->> 'type' <> 'riche')
+        and exists (select 1 from jsonb_array_elements(v_j) x where (x ->> 'id')::uuid = v_pb_test),
+      'filtre « Problèmes de riches » : seulement des problèmes de riches');
+    v_j := public.get_problemes_publics(null, 48, null, 'pauvre');
+    v_res := v_res || pg_temp.wp_ligne(
+      not exists (select 1 from jsonb_array_elements(v_j) x where x ->> 'type' <> 'pauvre'),
+      'filtre « Problèmes de pauvres » : seulement des problèmes de pauvres');
+    begin
+      perform public.get_problemes_publics(null, 12, null, 'yacht');
+      v_hint := '(aucune erreur)';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'invalide', 'type de publication inconnu refusé', v_hint);
+    v_res := v_res || pg_temp.wp_ligne((public.get_chiffres() ->> 'montant_total')::integer = v_avant,
+      'les problèmes de riches ne comptent pas dans « Les chiffres »', public.get_chiffres() ->> 'montant_total');
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      not exists (select 1 from public.wp_classement_pauvres() c
+                  join public.problems p on p.user_id = c.user_id and p.type <> 'pauvre'),
+      'le palmarès ne compte que des problèmes de pauvres');
+    -- same moderation: report, mask, review lists
+    perform pg_temp.wp_jouer('authenticated', v_pauvre4);
+    v_j := public.signaler('probleme', v_pb_m_pub);
+    perform public.reagir(v_pb_m_pub, 'rire');
+    perform pg_temp.wp_jouer(null);
+    perform public.masquer_contenu('probleme', v_pb_m_pub, true);
+    v_res := v_res || pg_temp.wp_ligne(
+      (select m.contenu from public.moderation_masques m where m.cible_id = v_pb_m_pub) like 'Bonjour les pauvres%'
+        and (select s.contenu from public.moderation_signalements_24h s where s.cible_id = v_pb_m_pub) like 'Bonjour les pauvres%',
+      'une publication signalée puis masquée est lisible dans la modération (sans titre)');
+    perform pg_temp.wp_jouer('authenticated', v_modo2);
+    v_res := v_res || pg_temp.wp_ligne(
+      exists (select 1 from jsonb_array_elements(public.mod_a_relire()) x where x ->> 'type' = 'publication')
+        and exists (select 1 from jsonb_array_elements(public.mod_signalements_24h()) x
+                    where (x ->> 'cible_id')::uuid = v_pb_m_pub and x ->> 'contenu' like 'Bonjour les pauvres%'),
+      'mod_a_relire et mod_signalements_24h donnent le type et le texte des publications');
+    v_j := public.get_mon_espace();
+    v_res := v_res || pg_temp.wp_ligne(
+      exists (select 1 from jsonb_array_elements(v_j -> 'problemes') x
+              where x ->> 'type' = 'publication' and x ->> 'titre' like 'Bonjour les pauvres%'),
+      'Mon espace liste les publications avec le début du texte');
+    perform pg_temp.wp_jouer(null);
 
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';

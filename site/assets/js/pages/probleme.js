@@ -3,7 +3,7 @@ import { api } from '../api.js';
 import { initPage, allerAuHasard, session } from '../page.js';
 import { $, h, clear, param, UUID_RE, dotsMenu, toastError } from '../ui.js';
 import { icon } from '../icons.js';
-import { carteProbleme, carteSquelette } from '../carte.js';
+import { carteProbleme, carteSquelette, titreDe } from '../carte.js';
 import { barreReactions } from '../reactions.js';
 import { sectionCommentaires } from '../commentaires.js';
 import { signaler, dejaSignale } from '../signalement.js';
@@ -51,14 +51,16 @@ function urlPartage(p) {
   return urlProbleme(p.id, s && s.profil ? s.profil.code_partage : null);
 }
 
-function afficher(p) {
+function afficher(brut) {
+  // R-030: a publication has no title; share texts and the story card use the start of its text
+  const p = { ...brut, titre: titreDe(brut), titreOriginal: brut.titre };
   document.title = `${p.titre} — Qui paie ?`;
   clear(zoneCarte);
   clear(zoneCote);
   clear(zoneCom);
 
   // Card + "…" menu
-  const carte = carteProbleme(p, { large: true });
+  const carte = carteProbleme({ ...p, titre: p.titreOriginal }, { large: true });
   zoneCarte.appendChild(carte);
   const menu = () => dotsMenu([{
     label: dejaSignale('probleme', p.id) ? 'Signalé — merci' : 'Signaler', icon: 'flag', disabled: dejaSignale('probleme', p.id),
@@ -96,7 +98,7 @@ function afficher(p) {
     h('div', { class: 'bloc' },
       h('h2', {}, 'Ta réaction'),
       barreReactions(p),
-      h('div', { class: 'actions-probleme' }, storyBtn, autre),
+      h('div', { class: 'actions-probleme' }, p.type === 'publication' ? null : storyBtn, autre),
       h('h3', { class: 'mt-24' }, 'Fais-le circuler'),
       h('p', { class: 'gris petit mt-8' }, 'Plus il circule, plus un milliardaire a de chances de tomber dessus. Aucun argent ne transite par ici.'),
       partageZone

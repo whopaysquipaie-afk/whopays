@@ -1069,3 +1069,16 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .prix-riens { color: var(--citron); font-weight: 700; }
 .bloc-riche-attente { border-color: var(--citron); }
 @media (min-width: 560px) { .prix-riches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------- Problems and posts of the rich (R-030) ---------- */
+.filtres-types { margin-bottom: 10px; }
+.filtre-riche svg { color: var(--citron); }
+.carte-riche { background: var(--citron); }
+.carte-riche .carte-tuile { background: var(--noir); color: var(--citron); }
+.carte-riche .pastille { background: var(--noir); color: var(--citron); }
+.carte-riche .carte-texte { color: var(--noir-doux); }
+.carte-riche .carte-montant small, .carte-riche .carte-meta, .carte-riche .carte-stats, .carte-riche .filigrane { color: #2F3A0A; }
+.carte-riche .carte-montant .riens, .carte-riche .carte-riens { color: var(--noir-doux); }
+.carte-riche .filigrane { border-top-color: rgba(11, 11, 11, .25); }
+.carte-texte-seul { font-size: 17px; font-weight: 600; -webkit-line-clamp: 5; margin-top: 14px; }
+.carte-large .carte-texte-seul { -webkit-line-clamp: unset; font-size: 20px; }

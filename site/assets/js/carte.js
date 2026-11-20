@@ -25,24 +25,40 @@ function statsCompactes(p) {
   );
 }
 
+/** R-030: kinds of posts. A rich problem and a publication have no category; a publication has no title. */
+export const TYPES_POST = {
+  pauvre: { label: 'Problèmes de pauvres', court: 'Problème' },
+  riche: { label: 'Problèmes de riches', court: 'Problème de riche', icon: 'crown' },
+  publication: { label: 'Publications de riches', court: 'Publication de riche', icon: 'crown' }
+};
+
+/** Title shown for any post: the title, or the start of the text of a publication. */
+export function titreDe(p) {
+  if (p.titre) return p.titre;
+  const t = String(p.texte || '');
+  return t.length > 70 ? `${t.slice(0, 69).trimEnd()}…` : t;
+}
+
 /** p = public problem row; large = p.html version; lien = wrap in a link. */
 export function carteProbleme(p, { large = false, lien = !large, titreNiveau = large ? 'h1' : 'h3' } = {}) {
-  const cat = category(p.categorie) || { label: 'Problème', icon: 'help' };
+  const type = TYPES_POST[p.type] && p.type !== 'pauvre' ? p.type : null;
+  const cat = type ? { label: TYPES_POST[type].court, icon: 'crown' } : category(p.categorie) || { label: 'Problème', icon: 'help' };
   const tag = lien ? 'a' : 'article';
   const card = h(tag, {
-    class: `carte${large ? ' carte-large' : ''}`,
+    class: `carte${large ? ' carte-large' : ''}${type ? ` carte-riche carte-${type}` : ''}`,
     href: lien ? `p.html?id=${encodeURIComponent(p.id)}` : null,
-    'aria-label': lien ? `${p.titre} — ${cat.label}` : null
+    'aria-label': lien ? `${titreDe(p)} — ${cat.label}` : null
   },
     h('div', { class: 'carte-haut' },
       h('div', { class: 'carte-tuile', 'aria-hidden': 'true' }, icon(cat.icon)),
       h('div', { class: 'carte-entete' },
         h('span', { class: 'pastille' }, cat.label),
-        p.est_exemple ? h('span', { class: 'badge badge-exemple' }, 'Exemple') : null
+        p.est_exemple ? h('span', { class: 'badge badge-exemple' }, 'Exemple') : null,
+        p.premiere ? h('span', { class: 'badge badge-sombre' }, 'Première publication') : null
       )
     ),
-    h(titreNiveau, { class: 'carte-titre' }, p.titre),
-    h('p', { class: 'carte-texte' }, p.texte),
+    p.titre ? h(titreNiveau, { class: 'carte-titre' }, p.titre) : h(titreNiveau, { class: 'visually-hidden' }, titreDe(p)),
+    h('p', { class: `carte-texte${p.titre ? '' : ' carte-texte-seul'}` }, p.texte),
     p.montant ? h('p', { class: 'carte-montant' }, formatEuros(p.montant), ' ', h('small', {}, 'recherchés'),
       large ? null : h('span', { class: 'riens' }, ` · ${enRiens(p.montant)}`)) : null,
     p.montant && large ? h('p', { class: 'carte-riens' }, phraseRiens(p.montant)) : null,

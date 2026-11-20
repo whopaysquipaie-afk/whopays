@@ -6,7 +6,7 @@
 import { createDemoApi } from '../api-demo.js';
 import { raisonFiltre, MESSAGE_FILTRE } from '../filtres.js';
 import { isSafeUrl, checkAttribute } from '../dom-safe.js';
-import { EXEMPLES, PROBLEMES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES, MEMBRES } from '../demo-data.js';
+import { EXEMPLES, PROBLEMES, POSTS_RICHES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES, MEMBRES } from '../demo-data.js';
 import { CATEGORY_IDS } from '../categories.js';
 import { enRiens, phraseRiens } from '../riens.js';
 
@@ -127,7 +127,7 @@ test('Filtres', 'laisse passer les textes normaux et les montants', () => {
 test('Filtres', 'tout le contenu fictif du mode démo passe les filtres', () => {
   const textes = [
     ...EXEMPLES.flatMap((e) => [e[1], e[2]]), ...PROBLEMES.flatMap((p) => [p[1], p[2]]), ...COMMENTAIRES,
-    ...CLUB_RICHES.map((m) => m[1]), ...CLUB_PAUVRES.map((m) => m[1]), ...MEMBRES.map((m) => m[0]), ...MEMBRES.map((m) => m[2]).filter(Boolean)
+    ...POSTS_RICHES.flatMap((p) => [p[1], p[2]]).filter(Boolean), ...CLUB_RICHES.map((m) => m[1]), ...CLUB_PAUVRES.map((m) => m[1]), ...MEMBRES.map((m) => m[0]), ...MEMBRES.map((m) => m[2]).filter(Boolean)
   ];
   for (const t of textes) eq(raisonFiltre(t), null, `« ${t} »`);
 });
@@ -383,7 +383,7 @@ test('D. Publier', 'un mot sensible (titre ou texte, accents ignorés) envoie en
 });
 test('D. Publier', 'mots sensibles : mots entiers seulement (« violon », « abusé » passent)', async () => {
   const { api, join } = fresh();
-  await join('riche');
+  await join('pauvre');
   const r = await api.soumettreProbleme({ categorie: 'plaisir', titre: 'Un violon pour mon chat', texte: 'Le prix est abusé, mais il chante faux sans.', montant: 50 });
   eq(r.statut, 'publie');
 });
@@ -954,6 +954,72 @@ test('I. Riches payants', 'modérateur toujours actif ; passer de pauvre à rich
   await api.majProfil({ camp: 'pauvre' });
   eq((await api.majProfil({ camp: 'riche' })).statut_riche, 'en_attente', 'aller-retour :');
   await as(riche.userId);
+});
+
+/* ================= J. Problèmes et publications de riches (= 011, R-030) ================= */
+
+test('J. Publications de riches', 'un riche actif publie un problème de riche (sans plafond) ou une simple publication', async () => {
+  const { api, join } = fresh();
+  await join('riche', 'Nouveau Riche');
+  await rejects(api.soumettreProbleme({ categorie: 'reve', titre: 'Un yacht de plus', texte: 'Le premier est trop petit.', montant: 100 }), 'interdit', 'problème de pauvre :');
+  const a = await api.publierRiche({ type: 'publication', texte: 'Bonjour les pauvres, je viens d’arriver avec mon yacht.', titre: 'ignoré', montant: 999 });
+  eq(a.statut, 'publie'); eq(a.premiere, true);
+  const pa = await api.getProblemePublic(a.id);
+  eq(pa.type, 'publication'); eq(pa.titre, null); eq(pa.montant, null); eq(pa.categorie, null); eq(pa.premiere, true); eq(pa.camp, 'riche');
+  const b = await api.publierRiche({ type: 'riche', titre: 'Problème de majordome', texte: 'Il refuse de repasser mes chaussettes en soie.', montant: 50000 });
+  eq(b.premiere, false);
+  const pb = await api.getProblemePublic(b.id);
+  eq(pb.type, 'riche'); eq(pb.montant, 50000);
+  const ok = { type: 'riche', titre: 'Titre correct', texte: 'Un texte de plus de dix caractères.' };
+  await rejects(api.publierRiche({ ...ok, montant: 1000001 }), 'invalide');
+  await rejects(api.publierRiche({ ...ok, titre: null }), 'invalide');
+  await rejects(api.publierRiche({ type: 'publication', texte: 'x'.repeat(601) }), 'invalide');
+  await rejects(api.publierRiche({ type: 'pauvre', texte: 'Un riche déguisé en pauvre.' }), 'invalide');
+  await rejects(api.publierRiche({ type: 'publication', texte: 'Appelez-moi au 06 12 34 56 78 pour mon yacht.' }), 'filtre');
+  eq((await api.publierRiche({ type: 'publication', texte: 'Ma mère commence sa chimio, je ne sais pas quoi faire.' })).statut, 'recu');
+  const e = await api.getMonEspace();
+  assert(e.problemes.some((x) => x.type === 'publication' && x.titre.startsWith('Bonjour les pauvres')), 'Mon espace');
+});
+test('J. Publications de riches', 'un pauvre, un riche en attente et un visiteur ne publient pas comme un riche', async () => {
+  const { api, join } = fresh();
+  await rejects(api.publierRiche({ type: 'publication', texte: 'Un visiteur anonyme.' }), 'non_connecte');
+  await join('pauvre');
+  await rejects(api.publierRiche({ type: 'publication', texte: 'Je me fais passer pour un riche.' }), 'interdit');
+  await join('riche', null, { enAttente: true });
+  await rejects(api.publierRiche({ type: 'publication', texte: 'Je ne suis pas encore validé.' }), 'riche_en_attente');
+});
+test('J. Publications de riches', 'mur : filtres par type ; ni le palmarès ni « Les chiffres » ne comptent les riches', async () => {
+  const { api, join } = fresh();
+  const chiffres = await api.getChiffres();
+  const palmares = await api.getPalmares();
+  const compteurs = await api.getCompteurs();
+  for (const type of ['pauvre', 'riche', 'publication']) {
+    const l = await api.getProblemesPublics({ type, limite: 48 });
+    assert(l.length > 0 && l.every((x) => x.type === type), `filtre ${type}`);
+  }
+  eq((await api.getProblemesPublics({ type: 'publication', limite: 48 })).length, POSTS_RICHES.filter((x) => x[0] === 'publication').length);
+  await rejects(api.getProblemesPublics({ type: 'yacht' }), 'invalide');
+  assert((await api.getProblemesPublics({ limite: 48 })).some((x) => x.type !== 'pauvre'), 'tout voir mélange les types');
+  await join('riche');
+  await api.publierRiche({ type: 'riche', titre: 'Mon jet est trop bruyant', texte: 'Les pilotes refusent de chuchoter.', montant: 90000 });
+  eq((await api.getChiffres()).montant_total, chiffres.montant_total, 'chiffres :');
+  eq((await api.getChiffres()).problemes_publies, chiffres.problemes_publies);
+  eq((await api.getCompteurs()).problemes, compteurs.problemes);
+  eq(JSON.stringify(await api.getPalmares()), JSON.stringify(palmares), 'palmarès :');
+});
+test('J. Publications de riches', 'même modération : signalements, masquage, relecture', async () => {
+  const { api, join, as } = fresh();
+  const r = await join('riche');
+  const a = await api.publierRiche({ type: 'publication', texte: 'Ma petite publication de riche à signaler.' });
+  const s = await api.publierRiche({ type: 'publication', texte: 'Je me sens à la rue depuis que mon chef est parti.' });
+  eq(s.statut, 'recu');
+  for (let i = 0; i < 3; i++) { await join('pauvre'); await api.signaler('probleme', a.id); }
+  eq(await api.getProblemePublic(a.id), null, 'masquée au 3ᵉ signalement :');
+  await api.demoAdmin.setModerateur(r.userId);
+  await as(r.userId);
+  const masques = await api.moderation.masques();
+  assert(masques.some((x) => x.cible_id === a.id && x.contenu === 'Ma petite publication de riche à signaler.'), 'contenu lisible');
+  assert((await api.moderation.aRelire()).some((x) => x.id === s.id && x.type === 'publication'), 'à relire avec le type');
 });
 
 function assertNoEmail(payload, where) {

@@ -9,11 +9,12 @@ import {
 } from './filtres.js';
 import { MOTS_SENSIBLES_DEFAUT, contientMotSensible } from './mots-sensibles.js';
 import { PLAFOND_PAUVRE } from './riens.js';
-import { MEMBRES, EXEMPLES, PROBLEMES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES } from './demo-data.js';
+import { MEMBRES, EXEMPLES, PROBLEMES, POSTS_RICHES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES } from './demo-data.js';
 
 export const DEMO_KEY = 'whopays_demo_v1';
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
+const TYPES = ['pauvre', 'riche', 'publication'];
 
 export class ApiError extends Error {
   constructor(message, code = 'erreur') {
@@ -140,15 +141,26 @@ function buildSeed(now) {
   // Examples (team)
   EXEMPLES.forEach(([categorie, titre, texte, montant], i) => {
     const t = now - (35 - i) * DAY;
-    st.problems.push({ id: uuid(rand), user_id: null, categorie, titre, texte, montant, statut: 'publie', est_exemple: true, masque: false, cree_le: iso(t), modere_le: iso(t) });
+    st.problems.push({ id: uuid(rand), user_id: null, type: 'pauvre', premiere: false, categorie, titre, texte, montant, statut: 'publie', est_exemple: true, masque: false, cree_le: iso(t), modere_le: iso(t) });
   });
   // Member problems, spread over the last 20 days (newest last in the list)
   PROBLEMES.forEach(([categorie, titre, texte, montant, idx, statut], i) => {
     const t = now - (20 - i * 0.45) * DAY - Math.floor(rand() * 10) * HOUR;
     st.problems.push({
-      id: uuid(rand), user_id: st.profiles[idx].id, categorie, titre, texte, montant, statut,
+      id: uuid(rand), user_id: st.profiles[idx].id, type: 'pauvre', premiere: false, categorie, titre, texte, montant, statut,
       est_exemple: false, masque: false, cree_le: iso(t), modere_le: statut === 'recu' ? null : iso(t + 3 * HOUR)
     });
+  });
+  // Posts of rich members (R-030), spread over the last 6 days
+  const dejaPoste = new Set();
+  POSTS_RICHES.forEach(([type, titre, texte, montant, idx], i) => {
+    const t = now - (6 - i * 1.1) * DAY - Math.floor(rand() * 5) * HOUR;
+    const user = st.profiles[idx].id;
+    st.problems.push({
+      id: uuid(rand), user_id: user, type, premiere: !dejaPoste.has(user), categorie: null, titre, texte, montant,
+      statut: 'publie', est_exemple: false, masque: false, cree_le: iso(t), modere_le: null
+    });
+    dejaPoste.add(user);
   });
   // Reactions & comments on published problems
   const published = st.problems.filter((p) => p.statut === 'publie');
@@ -252,7 +264,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     const count = (type) => st.reactions.filter((r) => r.problem_id === p.id && r.type === type).length;
     const myId = uid(st);
     return {
-      id: p.id, categorie: p.categorie, titre: p.titre, texte: p.texte, montant: p.montant,
+      id: p.id, type: p.type || 'pauvre', premiere: !!p.premiere, categorie: p.categorie, titre: p.titre, texte: p.texte, montant: p.montant,
       pseudo: author.pseudo, camp: author.camp, est_exemple: !!p.est_exemple, cree_le: p.modere_le || p.cree_le,
       rire: count('rire'), courage: count('courage'), paierais: count('paierais'),
       commentaires: st.comments.filter((c) => c.problem_id === p.id && !c.masque).length,
@@ -260,12 +272,14 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     };
   }
   const sortDate = (p) => p.modere_le || p.cree_le;
+  /** Problems stored before R-030 have no type: problems of the poor (= default of 011). */
+  const typeDe = (p) => p.type || 'pauvre';
 
   /** Ranked poor (not blocked, ≥ 1 published non-masked problem): total desc, nb desc, oldest member. */
   function classementPauvres(st) {
     const parId = new Map();
     for (const pb of st.problems) {
-      if (!visibleProblem(pb) || pb.est_exemple || !pb.user_id) continue;
+      if (!visibleProblem(pb) || pb.est_exemple || !pb.user_id || typeDe(pb) !== 'pauvre') continue;
       const l = parId.get(pb.user_id) || { nb: 0, total: 0 };
       l.nb++; l.total += pb.montant || 0;
       parId.set(pb.user_id, l);
@@ -286,7 +300,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       const st = load();
       const emails = new Set(st.profiles.map((p) => p.email.toLowerCase()));
       return {
-        problemes: st.problems.filter((p) => !p.est_exemple).length,
+        problemes: st.problems.filter((p) => !p.est_exemple && typeDe(p) === 'pauvre').length,
         membres: emails.size,
         riches: st.profiles.filter((p) => richeActif(st, p)).length,
         pauvres: st.profiles.filter((p) => p.camp === 'pauvre').length,
@@ -296,7 +310,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
 
     async getChiffres() {
       const st = load();
-      const pub = st.problems.filter((p) => p.statut === 'publie' && !p.est_exemple);
+      const pub = st.problems.filter((p) => p.statut === 'publie' && !p.est_exemple && typeDe(p) === 'pauvre');
       const parCat = CATEGORY_IDS.map((categorie) => ({ categorie, nombre: pub.filter((p) => p.categorie === categorie).length }))
         .filter((c) => c.nombre > 0)
         .sort((a, b) => b.nombre - a.nombre);
@@ -313,14 +327,16 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       };
     },
 
-    async getProblemesPublics({ categorie = null, limite = 12, avant = null } = {}) {
+    async getProblemesPublics({ categorie = null, limite = 12, avant = null, type = null } = {}) {
       if (categorie !== null && categorie !== undefined && categorie !== '' && !CATEGORY_IDS.includes(categorie)) throw ERR.invalide('Catégorie inconnue.');
+      if (type !== null && type !== undefined && type !== '' && !TYPES.includes(type)) throw ERR.invalide('Type de publication inconnu.');
       if (avant !== null && avant !== undefined && !isIsoDate(avant)) throw ERR.invalide('Curseur de pagination invalide.');
       const lim = Math.max(1, Math.min(48, Number.isInteger(limite) ? limite : 12));
       const st = load();
       return st.problems
         .filter(visibleProblem)
         .filter((p) => !categorie || p.categorie === categorie)
+        .filter((p) => !type || typeDe(p) === type)
         .filter((p) => !avant || sortDate(p) < avant)
         .sort((a, b) => sortDate(b).localeCompare(sortDate(a)))
         .slice(0, lim)
@@ -431,19 +447,40 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     async soumettreProbleme({ categorie, titre, texte, montant = null } = {}) {
       return tx((st) => {
         const p = writer(st);
+        if (p.camp !== 'pauvre') throw ERR.interdit('Un riche ne publie pas de problème de pauvre : choisis « Un problème de riche » ou « Une simple publication ».');
         if (!CATEGORY_IDS.includes(categorie)) throw ERR.invalide('Choisis une catégorie.');
         const ti = texteValide(titre, LIMITES.titre, 'Le titre', { mots: st.mots_interdits });
         const tx2 = texteValide(texte, LIMITES.texte, 'Le texte', { multiligne: true, mots: st.mots_interdits });
-        const mt = p.camp === 'pauvre' ? montantPauvre(montant) : entierValide(montant, LIMITES.montant, 'Le montant');
+        const mt = montantPauvre(montant);
         if (recent(st.problems, p.id, DAY) >= 10) throw ERR.limite('Tu as déjà envoyé 10 problèmes en 24 h. Reviens demain !');
         // Published at once when automatic publication is on and nothing sensitive is detected
         // (same rule as soumettre_probleme in 005_publication_auto.sql); otherwise waits for a human review.
         const auto = !(st.reglages && st.reglages.publication_auto === false);
         const sensible = contientMotSensible(`${ti}\n${tx2}`, st.mots_sensibles || MOTS_SENSIBLES_DEFAUT);
         const statut = auto && !sensible ? 'publie' : 'recu';
-        const row = { id: uuid(rand), user_id: p.id, categorie, titre: ti, texte: tx2, montant: mt, statut, est_exemple: false, masque: false, cree_le: iso(t()), modere_le: null };
+        const row = { id: uuid(rand), user_id: p.id, type: 'pauvre', premiere: false, categorie, titre: ti, texte: tx2, montant: mt, statut, est_exemple: false, masque: false, cree_le: iso(t()), modere_le: null };
         st.problems.push(row);
         return { id: row.id, statut };
+      });
+    },
+
+    /** = publier_riche (011): an ACTIVE rich member posts a rich problem or a simple publication. */
+    async publierRiche({ type, titre = null, texte, montant = null } = {}) {
+      return tx((st) => {
+        const p = writer(st);
+        if (p.camp !== 'riche') throw ERR.interdit('Seuls les riches validés publient ici. Un pauvre publie un problème de pauvre.');
+        if (type !== 'riche' && type !== 'publication') throw ERR.invalide('Choisis « Un problème de riche » ou « Une simple publication ».');
+        const tx2 = texteValide(texte, LIMITES.texte, 'Le texte', { multiligne: true, mots: st.mots_interdits });
+        const ti = type === 'riche' ? texteValide(titre, LIMITES.titre, 'Le titre', { mots: st.mots_interdits }) : null;
+        const mt = type === 'riche' ? entierValide(montant, LIMITES.montant, 'Le montant') : null;
+        if (recent(st.problems, p.id, DAY) >= 10) throw ERR.limite('Tu as déjà publié 10 fois en 24 h. Reviens demain !');
+        const auto = !(st.reglages && st.reglages.publication_auto === false);
+        const sensible = contientMotSensible(`${ti ? `${ti}\n` : ''}${tx2}`, st.mots_sensibles || MOTS_SENSIBLES_DEFAUT);
+        const statut = auto && !sensible ? 'publie' : 'recu';
+        const premiere = !st.problems.some((x) => x.user_id === p.id && typeDe(x) !== 'pauvre');
+        const row = { id: uuid(rand), user_id: p.id, type, premiere, categorie: null, titre: ti, texte: tx2, montant: mt, statut, est_exemple: false, masque: false, cree_le: iso(t()), modere_le: null };
+        st.problems.push(row);
+        return { id: row.id, statut, premiere };
       });
     },
 
@@ -571,7 +608,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         email_confirme: !!(user && user.email_confirme), bloque: !!p.bloque, verifie: st.verifications.some((v) => v.user_id === p.id),
         problemes: st.problems.filter((x) => x.user_id === p.id)
           .sort((a, b) => b.cree_le.localeCompare(a.cree_le))
-          .map((x) => ({ id: x.id, titre: x.titre, statut: x.statut, masque: !!x.masque, cree_le: x.cree_le }))
+          .map((x) => ({ id: x.id, type: typeDe(x), titre: x.titre || x.texte.slice(0, 80), statut: x.statut, masque: !!x.masque, cree_le: x.cree_le }))
       };
     },
 
@@ -733,10 +770,10 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
   const nbSignalements = (st, type, id, depuis = 0) =>
     st.reports.filter((r) => r.cible_type === type && r.cible_id === id && Date.parse(r.cree_le) > depuis).length;
   const problemeModo = (st, p) => ({
-    id: p.id, cree_le: p.modere_le || p.cree_le, categorie: p.categorie, titre: p.titre, texte: p.texte, montant: p.montant,
+    id: p.id, type: typeDe(p), cree_le: p.modere_le || p.cree_le, categorie: p.categorie, titre: p.titre, texte: p.texte, montant: p.montant,
     statut: p.statut, masque: !!p.masque, ...auteur(st, p.user_id), nb_signalements: nbSignalements(st, 'probleme', p.id)
   });
-  const contenuDe = (type, row) => (type === 'probleme' ? `${row.titre} — ${row.texte}` : type === 'message' ? `[${row.camp}] ${row.texte}` : row.texte);
+  const contenuDe = (type, row) => (type === 'probleme' ? (row.titre ? `${row.titre} — ${row.texte}` : row.texte) : type === 'message' ? `[${row.camp}] ${row.texte}` : row.texte);
 
   api.moderation = {
     async suisJe() { return estModo(load()); },

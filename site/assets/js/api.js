@@ -28,7 +28,7 @@ const METHODS = [
   'getCompteurs', 'getChiffres', 'getProblemesPublics', 'getProblemePublic', 'getProblemeHasard', 'getCommentaires',
   'getPalmares', 'getMonRang',
   // members
-  'creerProfil', 'majProfil', 'soumettreProbleme', 'reagir', 'getMesReactions', 'commenter',
+  'creerProfil', 'majProfil', 'soumettreProbleme', 'publierRiche', 'reagir', 'getMesReactions', 'commenter',
   'supprimerMonCommentaire', 'masquerCommentaire', 'getClubMessages', 'envoyerMessageClub', 'signaler',
   'getMonEspace', 'supprimerMonCompte',
   // auth

@@ -47,8 +47,8 @@ export function createSupabaseApi() {
     /* ================= Public reads ================= */
     getCompteurs: () => rpc('get_compteurs'),
     getChiffres: () => rpc('get_chiffres'),
-    getProblemesPublics: ({ categorie = null, limite = 12, avant = null } = {}) =>
-      rpc('get_problemes_publics', { p_categorie: categorie || null, p_limite: limite, p_avant: avant }).then((d) => d || []),
+    getProblemesPublics: ({ categorie = null, limite = 12, avant = null, type = null } = {}) =>
+      rpc('get_problemes_publics', { p_categorie: categorie || null, p_limite: limite, p_avant: avant, ...(type ? { p_type: type } : {}) }).then((d) => d || []),
     getProblemePublic: (id) => rpc('get_probleme_public', { p_id: id }),
     getProblemeHasard: () => rpc('get_probleme_hasard'),
     getCommentaires: (problemId, avant = null) => rpc('get_commentaires', { p_problem_id: problemId, p_avant: avant }).then((d) => d || []),
@@ -67,6 +67,8 @@ export function createSupabaseApi() {
       }),
     soumettreProbleme: ({ categorie, titre, texte, montant = null } = {}) =>
       rpc('soumettre_probleme', { p_categorie: categorie, p_titre: titre, p_texte: texte, p_montant: montant === '' ? null : nn(montant) }),
+    publierRiche: ({ type, titre = null, texte, montant = null } = {}) =>
+      rpc('publier_riche', { p_type: type, p_texte: texte, p_titre: titre || null, p_montant: montant === '' ? null : nn(montant) }),
     reagir: (problemId, type) => rpc('reagir', { p_problem_id: problemId, p_type: type }),
     getMesReactions: async (problemIds = []) => {
       const s = await api.getSession();

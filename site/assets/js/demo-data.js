@@ -94,6 +94,15 @@ export const PROBLEMES = [
   ['plaisir', 'Un week-end à la mer sans calculer le prix des glaces.', 'Deux boules. Avec chantilly. Sans compter.', 300, 57, 'refuse']
 ];
 
+/** Posts of (active) rich members, R-030: [type 'riche' | 'publication', title|null, text, amount|null, member index] */
+export const POSTS_RICHES = [
+  ['riche', 'Mon majordome a démissionné par SMS.', 'Il paraît que c’est la mode. Je ne sais même plus où sont rangées mes chaussettes en soie. Ni ce qu’est un tiroir.', 12000, 0],
+  ['publication', null, 'Bonjour les pauvres. Je viens de lire tout le mur depuis mon jacuzzi. Très émouvant. Le jacuzzi aussi.', null, 2],
+  ['riche', 'Mon deuxième yacht ne rentre pas dans le port.', 'Le capitaine propose de le garer en double file. J’ai refusé : je suis quelqu’un de bien.', 80000, 1],
+  ['publication', null, 'Petite pensée pour ceux qui finissent le mois sans calculatrice. Moi, j’ai un comptable. Il a une calculatrice.', null, 8],
+  ['riche', 'Le caviar de ma cantine d’entreprise est tiède.', 'Je ne veux pas faire d’histoires, mais on parle d’œufs d’esturgeon, pas d’une soupe de lentilles.', null, 4]
+];
+
 /** Comment pool: [text, problem index or -1 for random] */
 export const COMMENTAIRES = [
   'Je ne suis pas milliardaire, mais j’ai ri, ça compte ?',

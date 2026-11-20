@@ -10,6 +10,7 @@ import { champsRejoindre, executerRejoindre, ouvrirPrixApresInscription, INFO_DO
 import { creerTurnstile } from './turnstile.js';
 import { session } from './page.js';
 import { barrePartage, urlProbleme, texteProbleme } from './partage.js';
+import { titreDe } from './carte.js';
 
 /** Success screen when the problem is published at once (R-017): view it, share it, story card. */
 async function ecranEnLigne(id, titreSaisi) {
@@ -18,7 +19,7 @@ async function ecranEnLigne(id, titreSaisi) {
   const url = urlProbleme(id, s && s.profil ? s.profil.code_partage : null);
   let p = null;
   try { p = await api.getProblemePublic(id); } catch { /* the story button is hidden then */ }
-  const titre = p ? p.titre : titreSaisi;
+  const titre = p ? titreDe(p) : titreSaisi;
   const story = h('button', { type: 'button', class: 'btn btn-secondaire' }, icon('download'), 'Télécharger la carte story');
   story.addEventListener('click', async () => {
     story.setAttribute('aria-busy', 'true');
@@ -29,10 +30,12 @@ async function ecranEnLigne(id, titreSaisi) {
   });
   return h('div', { class: 'succes' },
     h('p', { class: 'grand' }, 'C’est en ligne !'),
-    h('p', {}, 'Ton problème attend son milliardaire. Partage-le maintenant : plus il circule, plus il a de chances de tomber sur la bonne personne.'),
+    h('p', {}, p && p.type && p.type !== 'pauvre'
+      ? 'Les pauvres vont adorer. Partage-le : un riche qui publie, ça ne passe pas inaperçu.'
+      : 'Ton problème attend son milliardaire. Partage-le maintenant : plus il circule, plus il a de chances de tomber sur la bonne personne.'),
     h('div', { class: 'actions-probleme' },
-      h('a', { class: 'btn btn-primaire', href: `p.html?id=${encodeURIComponent(id)}` }, 'Voir mon problème', icon('arrow-right', { className: 'fleche' })),
-      p ? story : null),
+      h('a', { class: 'btn btn-primaire', href: `p.html?id=${encodeURIComponent(id)}` }, p && p.type === 'publication' ? 'Voir ma publication' : 'Voir mon problème', icon('arrow-right', { className: 'fleche' })),
+      p && p.type !== 'publication' ? story : null),
     barrePartage({ texte: texteProbleme(titre, url), url, titre }));
 }
 
@@ -59,6 +62,7 @@ export async function ouvrirPublier({ categorie = null } = {}) {
     m.ouvrirPrixRiche(s.profil.pseudo);
     return;
   }
+  if (membre && s.profil.camp === 'riche') { ouvrirPublierRiche(); return; }
 
   const form = h('form', { novalidate: true });
   const rejoindre = membre ? null : champsRejoindre();
@@ -142,6 +146,69 @@ export async function ouvrirPublier({ categorie = null } = {}) {
       const r = await api.soumettreProbleme({ categorie: select.value, titre: titre.value(), texte: texte.value(), montant: m === '' ? null : Number(m) });
       document.dispatchEvent(new CustomEvent('wp:probleme-soumis'));
       body.replaceChildren(r && r.statut === 'publie' ? await ecranEnLigne(r.id, titre.value()) : ecranRecu());
+    } catch (err) {
+      erreur.show(err.message || 'Oups, quelque chose a coincé. Réessaie.');
+    } finally {
+      chargement(submit, false);
+    }
+  });
+}
+
+/**
+ * R-030: an active rich member posts "Un problème de riche" (title, text, optional amount, no 10 000 cap)
+ * or "Une simple publication" (text only, 600 characters). Same filters and moderation (publier_riche, 011).
+ */
+function ouvrirPublierRiche() {
+  const form = h('form', { novalidate: true });
+  const groupe = 'type-riche';
+  const choix = (valeur, label, aide) => {
+    const input = h('input', { type: 'radio', name: groupe, value: valeur });
+    input.checked = valeur === 'riche';
+    input.addEventListener('change', maj);
+    return { input, el: h('label', { class: 'prix-riche' }, input, h('span', { class: 'prix-montant' }, label), h('span', { class: 'gris petit' }, aide)) };
+  };
+  const cRiche = choix('riche', 'Un problème de riche', 'Titre, texte et, si tu veux, un montant (sans plafond).');
+  const cPub = choix('publication', 'Une simple publication', 'Un texte, et c’est tout. 600 caractères.');
+  const titre = champ({ name: 'titre', label: 'Ton problème de riche en une phrase', min: 3, max: 80, libelle: 'Le titre', placeholder: 'Ex. : Mon majordome a démissionné par SMS.' });
+  const texte = champ({ name: 'texte', label: 'Raconte', min: 10, max: 600, multiline: true, rows: 5, libelle: 'Le texte', placeholder: 'Avec humour, et sans vrai nom.' });
+  const montant = champ({ name: 'montant', label: 'Montant (€)', required: false, check: 'montant', inputmode: 'numeric', maxValue: 1000000, help: 'Facultatif, indicatif. Aucun argent ne circule entre membres.' });
+  const enDirect = h('p', { class: 'riens-direct', 'aria-live': 'polite' });
+  montant.input.insertAdjacentElement('afterend', enDirect);
+  montant.input.addEventListener('input', () => {
+    enDirect.textContent = /^[\d\s]+$/.test(montant.value()) ? phraseRiens(montant.value()).replace('Pour un riche, ça vaut', 'Soit') : '';
+  });
+  const erreur = boiteErreur();
+  const submit = h('button', { type: 'submit', class: 'btn btn-primaire btn-bloc mt-24' }, 'Publier', icon('arrow-right', { className: 'fleche' }));
+  function maj() {
+    const riche = cRiche.input.checked;
+    titre.wrap.hidden = !riche;
+    montant.wrap.hidden = !riche;
+  }
+  form.append(
+    h('fieldset', { class: 'prix-riches' }, h('legend', { class: 'visually-hidden' }, 'Que veux-tu publier ?'), cRiche.el, cPub.el),
+    titre.wrap, texte.wrap, montant.wrap,
+    h('div', { class: 'avertissement' }, icon('alert-triangle'),
+      h('span', {}, 'Ni vrai nom, ni adresse, ni coordonnées : les mêmes filtres et la même modération que pour les pauvres.')),
+    erreur.el, submit);
+  maj();
+  const { body } = openDialog({ title: 'Publier chez les riches', content: [form] });
+  setTimeout(() => cRiche.input.focus(), 50);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    erreur.hide();
+    const type = cRiche.input.checked ? 'riche' : 'publication';
+    const errs = type === 'riche' ? [titre.validate(), texte.validate(), montant.validate()] : [texte.validate()];
+    if (errs.some(Boolean)) {
+      (type === 'riche' && errs[0] ? titre : type === 'riche' && errs[2] && !errs[1] ? montant : texte).focus();
+      return;
+    }
+    chargement(submit, true, 'Envoi…');
+    try {
+      const m = montant.value().replace(/\s/g, '');
+      const r = await api.publierRiche({ type, titre: type === 'riche' ? titre.value() : null, texte: texte.value(), montant: type === 'riche' && m !== '' ? Number(m) : null });
+      document.dispatchEvent(new CustomEvent('wp:probleme-soumis'));
+      body.replaceChildren(r && r.statut === 'publie' ? await ecranEnLigne(r.id, type === 'riche' ? titre.value() : texte.value().slice(0, 70)) : ecranRecu());
     } catch (err) {
       erreur.show(err.message || 'Oups, quelque chose a coincé. Réessaie.');
     } finally {

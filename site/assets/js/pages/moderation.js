@@ -219,7 +219,8 @@ function carteProbleme(p) {
   }
   return h('article', { class: 'modo-item' },
     badges(p, 'probleme'),
-    h('h3', { class: 'modo-titre' }, p.titre),
+    h('h3', { class: 'modo-titre' }, p.titre || (p.type === 'publication' ? 'Publication de riche (sans titre)' : '')),
+    p.type && p.type !== 'pauvre' ? h('p', { class: 'modo-meta' }, p.type === 'riche' ? 'Problème de riche' : 'Publication de riche') : null,
     h('p', { class: 'modo-texte' }, p.texte),
     typeof p.montant === 'number' ? h('p', { class: 'modo-meta' }, `Montant : ${p.montant.toLocaleString('fr-FR')} €`) : null,
     auteur(p, p.cree_le),
