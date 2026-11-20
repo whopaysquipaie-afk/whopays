@@ -26,7 +26,7 @@ from (values
   (4, 'projet',
      'J’ai une idée d’entreprise, mais mon banquier n’a pas autant d’imagination que moi.',
      'Un food-truck de croissants qui livre au lit. Mon banquier a ri. Pas le bon rire. Un milliardaire avec de l’imagination ferait l’affaire.',
-     18000),
+     9000),
   (5, 'quotidien',
      'Je voudrais finir le mois sans calculatrice.',
      'Juste une fois. Faire les courses sans additionner chaque article de tête et sans reposer le fromage au dernier moment.',

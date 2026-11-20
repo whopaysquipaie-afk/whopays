@@ -42,7 +42,12 @@ export function champ(opts) {
       msg = !e ? 'Indique ton adresse e-mail.' : (!RE_EMAIL_VALIDE.test(e) || e.length > 254 ? 'Ton adresse e-mail n’a pas l’air valide.' : null);
     } else if (opts.check === 'montant') {
       const t = v.replace(/\s/g, '');
-      if (t !== '' && (!/^\d+$/.test(t) || Number(t) > (opts.maxValue ?? 1e6))) msg = `Indique un montant entier entre 0 et ${Number(opts.maxValue ?? 1e6).toLocaleString('fr-FR')} €.`;
+      const min = opts.required === false ? 0 : 1;
+      const max = Number(opts.maxValue ?? 1e6);
+      const plage = `Indique un montant entier de ${min} à ${max.toLocaleString('fr-FR')} €.`;
+      if (t === '') msg = opts.required === false ? null : (opts.messageVide || plage);
+      else if (!/^\d+$/.test(t) || Number(t) < min) msg = plage;
+      else if (Number(t) > max) msg = opts.messageMax || plage;
     } else if (opts.check !== 'none') {
       if (opts.required === false && v.trim() === '') msg = null;
       else msg = verifierChamp(v, { limites: [opts.min ?? 1, opts.max ?? 300], libelle: opts.libelle || opts.label, multiligne: !!opts.multiline });

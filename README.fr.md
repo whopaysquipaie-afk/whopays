@@ -104,7 +104,7 @@ Turnstile, Brevo et les modèles d'e-mails en français : [docs/CONFIGURATION.md
 - **RLS sur toutes les tables, aucun droit direct** pour `anon` et `authenticated`.
 - **20 fonctions RPC** `SECURITY DEFINER` avec `search_path` vide, validation des entrées, messages d'erreur en français.
 - **Filtres côté serveur** (mots interdits, téléphones, IBAN, e-mails, liens), reproduits dans le navigateur pour un retour immédiat — vérifiés identiques.
-- **Limites :** 3 problèmes / 24 h, 10 commentaires / h, 30 messages de club / h, 20 signalements / h. **3 signalements masquent** un contenu.
+- **Limites :** 10 problèmes / 24 h (montant obligatoire pour un pauvre, de 1 à 10 000 €), 10 commentaires / h, 30 messages de club / h, 20 signalements / h. **3 signalements masquent** un contenu.
 - **Cloisonnement des camps garanti en SQL.**
 - **Aucun `innerHTML`**, un constructeur de DOM qui refuse les URL `javascript:`, une CSP stricte sur chaque page.
 - **Recherche de secrets :** `gitleaks` à chaque push, et `tools/verif.mjs` analyse les fichiers *et tout l'historique Git*.

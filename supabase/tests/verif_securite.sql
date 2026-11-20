@@ -173,7 +173,7 @@ begin
     v_pb_publie := (public.soumettre_probleme('factures', 'Ma facture de test',
                     'Un texte de test, assez long pour passer.', 120) ->> 'id')::uuid;
     v_pb_recu   := (public.soumettre_probleme('reve', 'Mon rêve non publié',
-                    'Ma mère commence sa chimio : ce problème attend la modération.', null) ->> 'id')::uuid;
+                    'Ma mère commence sa chimio : ce problème attend la modération.', 80) ->> 'id')::uuid;
     v_pb_masque := (public.soumettre_probleme('patron', 'Mon patron masqué',
                     'Ce problème est publié puis masqué.', 300) ->> 'id')::uuid;
     perform pg_temp.wp_jouer('authenticated', v_riche);
@@ -424,7 +424,7 @@ begin
     -- 7b. Sensitive word (accents and case ignored, whole words) -> 'recu', invisible
     perform pg_temp.wp_jouer('authenticated', v_pauvre2);
     v_j := public.soumettre_probleme('quotidien', 'Je dors À LA RUE depuis lundi',
-                                     'Ce problème doit attendre la modération.', null);
+                                     'Ce problème doit attendre la modération.', 60);
     v_pb_sensible := (v_j ->> 'id')::uuid;
     v_ok := v_j ->> 'statut' = 'recu' and public.get_probleme_public(v_pb_sensible) is null;
     perform pg_temp.wp_jouer(null);
@@ -485,13 +485,13 @@ begin
     -- 7f. Through soumettre_probleme (007): humour published at once, real distress waits
     perform pg_temp.wp_jouer('authenticated', v_pauvre4);
     v_j := public.soumettre_probleme('quotidien', 'Je vais mourir de rire',
-                                     'Mon chat a encore raté son saut sur le canapé.', null);
+                                     'Mon chat a encore raté son saut sur le canapé.', 20);
     v_txt := v_j ->> 'statut';
     v_j := public.soumettre_probleme('plaisir', 'Mon enceinte Bluetooth me trahit',
                                      'Elle se connecte toute seule chez le voisin.', 30);
     v_txt := v_txt || ' ' || (v_j ->> 'statut');
     v_j := public.soumettre_probleme('quotidien', 'Une période difficile',
-                                     'J''ai envie de mourir depuis quelques semaines.', null);
+                                     'J''ai envie de mourir depuis quelques semaines.', 100);
     v_txt := v_txt || ' ' || (v_j ->> 'statut');
     perform pg_temp.wp_jouer(null);
     v_res := v_res || pg_temp.wp_ligne(v_txt = 'publie publie recu',
@@ -643,7 +643,7 @@ begin
         'commenter rejette ' || v_attendu, v_hint);
     end loop;
     begin
-      perform public.soumettre_probleme('reve', 'Appelez le 06 12 34 56 78', 'Un texte de test assez long.', null);
+      perform public.soumettre_probleme('reve', 'Appelez le 06 12 34 56 78', 'Un texte de test assez long.', 100);
       v_hint := '(aucune erreur)';
     exception when others then
       get stacked diagnostics v_hint = pg_exception_hint;
@@ -682,7 +682,7 @@ begin
     -- =================================================================
     perform pg_temp.wp_jouer('authenticated', v_bloque);
     foreach v_t in array array[
-      format('select public.soumettre_probleme(%L, %L, %L)', 'reve', 'Un titre correct', 'Un texte de test assez long.'),
+      format('select public.soumettre_probleme(%L, %L, %L, 100)', 'reve', 'Un titre correct', 'Un texte de test assez long.'),
       format('select public.reagir(%L::uuid, %L)', v_pb_publie, 'rire'),
       format('select public.commenter(%L::uuid, %L)', v_pb_publie, 'Je suis bloqué'),
       format('select public.envoyer_message_club(%L)', 'Je suis bloqué'),
@@ -760,23 +760,23 @@ begin
     perform pg_temp.wp_jouer(null);
 
     -- =================================================================
-    -- 13. Rate limits (member P5): 3 problems / 24 h, 10 comments / h,
+    -- 13. Rate limits (member P5): 10 problems / 24 h (008), 10 comments / h,
     --     30 club messages / h, 20 reports / h
     -- =================================================================
     perform pg_temp.wp_jouer('authenticated', v_pauvre5);
 
     v_i := 0; v_hint := null;
     begin
-      for v_k in 1 .. 4 loop
+      for v_k in 1 .. 11 loop
         perform public.soumettre_probleme('defi', 'Problème de test ' || v_k,
-                                          'Un texte de test pour la limite, numéro ' || v_k || '.', null);
+                                          'Un texte de test pour la limite, numéro ' || v_k || '.', 10 * v_k);
         v_i := v_i + 1;
       end loop;
     exception when others then
       get stacked diagnostics v_hint = pg_exception_hint;
     end;
-    v_res := v_res || pg_temp.wp_ligne(v_i = 3 and v_hint = 'limite',
-      'limite de 3 problèmes par 24 h', format('%s acceptés, %s', v_i, v_hint));
+    v_res := v_res || pg_temp.wp_ligne(v_i = 10 and v_hint = 'limite',
+      'limite de 10 problèmes par 24 h (008)', format('%s acceptés, %s', v_i, v_hint));
 
     v_i := 0; v_hint := null;
     begin
@@ -908,9 +908,9 @@ begin
     perform public.creer_profil('riche', 'Modo de test', 'modo-' || v_suffixe || '@exemple.invalid');
     perform pg_temp.wp_jouer('authenticated', v_auteur);
     perform public.creer_profil('pauvre', 'Auteur modere', 'auteur-' || v_suffixe || '@exemple.invalid');
-    v_j := public.soumettre_probleme('quotidien', 'Mon chat me snobe', 'Mon chat refuse de me dire bonjour le matin.', null);
+    v_j := public.soumettre_probleme('quotidien', 'Mon chat me snobe', 'Mon chat refuse de me dire bonjour le matin.', 40);
     v_pb_m_pub := (v_j ->> 'id')::uuid;
-    v_j := public.soumettre_probleme('famille', 'Ma soeur malade', 'Ma soeur commence sa chimio, on aimerait un coup de main.', null);
+    v_j := public.soumettre_probleme('famille', 'Ma soeur malade', 'Ma soeur commence sa chimio, on aimerait un coup de main.', 200);
     v_pb_m_recu := (v_j ->> 'id')::uuid;
     v_com_m := (public.commenter(v_pb_m_pub, 'Commentaire a moderer') ->> 'id')::uuid;
     perform pg_temp.wp_jouer(null);
@@ -1109,6 +1109,31 @@ begin
     v_res := v_res || pg_temp.wp_ligne(
       v_ok and not exists (select 1 from public.moderateurs m where m.user_id = v_modo),
       'supprimer_mon_compte retire aussi le droit de modérateur');
+
+    -- =================================================================
+    -- 17. R-027 (008): the poor must give an amount from 1 to 10 000 €
+    -- =================================================================
+    perform pg_temp.wp_jouer('authenticated', v_pauvre3);
+    foreach v_t in array array['null', '0', '-5', '10001'] loop
+      begin
+        execute format('select public.soumettre_probleme(%L, %L, %L, %s)',
+                       'reve', 'Un rêve sans plafond', 'Un texte de test assez long.', v_t);
+        v_hint := '(aucune erreur)'; v_txt := null;
+      exception when others then
+        get stacked diagnostics v_hint = pg_exception_hint, v_txt = message_text;
+      end;
+      v_res := v_res || pg_temp.wp_ligne(v_hint = 'invalide'
+          and (v_t <> '10001' or v_txt = 'Un problème de pauvre ne dépasse jamais 10x Rien (10 000 €).'),
+        'un pauvre ne publie pas avec le montant ' || v_t, coalesce(v_txt, v_hint));
+    end loop;
+    v_j := public.soumettre_probleme('reve', 'Un rêve au plafond', 'Un texte de test assez long.', 10000);
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      (select p.montant from public.problems p where p.id = (v_j ->> 'id')::uuid) = 10000,
+      'un pauvre publie avec 10 000 € (le plafond)', v_j::text);
+    v_res := v_res || pg_temp.wp_ligne(
+      not exists (select 1 from public.problems p where p.est_exemple and p.montant > 10000),
+      'aucun exemple ne dépasse 10 000 €');
 
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';

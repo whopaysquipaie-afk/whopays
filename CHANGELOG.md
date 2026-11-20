@@ -10,6 +10,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Versions fol
 - « Mon espace » on phones: the identity card is now mobile first (avatar + pseudo on one row, pseudo on two lines at most, buttons below at full width; former layout from 768 px), and the page no longer overflows horizontally at 360 px (grid tracks `minmax(0, 1fr)` instead of `auto`, which grew to the width of the referral link). Moderation buttons wrap instead of overflowing; the bottom banner reserves the iPhone home-bar area.
 
 ### Changed
+- Problems of the poor (`008_plafond_pauvres.sql`): the amount is now required, a whole number from 1 to 10 000 € (« Un problème de pauvre ne dépasse jamais 10x Rien (10 000 €). »), and the limit goes from 3 to 10 problems per 24 h. The one example above the cap now asks for 9 000 €. Publish form: required amount field, `max=10000`, live conversion in Riens.
 - JavaScript budget is now measured per page (entry module + everything it can import, dynamic imports included), still 150 KB, instead of the sum of every module of the site.
 - Story card: the excerpt gets fewer lines when the title is long, so the author line never runs into the footer.
 - Moderation page, restricted-access screen: a visitor without an account now gets a main « Rejoindre » button (the join dialog stays on the page, which refreshes once the account exists), with « Déjà membre ? Se connecter » as secondary; a member who is not a moderator sees their pseudo, their member id to copy and a hint to ask the administrator.

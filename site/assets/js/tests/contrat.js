@@ -371,10 +371,10 @@ test('D. Publier', 'un problème sans mot sensible est publié tout de suite', a
 test('D. Publier', 'un mot sensible (titre ou texte, accents ignorés) envoie en relecture, invisible', async () => {
   const { api, join } = fresh();
   await join('pauvre');
-  const r1 = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Je suis à la rue', texte: 'Depuis lundi, avec mon sac et mon chat.' });
+  const r1 = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Je suis à la rue', texte: 'Depuis lundi, avec mon sac et mon chat.', montant: 50 });
   eq(r1.statut, 'recu');
   eq(await api.getProblemePublic(r1.id), null);
-  const r2 = await api.soumettreProbleme({ categorie: 'famille', titre: 'Une semaine compliquée', texte: 'Ma mère commence sa CHIMIO lundi, on cherche un taxi.' });
+  const r2 = await api.soumettreProbleme({ categorie: 'famille', titre: 'Une semaine compliquée', texte: 'Ma mère commence sa CHIMIO lundi, on cherche un taxi.', montant: 50 });
   eq(r2.statut, 'recu');
   const e = await api.getMonEspace();
   assert(e.problemes.every((x) => x.statut === 'recu'), 'les deux en relecture');
@@ -382,15 +382,15 @@ test('D. Publier', 'un mot sensible (titre ou texte, accents ignorés) envoie en
 test('D. Publier', 'mots sensibles : mots entiers seulement (« violon », « abusé » passent)', async () => {
   const { api, join } = fresh();
   await join('riche');
-  const r = await api.soumettreProbleme({ categorie: 'plaisir', titre: 'Un violon pour mon chat', texte: 'Le prix est abusé, mais il chante faux sans.' });
+  const r = await api.soumettreProbleme({ categorie: 'plaisir', titre: 'Un violon pour mon chat', texte: 'Le prix est abusé, mais il chante faux sans.', montant: 50 });
   eq(r.statut, 'publie');
 });
 test('D. Publier', 'mots sensibles v2 (R-020) : « mourir de rire », « enceinte Bluetooth » publiés ; « envie de mourir » en relecture', async () => {
   const { api, join } = fresh();
   await join('pauvre');
-  eq((await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Je vais mourir de rire', texte: 'Mon chat a encore raté son saut sur le canapé.' })).statut, 'publie');
-  eq((await api.soumettreProbleme({ categorie: 'plaisir', titre: 'Mon enceinte Bluetooth me trahit', texte: 'Elle se connecte toute seule chez le voisin, abus de pouvoir.' })).statut, 'publie');
-  eq((await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Une période difficile', texte: 'J’ai envie de mourir depuis quelques semaines.' })).statut, 'recu');
+  eq((await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Je vais mourir de rire', texte: 'Mon chat a encore raté son saut sur le canapé.', montant: 50 })).statut, 'publie');
+  eq((await api.soumettreProbleme({ categorie: 'plaisir', titre: 'Mon enceinte Bluetooth me trahit', texte: 'Elle se connecte toute seule chez le voisin, abus de pouvoir.', montant: 50 })).statut, 'publie');
+  eq((await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Une période difficile', texte: 'J’ai envie de mourir depuis quelques semaines.', montant: 50 })).statut, 'recu');
   const { contientMotSensible } = await import('../mots-sensibles.js');
   for (const t of ['Je suis drogué au café', 'Mon chat frappe à la porte', 'Un abus de pouvoir']) assert(!contientMotSensible(t), `publié : ${t}`);
   for (const t of ['Je veux mourir', 'Je suis enceinte', 'Il me frappe', 'J’ai des idées noires', 'Des pensées suicidaires', 'Je me drogue']) assert(contientMotSensible(t), `relecture : ${t}`);
@@ -399,16 +399,16 @@ test('D. Publier', 'publication automatique coupée : tout part en relecture', a
   const { api, join, admin } = fresh();
   await join('pauvre');
   await admin.setPublicationAuto(false);
-  const r = await api.soumettreProbleme({ categorie: 'reve', titre: 'Voir la mer', texte: 'Une fois, en vrai, pas en photo.', montant: null });
+  const r = await api.soumettreProbleme({ categorie: 'reve', titre: 'Voir la mer', texte: 'Une fois, en vrai, pas en photo.', montant: 50 });
   eq(r.statut, 'recu');
   eq(await api.getProblemePublic(r.id), null);
   await admin.setPublicationAuto(true);
-  eq((await api.soumettreProbleme({ categorie: 'reve', titre: 'Voir la montagne', texte: 'Et redescendre en luge.' })).statut, 'publie');
+  eq((await api.soumettreProbleme({ categorie: 'reve', titre: 'Voir la montagne', texte: 'Et redescendre en luge.', montant: 50 })).statut, 'publie');
 });
 test('D. Publier', 'un membre ne peut pas publier lui-même un problème en relecture (seule la modération publie)', async () => {
   const { api, join, admin } = fresh();
   await join('pauvre');
-  const r = await api.soumettreProbleme({ categorie: 'reve', titre: 'Sortir de la dépression', texte: 'Une fois, en vrai, pas en photo.', montant: null });
+  const r = await api.soumettreProbleme({ categorie: 'reve', titre: 'Sortir de la dépression', texte: 'Une fois, en vrai, pas en photo.', montant: 50 });
   eq(r.statut, 'recu');
   assert(!('statut' in await api.majProfil({ pseudo: 'Tricheur' })), 'maj_profil ne touche pas aux problèmes');
   eq(await api.getProblemePublic(r.id), null);
@@ -430,14 +430,36 @@ test('D. Publier', 'validation : catégorie, longueurs, montant, filtres', async
   await rejects(api.soumettreProbleme({ ...ok, texte: 'Virez sur FR76 3000 6000 0112 3456 7890 189 merci' }), 'filtre');
   await rejects(api.soumettreProbleme({ ...ok, titre: 'Appelez le 0612345678' }), 'filtre');
 });
-test('D. Publier', 'limite : 3 problèmes par 24 h', async () => {
+test('D. Publier', 'limite (R-027) : 10 problèmes par 24 h', async () => {
   const { api, join, advance } = fresh();
   await join('pauvre');
-  const p = (i) => api.soumettreProbleme({ categorie: 'defi', titre: `Défi numéro ${i}`, texte: 'Un texte de plus de dix caractères.' });
-  await p(1); await p(2); await p(3);
-  await rejects(p(4), 'limite');
+  const p = (i) => api.soumettreProbleme({ categorie: 'defi', titre: `Défi numéro ${i}`, texte: 'Un texte de plus de dix caractères.', montant: 10 * i });
+  for (let i = 1; i <= 10; i++) await p(i);
+  const e = await rejects(p(11), 'limite');
+  assert(/10 problèmes en 24 h/.test(e.message), e.message);
   advance(DAY + 1000);
-  eq((await p(5)).statut, 'publie');
+  eq((await p(12)).statut, 'publie');
+});
+test('D. Publier', 'plafond (R-027) : un pauvre donne toujours un montant de 1 à 10 000 €', async () => {
+  const { api, join } = fresh();
+  await join('pauvre');
+  const ok = { categorie: 'reve', titre: 'Un rêve au plafond', texte: 'Un texte de plus de dix caractères.' };
+  for (const montant of [undefined, null, '', 0, -1, 12.5]) {
+    const e = await rejects(api.soumettreProbleme({ ...ok, montant }), 'invalide', `montant ${JSON.stringify(montant)} :`);
+    assert(/de 1 à 10 000 €/.test(e.message), e.message);
+  }
+  const e = await rejects(api.soumettreProbleme({ ...ok, montant: 10001 }), 'invalide');
+  eq(e.message, 'Un problème de pauvre ne dépasse jamais 10x Rien (10 000 €).');
+  const r = await api.soumettreProbleme({ ...ok, montant: 10000 });
+  eq((await api.getProblemePublic(r.id)).montant, 10000);
+  eq((await api.soumettreProbleme({ ...ok, titre: 'Un tout petit rêve', montant: 1 })).statut, 'publie');
+});
+test('D. Publier', 'plafond (R-027) : exemples et données de démo des pauvres sous 10 000 €', () => {
+  for (const [, titre, , montant] of EXEMPLES) assert(montant === null || montant <= 10000, `exemple « ${titre} » : ${montant}`);
+  for (const [, titre, , montant, idx] of PROBLEMES) {
+    eq(MEMBRES[idx][1], 'pauvre', `auteur de « ${titre} »`);
+    assert(Number.isInteger(montant) && montant >= 1 && montant <= 10000, `« ${titre} » : ${montant}`);
+  }
 });
 
 /* ================= E. React, comment, report ================= */
@@ -499,7 +521,7 @@ test('E. Commentaires', 'supprimer : seulement l’auteur du commentaire', async
 test('E. Commentaires', 'masquer : seulement l’auteur du problème ; texte masqué non renvoyé', async () => {
   const { api, join, as, admin } = fresh();
   const auteur = await join('pauvre', 'Auteur du problème');
-  const pb = await api.soumettreProbleme({ categorie: 'amour', titre: 'Mon crush a un yacht', texte: 'Et moi une trottinette. Ça coince.' });
+  const pb = await api.soumettreProbleme({ categorie: 'amour', titre: 'Mon crush a un yacht', texte: 'Et moi une trottinette. Ça coince.', montant: 50 });
   await admin.publier(pb.id);
   await api.seDeconnecter();
   await join('riche', 'Moqueur');
@@ -640,7 +662,7 @@ test('G. Mon espace', 'supprimer mon compte efface tout et déconnecte', async (
   await api.reagir(p.id, 'rire');
   await api.commenter(p.id, 'Je pars bientôt');
   await api.envoyerMessageClub('Au revoir le club');
-  await api.soumettreProbleme({ categorie: 'reve', titre: 'Partir loin', texte: 'Très loin, sans laisser d’adresse.' });
+  await api.soumettreProbleme({ categorie: 'reve', titre: 'Partir loin', texte: 'Très loin, sans laisser d’adresse.', montant: 50 });
   eq(await api.supprimerMonCompte(), true);
   eq((await api.getSession()).connecte, false);
   const brut = admin.etatBrut();
@@ -706,7 +728,7 @@ const MOD_APPELS = (m, ids) => [
 test('H. Modération', 'visiteur et membre non modérateur : refusés sur chaque fonction, rien ne change', async () => {
   const { api, join } = fresh();
   const auteur = await join('pauvre');
-  const r = await api.soumettreProbleme({ categorie: 'famille', titre: 'Une semaine compliquée', texte: 'Ma mère commence sa chimio lundi.' });
+  const r = await api.soumettreProbleme({ categorie: 'famille', titre: 'Une semaine compliquée', texte: 'Ma mère commence sa chimio lundi.', montant: 50 });
   eq(r.statut, 'recu');
   const ids = { probleme: r.id, membre: auteur.userId };
   await api.seDeconnecter();
@@ -724,8 +746,8 @@ test('H. Modération', 'visiteur et membre non modérateur : refusés sur chaque
 test('H. Modération', 'modérateur : à relire, publier, refuser, réorienter, récents', async () => {
   const { api, join, as, admin } = fresh();
   const auteur = await join('pauvre');
-  const sensible = await api.soumettreProbleme({ categorie: 'famille', titre: 'Une semaine compliquée', texte: 'Ma mère commence sa chimio lundi.' });
-  const normal = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon grille-pain me juge', texte: 'Il brûle tout, sauf mes factures.' });
+  const sensible = await api.soumettreProbleme({ categorie: 'famille', titre: 'Une semaine compliquée', texte: 'Ma mère commence sa chimio lundi.', montant: 50 });
+  const normal = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon grille-pain me juge', texte: 'Il brûle tout, sauf mes factures.', montant: 50 });
   const modo = await join('riche', 'Modo');
   await admin.setModerateur(modo.userId);
   eq(await api.moderation.suisJe(), true);
@@ -752,7 +774,7 @@ test('H. Modération', 'modérateur : à relire, publier, refuser, réorienter, 
 test('H. Modération', 'modérateur : signalés, masquer / rétablir (alias anglais), bloquer / débloquer', async () => {
   const { api, join, as, admin } = fresh();
   const auteur = await join('pauvre');
-  const pb = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon chat me snobe', texte: 'Il refuse de me dire bonjour le matin.' });
+  const pb = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon chat me snobe', texte: 'Il refuse de me dire bonjour le matin.', montant: 50 });
   const com = await api.commenter(pb.id, 'Commentaire à modérer');
   const modo = await join('riche', 'Modo');
   await admin.setModerateur(modo.userId);

@@ -5,7 +5,7 @@ import { h, openDialog, toastError } from './ui.js';
 import { icon } from './icons.js';
 import { CATEGORIES, isCategory } from './categories.js';
 import { champ, boiteErreur, chargement } from './champs.js';
-import { phraseRiens } from './riens.js';
+import { phraseRiens, PLAFOND_PAUVRE } from './riens.js';
 import { champsRejoindre, executerRejoindre, INFO_DONNEES } from './auth.js';
 import { creerTurnstile } from './turnstile.js';
 import { session } from './page.js';
@@ -69,7 +69,13 @@ export async function ouvrirPublier({ categorie = null } = {}) {
 
   const titre = champ({ name: 'titre', label: 'Ton problème en une phrase', min: 3, max: 80, libelle: 'Le titre', placeholder: 'Ex. : Mon frigo fait de l’écho.' });
   const texte = champ({ name: 'texte', label: 'Raconte', min: 10, max: 600, multiline: true, rows: 5, libelle: 'Le texte', placeholder: 'Avec humour si tu peux. Sans vrai nom, sans adresse.' });
-  const montant = champ({ name: 'montant', label: 'Montant recherché (€)', required: false, check: 'montant', inputmode: 'numeric', maxValue: 1000000, help: 'Indicatif. Personne ne paiera ici : c’est un projet test, sans aucune collecte.' });
+  // R-027: required, 1 to 10 000 € (= 008_plafond_pauvres.sql)
+  const montant = champ({
+    name: 'montant', label: 'Montant recherché (€)', check: 'montant', inputmode: 'numeric', minValue: 1, maxValue: PLAFOND_PAUVRE,
+    messageVide: 'Indique le montant recherché : un nombre entier de 1 à 10 000 €.',
+    messageMax: 'Un problème de pauvre ne dépasse jamais 10x Rien (10 000 €).',
+    help: 'De 1 à 10 000 € (10x Rien). Indicatif : personne ne paiera ici, aucun argent ne circule.'
+  });
 
   // Live conversion in "rien / Rien" (R-026)
   const enDirect = h('p', { class: 'riens-direct', 'aria-live': 'polite' });

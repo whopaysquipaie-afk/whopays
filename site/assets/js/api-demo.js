@@ -8,6 +8,7 @@ import {
   raisonFiltre, nettoyer, verifierLongueur, LIMITES, RE_EMAIL_VALIDE, MESSAGE_FILTRE, MOTS_INTERDITS_DEFAUT
 } from './filtres.js';
 import { MOTS_SENSIBLES_DEFAUT, contientMotSensible } from './mots-sensibles.js';
+import { PLAFOND_PAUVRE } from './riens.js';
 import { MEMBRES, EXEMPLES, PROBLEMES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES } from './demo-data.js';
 
 export const DEMO_KEY = 'whopays_demo_v1';
@@ -95,6 +96,15 @@ function entierValide(valeur, [min, max], libelle) {
   if (valeur === null || valeur === undefined || valeur === '') return null;
   const n = typeof valeur === 'number' ? valeur : Number(String(valeur).replace(/\s/g, ''));
   if (!Number.isInteger(n) || n < min || n > max) throw ERR.invalide(`${libelle} doit être un nombre entier entre ${min} et ${max.toLocaleString('fr-FR')}.`);
+  return n;
+}
+
+/** R-027 (= 008): a problem of the poor always has an amount, a whole number from 1 to 10 000 €. */
+function montantPauvre(valeur) {
+  const n = valeur === null || valeur === undefined || valeur === '' ? NaN
+    : typeof valeur === 'number' ? valeur : Number(String(valeur).replace(/\s/g, ''));
+  if (!Number.isInteger(n) || n < 1) throw ERR.invalide('Indique le montant recherché : un nombre entier de 1 à 10 000 €.');
+  if (n > PLAFOND_PAUVRE) throw ERR.invalide('Un problème de pauvre ne dépasse jamais 10x Rien (10 000 €).');
   return n;
 }
 
@@ -374,8 +384,8 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         if (!CATEGORY_IDS.includes(categorie)) throw ERR.invalide('Choisis une catégorie.');
         const ti = texteValide(titre, LIMITES.titre, 'Le titre', { mots: st.mots_interdits });
         const tx2 = texteValide(texte, LIMITES.texte, 'Le texte', { multiligne: true, mots: st.mots_interdits });
-        const mt = entierValide(montant, LIMITES.montant, 'Le montant');
-        if (recent(st.problems, p.id, DAY) >= 3) throw ERR.limite('Tu as déjà envoyé 3 problèmes en 24 h. Reviens demain !');
+        const mt = p.camp === 'pauvre' ? montantPauvre(montant) : entierValide(montant, LIMITES.montant, 'Le montant');
+        if (recent(st.problems, p.id, DAY) >= 10) throw ERR.limite('Tu as déjà envoyé 10 problèmes en 24 h. Reviens demain !');
         // Published at once when automatic publication is on and nothing sensitive is detected
         // (same rule as soumettre_probleme in 005_publication_auto.sql); otherwise waits for a human review.
         const auto = !(st.reglages && st.reglages.publication_auto === false);

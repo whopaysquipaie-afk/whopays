@@ -126,7 +126,7 @@ The repository is public and the site handles real e-mail addresses, so security
 - **Row Level Security on every table and zero direct grants** to `anon` / `authenticated`. Nobody can `select * from profiles`.
 - **20 RPC functions**, all `SECURITY DEFINER` with `SET search_path = ''`, input validation, French error messages.
 - **Server-side filters** (banned words, phone numbers, IBANs, e-mails, links) mirrored in the browser for instant feedback — tested to give identical results.
-- **Rate limits:** 3 problems / 24 h, 10 comments / h, 30 club messages / h, 20 reports / h. **3 reports hide** any content.
+- **Rate limits:** 10 problems / 24 h (amount required for the poor, 1 to 10,000 €), 10 comments / h, 30 club messages / h, 20 reports / h. **3 reports hide** any content.
 - **Camp isolation enforced in SQL**: a club query only ever returns the caller's camp.
 - **No `innerHTML`**, a DOM builder that refuses `javascript:` URLs and inline handlers, and a strict CSP on every page.
 - **Secret scanning:** `gitleaks` on every push, and `tools/verif.mjs` scans the files *and the whole Git history*.
