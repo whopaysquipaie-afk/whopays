@@ -48,18 +48,26 @@ async function afficher() {
 
 function accesReserve(s) {
   const blocs = [h('h2', {}, 'Accès réservé'), h('p', {}, 'Cette page est réservée aux modérateurs du site.')];
-  if (!s || !s.userId) {
-    blocs.push(h('p', {}, 'Connecte-toi d’abord avec ton compte de membre, puis reviens sur cette page.'));
-    blocs.push(h('button', { type: 'button', class: 'btn btn-primaire btn-bloc', onclick: () => intent('reconnecter') }, 'Déjà membre ? Se connecter'));
+  if (!s || !s.userId || !s.profil) {
+    // R-022: a visitor without an account must be able to create one here first.
+    // The join dialog never leaves the page: on success, 'wp:session-maj' re-renders this screen.
+    blocs.push(h('p', {}, 'Pour devenir modérateur, il faut d’abord un compte de membre. Crée-le ici : tu restes sur cette page.'));
+    blocs.push(h('button', {
+      type: 'button', class: 'btn btn-primaire btn-bloc',
+      onclick: () => intent('rejoindre', { raison: 'Crée ton compte de membre : tu reviens sur la page de modération juste après.' })
+    }, 'Rejoindre'));
+    blocs.push(h('button', { type: 'button', class: 'btn btn-fantome btn-bloc', onclick: () => intent('reconnecter') }, 'Déjà membre ? Se connecter'));
   } else {
     const id = s.userId;
     blocs.push(
-      h('p', {}, 'Ton identifiant de membre (à donner à l’administrateur pour devenir modérateur) :'),
+      h('p', {}, 'Tu es connecté en tant que ', h('strong', { class: 'modo-pseudo' }, s.profil.pseudo || 'membre'), '.'),
+      h('p', {}, 'Ton identifiant de membre :'),
       h('code', { class: 'modo-identifiant' }, id),
       h('button', {
         type: 'button', class: 'btn btn-fantome btn-bloc',
         onclick: async () => toast(await copyText(id) ? 'Identifiant copié.' : 'Copie impossible : sélectionne-le à la main.')
-      }, 'Copier mon identifiant')
+      }, 'Copier mon identifiant'),
+      h('p', { class: 'modo-note' }, 'Demande à l’administrateur de t’ajouter comme modérateur (envoie-lui ton pseudo et ton identifiant), puis recharge cette page.')
     );
   }
   if (mod.mode === 'demo') {

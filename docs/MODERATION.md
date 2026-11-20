@@ -14,11 +14,12 @@ Adresse : `moderation.html` à la racine du site (après `CONFIG.SITE_URL`). Ell
 **Devenir modérateur** (une fois, dans le SQL Editor) :
 
 1. Avoir un compte de membre sur le site, avec un e-mail confirmé (pour pouvoir se reconnecter par lien magique sur le téléphone).
+   Sans compte, `moderation.html` propose d'abord « Rejoindre » (le dialogue d'inscription reste sur la page), puis « Déjà membre ? Se connecter ».
 2. Exécuter, en remplaçant le pseudo :
    ```sql
    insert into public.moderateurs (user_id) select id from public.profiles where pseudo = '<pseudo>';
    ```
-   Variante : ouvrir `moderation.html` connecté avec ce compte ; la page « Accès réservé » affiche l'identifiant du membre à copier, puis
+   Variante : ouvrir `moderation.html` connecté avec ce compte ; la page « Accès réservé » affiche le pseudo et l'identifiant du membre à copier, puis
    `insert into public.moderateurs (user_id) values ('<identifiant>');`
 3. Retirer le droit : `delete from public.moderateurs where user_id = '<identifiant>';` (il disparaît aussi quand le compte est supprimé).
 
