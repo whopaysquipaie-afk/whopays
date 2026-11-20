@@ -21,7 +21,7 @@ function ligne(l, { moi = false } = {}) {
     h('td', { class: 'rang' }, ordinal(l.rang)),
     h('td', { class: 'pseudo' }, l.pseudo, moi ? h('span', { class: 'badge badge-pauvre' }, 'toi') : null),
     h('td', {}, formatNumber(l.nb)),
-    h('td', { class: 'total' }, totalRiens(l.total)));
+    h('td', { class: 'total' }, ...totalRiens(l.total)));
 }
 
 async function charger() {
@@ -45,7 +45,7 @@ async function charger() {
       icon(i === 0 ? 'crown' : 'trophy', { className: 'marche-icone' }),
       h('p', { class: 'marche-titre' }, d.titre),
       h('p', { class: 'marche-pseudo' }, h('span', { class: 'visually-hidden' }, `${ordinal(l.rang)} : `), l.pseudo),
-      h('p', { class: 'marche-total' }, totalRiens(l.total)),
+      h('p', { class: 'marche-total' }, ...totalRiens(l.total)),
       h('p', { class: 'marche-sous' }, d.sous)));
   });
 

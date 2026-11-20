@@ -1090,3 +1090,40 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .annonce-riche { margin: 0; padding: 12px 16px; border-radius: var(--r-carte); background: var(--citron); color: var(--noir); font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 .annonce-riche a { color: var(--noir); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
 .annonce-riche a:focus-visible { outline: 3px solid var(--noir); outline-offset: 2px; }
+
+/* ---------- R-032: the Rien first (big), the euro after (small) ---------- */
+.montant-riens { font-family: var(--f-titre); font-weight: 900; font-style: italic; letter-spacing: -.01em; }
+.montant-euros { display: block; font-family: var(--f-texte); font-weight: 600; font-style: normal; font-size: 13px; color: var(--gris-carte); margin-top: 2px; }
+.carte-montant { font-size: 16px; }
+.carte-montant .montant-riens { font-size: 24px; color: var(--lavande-texte); }
+.carte-riche .carte-montant .montant-riens { color: var(--noir); }
+.carte-riche .carte-montant .montant-euros { color: #2F3A0A; }
+.carte-large .carte-montant .montant-riens { font-size: 34px; }
+.carte-large .carte-montant .montant-euros { font-size: 15px; }
+.carte-ligne-bas .montant-riens { font-size: 20px; color: var(--lavande-texte); }
+.carte-ligne-bas .montant-euros { display: inline; margin-left: 6px; }
+.choc .montant { color: var(--lavande); }
+.choc .riens-total { font-family: var(--f-texte); font-style: normal; font-weight: 600; font-size: clamp(15px, 2.4vw, 20px); color: var(--gris); }
+.riens-direct { font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: 26px; color: var(--citron); margin-top: 8px; }
+.prix-montant .prix-periode { font-family: var(--f-texte); font-style: normal; font-weight: 600; font-size: 16px; }
+.prix-euros { color: var(--gris); font-weight: 600; font-size: 14px; }
+.palmares-table td.total .montant-riens { font-size: 18px; color: var(--lavande); }
+.palmares-table td.total .montant-euros { color: var(--gris); font-size: 12px; }
+.marche-total .montant-riens { font-size: 22px; display: block; }
+.marche-total .montant-euros { color: inherit; opacity: .75; }
+.mon-rang .total-pauvre .montant-riens { margin-left: 6px; }
+.mon-rang .total-pauvre .montant-euros { color: var(--gris); font-size: 14px; margin-top: 4px; }
+.modo-meta strong { color: var(--blanc); }
+/* Home: the official currency */
+.jetons-rien { list-style: none; margin: 24px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 16px; }
+.jeton-rien { width: 150px; height: 150px; border-radius: 50%; background: var(--lavande); color: var(--lavande-texte); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-shadow: inset 0 0 0 6px rgba(59, 42, 140, .18); }
+.jeton-rien.majuscule { background: var(--citron); color: var(--noir); box-shadow: inset 0 0 0 6px rgba(11, 11, 11, .15); }
+.jeton-grand { font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: 30px; line-height: 1; }
+.jeton-petit { margin-top: 6px; font-weight: 600; font-size: 14px; }
+.exemples-rien { list-style: none; margin: 24px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.exemples-rien li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 12px 16px; border: 1px solid var(--bordure); border-radius: var(--r-carte); background: var(--anthracite); }
+.exemple-de { color: var(--gris); font-weight: 600; }
+.exemple-fleche { color: var(--gris); }
+.exemple-vers { font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: 20px; color: var(--citron); }
+.exemple-vers small { font-family: var(--f-texte); font-style: normal; font-weight: 600; font-size: 13px; color: var(--gris); }
+@media (min-width: 768px) { .exemples-rien { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

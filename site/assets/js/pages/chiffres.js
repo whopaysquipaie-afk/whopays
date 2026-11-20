@@ -21,11 +21,11 @@ async function charger() {
     return;
   }
   const c = chiffres;
-  countUp($('#montant-total'), c.montant_total, { duration: 1600, format: formatEuros });
-  const riens = enRiens(c.montant_total);
-  const elRiens = $('#riens-total');
-  elRiens.textContent = riens ? `soit ${riens}` : '';
-  elRiens.hidden = !riens;
+  // R-032: the total in Riens in big, the euros after, small
+  countUp($('#montant-total'), c.montant_total, { duration: 1600, format: (n) => enRiens(n) || '0x Rien' });
+  const elEuros = $('#riens-total');
+  elEuros.textContent = `soit ${formatEuros(c.montant_total)}`;
+  elEuros.hidden = false;
   for (const el of $$('[data-compteur]')) countUpWhenVisible(el, c[el.dataset.compteur]);
   for (const el of $$('[data-chiffre]')) countUpWhenVisible(el, c[el.dataset.chiffre]);
 
@@ -59,8 +59,8 @@ async function charger() {
 
 $('#partager-chiffres').addEventListener('click', async () => {
   const url = siteUrl('chiffres.html');
-  const montant = chiffres ? formatEuros(chiffres.montant_total) + (enRiens(chiffres.montant_total) ? ` (${enRiens(chiffres.montant_total)})` : '') : 'Des milliers d’euros';
-  const texte = `${montant} de problèmes en attente d'un milliardaire. 0 € financé. — Qui paie ? ${url}`;
+  const montant = chiffres ? `${enRiens(chiffres.montant_total) || '0x Rien'} (soit ${formatEuros(chiffres.montant_total)})` : 'Des tas de Riens';
+  const texte = `${montant} de problèmes en attente d'un milliardaire. 0x Rien financé. — Qui paie ? ${url}`;
   const ok = await partageNatif({ title: 'Les chiffres — Qui paie ?', text: texte, url });
   if (!ok) await copierLien(texte);
 });

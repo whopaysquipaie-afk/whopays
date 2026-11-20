@@ -1,8 +1,8 @@
 // Story card (brief visuel §7.6): 1080 × 1920 canvas, downloadable PNG, native file share on mobile.
 
 import { siteLabel } from './config.js';
-import { h, openDialog, toast, toastError, formatEuros } from './ui.js';
-import { phraseRiens } from './riens.js';
+import { h, openDialog, toast, toastError } from './ui.js';
+import { montantAffiche } from './riens.js';
 import { icon } from './icons.js';
 import { category, CAMPS } from './categories.js';
 import { partageNatif } from './partage.js';
@@ -191,19 +191,20 @@ export async function dessinerStory(p) {
 
   // Amount + "Milliardaires intéressés : 0"
   y = Math.max(y + 110, 1330);
-  if (p.montant) {
+  const montant = montantAffiche(p.montant);
+  if (montant) {
+    // R-032: the Rien in big, the euro after, small
     ctx.font = `italic 900 84px ${TITRE}`;
-    ctx.fillStyle = C.blanc;
-    const m = formatEuros(p.montant);
-    ctx.fillText(m, M, y);
-    const mw = ctx.measureText(m).width;
+    ctx.fillStyle = C.lavande;
+    ctx.fillText(montant.principal, M, y);
+    const mw = ctx.measureText(montant.principal).width;
     ctx.font = `600 40px ${TEXTE}`;
     ctx.fillStyle = C.gris;
     ctx.fillText(' recherchés', M + mw + 8, y);
     y += 66;
-    ctx.font = `600 40px ${TEXTE}`;
-    ctx.fillStyle = C.lavande;
-    ctx.fillText(phraseRiens(p.montant), M, y);
+    ctx.font = `600 36px ${TEXTE}`;
+    ctx.fillStyle = C.gris;
+    ctx.fillText(`soit ${montant.euros}`, M, y);
     y += 80;
   }
   ctx.font = `600 44px ${TEXTE}`;

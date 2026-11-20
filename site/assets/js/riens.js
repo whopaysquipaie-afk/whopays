@@ -17,6 +17,27 @@ export function enRiens(montant) {
   return `${FORMAT.format(v)}x ${grand ? 'Rien' : 'rien'}`;
 }
 
+const EUROS = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+
+/** "4 000 €" (the secondary, small information since R-032). */
+export function enEuros(montant) {
+  const n = Number(String(montant ?? '').replace(/\s/g, ''));
+  return Number.isFinite(n) ? `${EUROS.format(n)} €` : '';
+}
+
+/**
+ * R-032: what to display for an amount. The Rien is the main information, the euro comes after, small.
+ * 4 000 → { principal: '4x Rien', euros: '4 000 €' }; null for 0 / empty / invalid,
+ * except with { zero: true }: 0 → { principal: '0x Rien', euros: '0 €' } (« 0x Rien financé »).
+ */
+export function montantAffiche(montant, { zero = false } = {}) {
+  const principal = enRiens(montant);
+  if (principal) return { principal, euros: enEuros(montant) };
+  const n = Number(String(montant ?? '').replace(/\s/g, ''));
+  if (zero && montant !== null && montant !== undefined && montant !== '' && n === 0) return { principal: '0x Rien', euros: '0 €' };
+  return null;
+}
+
 /** "Pour un riche, ça vaut 4x Rien" (problem page); '' when there is no amount. */
 export function phraseRiens(montant) {
   const r = enRiens(montant);

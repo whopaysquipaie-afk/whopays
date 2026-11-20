@@ -5,7 +5,7 @@ import { h, openDialog, toastError } from './ui.js';
 import { icon } from './icons.js';
 import { CATEGORIES, isCategory } from './categories.js';
 import { champ, boiteErreur, chargement } from './champs.js';
-import { phraseRiens, PLAFOND_PAUVRE } from './riens.js';
+import { enRiens, PLAFOND_PAUVRE } from './riens.js';
 import { champsRejoindre, executerRejoindre, ouvrirPrixApresInscription, INFO_DONNEES } from './auth.js';
 import { creerTurnstile } from './turnstile.js';
 import { session } from './page.js';
@@ -89,7 +89,7 @@ export async function ouvrirPublier({ categorie = null } = {}) {
   // Live conversion in "rien / Rien" (R-026)
   const enDirect = h('p', { class: 'riens-direct', 'aria-live': 'polite' });
   const majRiens = () => {
-    enDirect.textContent = /^[\d\s]+$/.test(montant.value()) ? phraseRiens(montant.value()) : '';
+    enDirect.textContent = /^[\d\s]+$/.test(montant.value()) && enRiens(montant.value()) ? `= ${enRiens(montant.value())}` : '';
   };
   montant.input.insertAdjacentElement('afterend', enDirect);
   montant.input.addEventListener('input', majRiens);
@@ -175,7 +175,7 @@ function ouvrirPublierRiche() {
   const enDirect = h('p', { class: 'riens-direct', 'aria-live': 'polite' });
   montant.input.insertAdjacentElement('afterend', enDirect);
   montant.input.addEventListener('input', () => {
-    enDirect.textContent = /^[\d\s]+$/.test(montant.value()) ? phraseRiens(montant.value()).replace('Pour un riche, ça vaut', 'Soit') : '';
+    enDirect.textContent = /^[\d\s]+$/.test(montant.value()) && enRiens(montant.value()) ? `= ${enRiens(montant.value())}` : '';
   });
   const erreur = boiteErreur();
   const submit = h('button', { type: 'submit', class: 'btn btn-primaire btn-bloc mt-24' }, 'Publier', icon('arrow-right', { className: 'fleche' }));

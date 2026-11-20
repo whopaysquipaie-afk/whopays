@@ -13,7 +13,7 @@ import { CLUBS } from './club.js';
 import { phraseRang, partagerRang } from './palmares.js';
 import { LIBELLE_NEWSLETTER } from './auth-textes.js';
 import { FORMULES, richeEnAttente, ecranPrixRiche, ouvrirPrixRiche } from './riche-attente.js';
-import { enRiens } from './riens.js';
+import { montantAffiche } from './riens.js';
 
 const STATUTS = {
   recu: { label: 'En relecture', classe: '' },
@@ -130,8 +130,9 @@ function blocRang(e) {
       partager));
   api.getMonRang().then((mon) => {
     if (!mon) { bloc.hidden = true; return; }
-    const riens = enRiens(mon.total);
-    total.textContent = `Mon total : ${formatNumber(mon.nb)} problème${mon.nb > 1 ? 's' : ''}${riens ? ` · ${riens}` : ''}`;
+    const m = montantAffiche(mon.total, { zero: true });
+    total.replaceChildren('Mon total : ', h('span', { class: 'montant-riens' }, m.principal),
+      h('span', { class: 'montant-euros' }, `${m.euros} · ${formatNumber(mon.nb)} problème${mon.nb > 1 ? 's' : ''}`));
     rang.textContent = phraseRang(mon);
     partager.hidden = !mon.rang;
     partager.onclick = () => partagerRang(mon, e.code_partage);

@@ -6,6 +6,7 @@ import { intent } from '../layout.js';
 import { h, $, clear, toast, toastError, confirmDialog, copyText, formatDate, formatJour, plural } from '../ui.js';
 import { category, CAMPS } from '../categories.js';
 import { createModerationApi } from '../moderation.js';
+import { enRiens } from '../riens.js';
 
 const ONGLETS = [
   { id: 'a-relire', label: 'À relire', vide: 'Rien à relire. Les problèmes sensibles arrivent ici.' },
@@ -225,7 +226,7 @@ function carteProbleme(p) {
     h('h3', { class: 'modo-titre' }, p.titre || (p.type === 'publication' ? 'Publication de riche (sans titre)' : '')),
     p.type && p.type !== 'pauvre' ? h('p', { class: 'modo-meta' }, p.type === 'riche' ? 'Problème de riche' : 'Publication de riche') : null,
     h('p', { class: 'modo-texte' }, p.texte),
-    typeof p.montant === 'number' ? h('p', { class: 'modo-meta' }, `Montant : ${p.montant.toLocaleString('fr-FR')} €`) : null,
+    typeof p.montant === 'number' ? h('p', { class: 'modo-meta' }, 'Montant : ', h('strong', {}, enRiens(p.montant) || '0x Rien'), ` (${p.montant.toLocaleString('fr-FR')} €)`) : null,
     auteur(p, p.cree_le),
     h('div', { class: 'modo-actions' }, actions, boutonsCommuns(p, 'probleme', p.id))
   );

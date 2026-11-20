@@ -1,7 +1,7 @@
 // Problem card (brief visuel §7.2). Never: progress bar, "collectés", "contributeurs", percentage.
 
-import { h, formatEuros, formatNumber } from './ui.js';
-import { enRiens, phraseRiens } from './riens.js';
+import { h, formatNumber } from './ui.js';
+import { montantAffiche } from './riens.js';
 import { icon } from './icons.js';
 import { category, CAMPS } from './categories.js';
 import { siteLabel } from './config.js';
@@ -59,9 +59,7 @@ export function carteProbleme(p, { large = false, lien = !large, titreNiveau = l
     ),
     p.titre ? h(titreNiveau, { class: 'carte-titre' }, p.titre) : h(titreNiveau, { class: 'visually-hidden' }, titreDe(p)),
     h('p', { class: `carte-texte${p.titre ? '' : ' carte-texte-seul'}` }, p.texte),
-    p.montant ? h('p', { class: 'carte-montant' }, formatEuros(p.montant), ' ', h('small', {}, 'recherchés'),
-      large ? null : h('span', { class: 'riens' }, ` · ${enRiens(p.montant)}`)) : null,
-    p.montant && large ? h('p', { class: 'carte-riens' }, phraseRiens(p.montant)) : null,
+    blocMontant(p.montant, { large }),
     h('div', { class: 'carte-meta' },
       h('span', { class: 'carte-auteur' }, h('span', { class: 'nom' }, p.pseudo), p.camp ? badgeCamp(p.camp) : null),
       large ? h('span', {}, 'Milliardaires intéressés : 0') : null
@@ -70,6 +68,16 @@ export function carteProbleme(p, { large = false, lien = !large, titreNiveau = l
     filigrane()
   );
   return card;
+}
+
+/** R-032: « 4x Rien recherchés » in big, then « 4 000 € » (card) or « soit 4 000 € » (problem page) in small. */
+export function blocMontant(montant, { large = false, suffixe = 'recherchés' } = {}) {
+  const m = montantAffiche(montant);
+  if (!m) return null;
+  return h('p', { class: 'carte-montant' },
+    h('span', { class: 'montant-riens' }, m.principal),
+    suffixe ? h('small', {}, ` ${suffixe}`) : null,
+    h('span', { class: 'montant-euros' }, large ? `soit ${m.euros}` : m.euros));
 }
 
 export function carteSquelette() {

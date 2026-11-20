@@ -8,7 +8,7 @@ import { raisonFiltre, MESSAGE_FILTRE } from '../filtres.js';
 import { isSafeUrl, checkAttribute } from '../dom-safe.js';
 import { EXEMPLES, PROBLEMES, POSTS_RICHES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES, MEMBRES } from '../demo-data.js';
 import { CATEGORY_IDS } from '../categories.js';
-import { enRiens, phraseRiens } from '../riens.js';
+import { enRiens, phraseRiens, montantAffiche, enEuros } from '../riens.js';
 
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
@@ -93,6 +93,25 @@ test('Unité rien / Rien', 'jamais de « ,0 » ni plus de 2 décimales', () => {
 test('Unité rien / Rien', 'phrase de la page problème', () => {
   eq(phraseRiens(4000), 'Pour un riche, ça vaut 4x Rien');
   eq(phraseRiens(null), '');
+});
+
+/* R-032: the Rien is the main information (big), the euro comes after (small) */
+const CAS_AFFICHAGE = [
+  [4000, '4x Rien', '4 000 €'], [350, '3,5x rien', '350 €'], [300, '3x rien', '300 €'], [3000, '3x Rien', '3 000 €'],
+  [9500, '9,5x Rien', '9 500 €'], [83381, '83,38x Rien', '83 381 €'], [10000, '10x Rien', '10 000 €'], ['4 250', '4,25x Rien', '4 250 €']
+];
+for (const [montant, principal, euros] of CAS_AFFICHAGE) {
+  test('Unité rien / Rien', `affichage (R-032) : ${JSON.stringify(montant)} → « ${principal} » en gros, « ${euros} » en petit`, () => {
+    const m = montantAffiche(montant);
+    eq(m.principal.replace(/[  ]/g, ' '), principal);
+    eq(m.euros.replace(/[  ]/g, ' '), euros);
+  });
+}
+test('Unité rien / Rien', 'affichage (R-032) : rien pour 0 / vide / invalide, sauf « 0x Rien » demandé (0x Rien financé)', () => {
+  for (const v of [0, null, undefined, '', -5, 'abc']) eq(montantAffiche(v), null, `${JSON.stringify(v)} :`);
+  eq(JSON.stringify(montantAffiche(0, { zero: true })), JSON.stringify({ principal: '0x Rien', euros: '0 €' }));
+  eq(montantAffiche(null, { zero: true }), null);
+  eq(enEuros(1234567).replace(/[  ]/g, ' '), '1 234 567 €');
 });
 
 /* ================= Filters ================= */

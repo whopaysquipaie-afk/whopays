@@ -20,7 +20,7 @@ export const richeEnAttente = (profil) => !!(profil && profil.camp === 'riche' &
 export function lienSupport(pseudo, formule = 'mensuel') {
   const f = FORMULES[formule] || FORMULES.mensuel;
   const sujet = `Devenir riche — ${pseudo || ''}`.trim();
-  const corps = `Bonjour,\n\nJe veux être riche sur Qui paie ?\n\nPseudo : ${pseudo || ''}\nFormule choisie : ${f.nom} (${f.prix.toLocaleString('fr-FR')} € ${f.libelle})\n`;
+  const corps = `Bonjour,\n\nJe veux être riche sur Qui paie ?\n\nPseudo : ${pseudo || ''}\nFormule choisie : ${f.nom} (${enRiens(f.prix)} ${f.libelle}, soit ${f.prix.toLocaleString('fr-FR')} €)\n`;
   return `mailto:${CONFIG.SUPPORT_EMAIL}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
 }
 
@@ -34,8 +34,9 @@ export function ecranPrixRiche(pseudo) {
     input.checked = id === 'mensuel';
     input.addEventListener('change', () => { if (input.checked) bouton.setAttribute('href', lienSupport(pseudo, id)); });
     return h('label', { class: 'prix-riche' }, input,
-      h('span', { class: 'prix-montant' }, `${f.prix.toLocaleString('fr-FR')} € ${f.libelle}`),
-      h('span', { class: 'prix-riens' }, enRiens(f.prix)));
+      // R-032: « 3x rien / par mois » in big, « 300 € » in small
+      h('span', { class: 'prix-montant' }, enRiens(f.prix), h('span', { class: 'prix-periode' }, ` ${f.libelle}`)),
+      h('span', { class: 'prix-euros' }, `${f.prix.toLocaleString('fr-FR')} €`));
   };
   return h('div', { class: 'ecran-riche' },
     h('fieldset', { class: 'prix-riches' }, h('legend', { class: 'visually-hidden' }, 'Choisis ta formule'), carte('mensuel'), carte('annuel')),
