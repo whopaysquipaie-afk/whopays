@@ -110,6 +110,11 @@ declare
   v_pb_m_pub    uuid;
   v_pb_m_recu   uuid;
   v_com_m       uuid;
+  -- paying rich members (010)
+  v_r_att       uuid := gen_random_uuid();
+  v_r_ex        uuid := gen_random_uuid();
+  v_modo2       uuid := gen_random_uuid();
+  v_avant       integer;
 begin
   begin  -- sub-transaction: rolled back on purpose at the end (P0999)
 
@@ -164,6 +169,9 @@ begin
     perform public.creer_profil('pauvre', 'Pauvre cinq', 'PAUVRE5-' || v_suffixe || '@exemple.invalid', false, lower(v_code_p));
     perform pg_temp.wp_jouer('authenticated', v_bloque);
     perform public.creer_profil('pauvre', 'Pauvre bloque', 'bloque-' || v_suffixe || '@exemple.invalid');
+    -- 010: a new rich member waits for a moderator; the two test rich members are validated here
+    perform pg_temp.wp_jouer(null);
+    update public.profiles pr set statut_riche = 'actif' where pr.id in (v_riche, v_partant);
 
     v_res := v_res || pg_temp.wp_ligne(v_code_p ~ '^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$',
       'creer_profil renvoie un code de partage de 8 caractères', v_code_p);
@@ -506,21 +514,23 @@ begin
            or has_function_privilege('anon', p.oid, 'execute'))
       and p.proargnames && array['p_statut', 'p_masque', 'p_masque_par', 'p_bloque',
                                  'p_est_exemple', 'p_verifie', 'p_valeur', 'p_user_id']::text[]
-      and p.proname not in ('mod_moderer_probleme', 'mod_masquer', 'mod_bloquer');
+      and not (p.proname like 'mod\_%' and p.prosrc like '%public.wp_exiger_moderateur()%');
     v_res := v_res || pg_temp.wp_ligne(v_txt is null,
       'aucune fonction accessible aux membres ne change un statut, un masquage, un blocage ou une vérification (hors mod_*, réservées aux modérateurs)', v_txt);
-    -- The mod_* functions are executable by authenticated only, never by anon
+    -- The mod_* functions are executable by authenticated only, never by anon, and every one of them
+    -- (except mod_suis_je) starts with the moderator check
     select string_agg(p.proname, ', ') into v_txt
     from pg_catalog.pg_proc p
     join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname like 'mod\_%'
       and (has_function_privilege('anon', p.oid, 'execute')
            or not has_function_privilege('authenticated', p.oid, 'execute')
-           or not p.prosecdef);
+           or not p.prosecdef
+           or (p.proname <> 'mod_suis_je' and p.prosrc not like '%public.wp_exiger_moderateur()%'));
     v_res := v_res || pg_temp.wp_ligne(v_txt is null
       and (select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
-           where n.nspname = 'public' and p.proname like 'mod\_%') = 8,
-      'les 8 fonctions mod_* sont SECURITY DEFINER, exécutables par authenticated seulement', v_txt);
+           where n.nspname = 'public' and p.proname like 'mod\_%') >= 12,
+      'les fonctions mod_* (12 au moins) sont SECURITY DEFINER, authenticated seulement, et vérifient le modérateur', v_txt);
     -- Every function a member can call is SECURITY DEFINER with an empty search_path
     select string_agg(p.proname, ', ') into v_txt
     from pg_catalog.pg_proc p
@@ -1189,6 +1199,153 @@ begin
     end;
     v_res := v_res || pg_temp.wp_ligne(v_hint is null, 'un membre ne peut pas exécuter wp_classement_pauvres (avec les id)', v_hint);
     perform pg_temp.wp_jouer(null);
+
+    -- =================================================================
+    -- 19. R-029 (010): no rich account is active without a moderator
+    -- =================================================================
+    perform pg_temp.wp_jouer(null);
+    insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                            email_confirmed_at, created_at, updated_at,
+                            raw_app_meta_data, raw_user_meta_data, is_anonymous)
+    select '00000000-0000-0000-0000-000000000000'::uuid, u.id, 'authenticated', 'authenticated',
+           u.nom || '-' || v_suffixe || '@exemple.invalid', '', now(), now(), now(),
+           '{}'::jsonb, '{}'::jsonb, false
+    from (values (v_r_att, 'ratt'), (v_r_ex, 'rex'), (v_modo2, 'modo2')) as u(id, nom);
+    insert into public.moderateurs (user_id) values (v_modo2);
+    perform pg_temp.wp_jouer('anon');
+    v_avant := (public.get_compteurs() ->> 'riches')::integer;
+    perform pg_temp.wp_jouer('authenticated', v_r_att);
+    perform public.creer_profil('riche', 'Riche en attente', 'ratt-' || v_suffixe || '@exemple.invalid');
+    perform pg_temp.wp_jouer('authenticated', v_modo2);
+    perform public.creer_profil('riche', 'Modo riche', 'modo2-' || v_suffixe || '@exemple.invalid');
+    perform pg_temp.wp_jouer('authenticated', v_r_att);
+    v_j := public.get_mon_espace();
+    v_res := v_res || pg_temp.wp_ligne(v_j ->> 'statut_riche' = 'en_attente' and v_j -> 'riche_jusqu_au' = 'null'::jsonb,
+      'un riche qui s''inscrit est en attente', v_j ->> 'statut_riche');
+    perform pg_temp.wp_jouer('anon');
+    v_res := v_res || pg_temp.wp_ligne((public.get_compteurs() ->> 'riches')::integer = v_avant + 1
+        and (public.get_chiffres() ->> 'riches')::integer = v_avant + 1,
+      'le compteur Riches ne compte que les riches actifs (le modérateur oui, le riche en attente non)',
+      public.get_compteurs() ->> 'riches');
+    perform pg_temp.wp_jouer('authenticated', v_r_att);
+    foreach v_t in array array[
+      format('select public.soumettre_probleme(%L, %L, %L, 100)', 'reve', 'Un titre correct', 'Un texte de test assez long.'),
+      format('select public.reagir(%L::uuid, %L)', v_pb_publie, 'rire'),
+      format('select public.commenter(%L::uuid, %L)', v_pb_publie, 'Je suis en attente'),
+      format('select public.envoyer_message_club(%L)', 'Je suis en attente'),
+      format('select public.signaler(%L, %L::uuid)', 'probleme', v_pb_publie),
+      'select public.get_club_messages()'
+    ] loop
+      begin
+        execute v_t;
+        v_hint := '(aucune erreur)';
+      exception when others then
+        get stacked diagnostics v_hint = pg_exception_hint;
+      end;
+      v_res := v_res || pg_temp.wp_ligne(v_hint = 'riche_en_attente', 'un riche en attente est refusé : ' || v_t, v_hint);
+    end loop;
+    v_j := public.maj_profil(p_pseudo => 'Riche patient');
+    v_res := v_res || pg_temp.wp_ligne(v_j ->> 'pseudo' = 'Riche patient' and v_j ->> 'statut_riche' = 'en_attente',
+      'un riche en attente peut changer son pseudo (et rien d''autre ne change)', v_j::text);
+    -- moderation functions closed to non-moderators
+    foreach v_t in array array[
+      'select public.mod_riches()',
+      format('select public.mod_activer_riche(%L::uuid, %L)', v_r_att, 'annuel'),
+      format('select public.mod_desactiver_riche(%L::uuid)', v_riche),
+      format('select public.mod_refuser_riche(%L::uuid)', v_riche)
+    ] loop
+      foreach v_role in array array['anon', 'authenticated'] loop
+        perform pg_temp.wp_jouer(v_role, case when v_role = 'authenticated' then v_r_att end);
+        begin
+          execute v_t;
+          v_hint := 'exécuté';
+        exception when insufficient_privilege then v_hint := 'droits';
+                  when others then get stacked diagnostics v_hint = pg_exception_hint;
+        end;
+        v_res := v_res || pg_temp.wp_ligne(v_hint in ('droits', 'interdit'),
+          format('%s ne peut pas exécuter : %s', v_role, v_t), v_hint);
+      end loop;
+    end loop;
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      (select pr.statut_riche from public.profiles pr where pr.id = v_r_att) = 'en_attente'
+        and (select pr.camp from public.profiles pr where pr.id = v_riche) = 'riche',
+      'rien n''a changé après les tentatives refusées');
+    -- the moderator: always active, lists and activates
+    perform pg_temp.wp_jouer('authenticated', v_modo2);
+    v_j := public.mod_riches();
+    v_res := v_res || pg_temp.wp_ligne(
+      exists (select 1 from jsonb_array_elements(v_j) x where x ->> 'pseudo' = 'Riche patient' and x ->> 'statut' = 'en_attente')
+        and exists (select 1 from jsonb_array_elements(v_j) x where x ->> 'pseudo' = 'Modo riche' and x ->> 'statut' = 'actif')
+        and position(v_suffixe in v_j::text) = 0 and v_j::text !~ '"email"',
+      'mod_riches liste les riches en attente et actifs, sans e-mail (modérateur toujours actif)');
+    v_j := public.commenter(v_pb_publie, 'Un modérateur riche commente');
+    v_j := public.mod_activer_riche(v_r_att, 'mensuel');
+    v_res := v_res || pg_temp.wp_ligne(
+      (v_j ->> 'jusqu_au')::timestamptz between now() + interval '27 days' and now() + interval '32 days',
+      'mod_activer_riche (mensuel) active pour un mois', v_j ->> 'jusqu_au');
+    v_j := public.mod_activer_riche(v_r_att, 'annuel');
+    v_res := v_res || pg_temp.wp_ligne(
+      (v_j ->> 'jusqu_au')::timestamptz between now() + interval '13 months' - interval '4 days'
+                                            and now() + interval '13 months' + interval '4 days',
+      'une nouvelle activation prolonge depuis la date de fin en cours (1 mois + 1 an)', v_j ->> 'jusqu_au');
+    perform pg_temp.wp_jouer('authenticated', v_r_att);
+    v_j := public.commenter(v_pb_publie, 'Je suis enfin validé');
+    v_res := v_res || pg_temp.wp_ligne(v_j ->> 'texte' = 'Je suis enfin validé'
+        and public.get_mon_espace() ->> 'statut_riche' = 'actif' and public.get_mon_espace() ->> 'riche_formule' = 'annuel',
+      'un riche activé peut commenter ; Mon espace affiche actif et la formule');
+    -- expiry, computed (no scheduled job)
+    perform pg_temp.wp_jouer(null);
+    update public.profiles pr set riche_jusqu_au = now() - interval '1 second' where pr.id = v_r_att;
+    perform pg_temp.wp_jouer('authenticated', v_r_att);
+    begin
+      perform public.reagir(v_pb_publie, 'rire');
+      v_hint := '(aucune erreur)';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'riche_en_attente' and public.get_mon_espace() ->> 'statut_riche' = 'en_attente',
+      'date de fin passée : le riche redevient en attente', v_hint);
+    perform pg_temp.wp_jouer('anon');
+    v_res := v_res || pg_temp.wp_ligne((public.get_compteurs() ->> 'riches')::integer = v_avant + 1,
+      'un riche expiré ne compte plus dans le match', public.get_compteurs() ->> 'riches');
+    -- deactivate, refuse, moderators untouchable
+    perform pg_temp.wp_jouer('authenticated', v_modo2);
+    perform public.mod_activer_riche(v_r_att, 'mensuel');
+    perform public.mod_desactiver_riche(v_r_att);
+    perform pg_temp.wp_jouer('authenticated', v_r_att);
+    v_res := v_res || pg_temp.wp_ligne(public.get_mon_espace() ->> 'statut_riche' = 'en_attente',
+      'mod_desactiver_riche remet le riche en attente');
+    perform pg_temp.wp_jouer('authenticated', v_modo2);
+    perform public.mod_refuser_riche(v_r_att);
+    begin
+      perform public.mod_refuser_riche(v_modo2);
+      v_hint := 'exécuté';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'invalide', 'un modérateur ne peut pas être refusé ni désactivé', v_hint);
+    perform pg_temp.wp_jouer('authenticated', v_r_att);
+    v_j := public.soumettre_probleme('reve', 'Retour chez les pauvres', 'Un texte de test assez long.', 100);
+    v_res := v_res || pg_temp.wp_ligne(public.get_mon_espace() ->> 'camp' = 'pauvre' and v_j ->> 'statut' = 'publie',
+      'mod_refuser_riche renvoie au camp pauvre (qui peut publier)');
+    -- a poor member who becomes rich waits too
+    v_j := public.maj_profil(p_camp => 'riche');
+    v_res := v_res || pg_temp.wp_ligne(v_j ->> 'statut_riche' = 'en_attente', 'passer de pauvre à riche met le compte en attente', v_j::text);
+    begin
+      perform public.envoyer_message_club('Bonjour les riches');
+      v_hint := '(aucune erreur)';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'riche_en_attente', 'un pauvre devenu riche ne peut pas écrire au club des riches', v_hint);
+    perform pg_temp.wp_jouer('authenticated', v_riche);
+    v_j := public.maj_profil(p_camp => 'pauvre');
+    v_j := public.maj_profil(p_camp => 'riche');
+    v_res := v_res || pg_temp.wp_ligne(v_j ->> 'statut_riche' = 'en_attente',
+      'un riche actif qui quitte puis revient chez les riches repasse en attente', v_j::text);
+    perform pg_temp.wp_jouer(null);
+    update public.profiles pr set statut_riche = 'actif' where pr.id = v_riche;
 
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';

@@ -2,7 +2,7 @@
 import { initPage, session } from '../page.js';
 import { $, param } from '../ui.js';
 import { intent } from '../layout.js';
-import { monterClub, ecranReserve } from '../club.js';
+import { monterClub, ecranReserve, ecranRicheEnAttente } from '../club.js';
 
 await initPage('club', { mobileCta: false });
 
@@ -20,6 +20,10 @@ function afficher() {
   }
   if (demande && demande !== profil.camp) {
     ecranReserve(main, { camp: demande, membre: true });
+    return;
+  }
+  if (profil.camp === 'riche' && profil.statut_riche === 'en_attente') {
+    ecranRicheEnAttente(main, profil.pseudo);
     return;
   }
   club = monterClub(main, profil);

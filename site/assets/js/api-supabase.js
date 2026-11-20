@@ -168,7 +168,7 @@ export function createSupabaseApi() {
         let profil = null;
         try {
           const e = await rpc('get_mon_espace');
-          profil = { pseudo: e.pseudo, camp: e.camp, code_partage: e.code_partage, bloque: !!e.bloque, email_confirme: !!e.email_confirme };
+          profil = { pseudo: e.pseudo, camp: e.camp, statut_riche: e.statut_riche || null, code_partage: e.code_partage, bloque: !!e.bloque, email_confirme: !!e.email_confirme };
         } catch (err) {
           if (err.code !== 'profil_absent') throw err;
         }

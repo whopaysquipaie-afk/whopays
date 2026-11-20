@@ -27,6 +27,10 @@ export function exigerMembre(action, { camp = null, raison = '' } = {}) {
       toastError({ message: 'Ton compte est bloqué : tu ne peux plus publier, réagir ni écrire.' });
       return false;
     }
+    if (current.profil.camp === 'riche' && current.profil.statut_riche === 'en_attente') {
+      import('./riche-attente.js').then((m) => m.ouvrirPrixRiche(current.profil.pseudo)).catch(toastError);
+      return false;
+    }
     action();
     return true;
   }
@@ -76,6 +80,11 @@ export async function initPage(page, { mobileCta = true } = {}) {
 
   // Manifest shortcut "Publier un problème" (index.html?publier=1)
   if (new URLSearchParams(location.search).get('publier') === '1') setTimeout(() => intent('publier'), 300);
+
+  // R-029: a pending rich member sees the prices once per browser session
+  if (current.profil && current.profil.camp === 'riche' && current.profil.statut_riche === 'en_attente') {
+    import('./riche-attente.js').then((m) => m.rappelPrixRiche(current)).catch(() => {});
+  }
 
   // R-024: attach the profile e-mail if it never reached the auth side (once per session)
   if (current.profil && !current.profil.email_confirme) api.rattraperEmail();

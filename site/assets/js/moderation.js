@@ -22,7 +22,12 @@ export async function createModerationApi() {
       signalements24h: () => rpc('mod_signalements_24h').then(liste),
       modererProbleme: (id, statut) => rpc('mod_moderer_probleme', { p_id: id, p_statut: statut }),
       masquer: (type, id, masque = true) => rpc('mod_masquer', { p_type: type, p_id: id, p_masque: masque !== false }),
-      bloquer: (userId, bloque = true) => rpc('mod_bloquer', { p_user_id: userId, p_bloque: bloque !== false })
+      bloquer: (userId, bloque = true) => rpc('mod_bloquer', { p_user_id: userId, p_bloque: bloque !== false }),
+      // R-029: paying rich members (010_riches_payants.sql)
+      riches: () => rpc('mod_riches').then(liste),
+      activerRiche: (userId, formule) => rpc('mod_activer_riche', { p_user_id: userId, p_formule: formule }),
+      desactiverRiche: (userId) => rpc('mod_desactiver_riche', { p_user_id: userId }),
+      refuserRiche: (userId) => rpc('mod_refuser_riche', { p_user_id: userId })
     };
   }
   const { createDemoApi } = await import('./api-demo.js');

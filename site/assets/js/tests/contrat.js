@@ -44,10 +44,12 @@ function fresh() {
   const api = createDemoApi({ storage: memoryStorage(), now: () => clock.now });
   api.demoAdmin.setHorloge(() => clock.now);
   let n = 0;
-  const join = async (camp = 'pauvre', pseudo = null, extra = {}) => {
+  // R-029: a rich member is validated at once (as by a moderator) unless { enAttente: true }
+  const join = async (camp = 'pauvre', pseudo = null, { enAttente = false, ...extra } = {}) => {
     n++;
     const r = await api.rejoindre({ camp, pseudo: pseudo || `Testeur ${camp} ${n}`, email: `test${n}.${camp}@exemple.test`, majeur: true, regles: true, ...extra });
     const s = await api.getSession();
+    if (camp === 'riche' && !enAttente && s.userId) await api.demoAdmin.activerRiche(s.userId);
     return { ...r, userId: s.userId, email: `test${n}.${camp}@exemple.test` };
   };
   const as = (userId) => api.demoAdmin.connecterEnTantQue(userId);
@@ -678,8 +680,10 @@ test('F. Clubs', 'limite : 30 messages par heure ; filtres', async () => {
 });
 test('F. Clubs', 'changer de camp change de club', async () => {
   const { api, join } = fresh();
-  await join('pauvre');
+  const moi = await join('pauvre');
   await api.majProfil({ camp: 'riche' });
+  await rejects(api.getClubMessages(), 'riche_en_attente');
+  await api.demoAdmin.activerRiche(moi.userId);
   const msgs = await api.getClubMessages();
   assert(msgs.some((x) => CLUB_RICHES.some(([, t]) => t === x.texte)));
   const m = await api.envoyerMessageClub('Je suis passé chez les riches');
@@ -867,6 +871,89 @@ test('H. Modération', 'supprimer son compte retire le droit de modérateur', as
   await api.supprimerMonCompte();
   eq(admin.etatBrut().moderateurs.length, 0);
   eq(await api.moderation.suisJe(), false);
+});
+
+/* ================= I. Riches payants (= 010_riches_payants.sql, R-029) ================= */
+
+test('I. Riches payants', 'un riche qui s’inscrit est en attente : il lit, mais n’écrit nulle part', async () => {
+  const { api, join } = fresh();
+  const avant = await api.getCompteurs();
+  const p = await firstPublished(api);
+  await join('riche', 'Riche Patient', { enAttente: true });
+  eq((await api.getSession()).profil.statut_riche, 'en_attente');
+  const e = await api.getMonEspace();
+  eq(e.statut_riche, 'en_attente'); eq(e.riche_jusqu_au, null);
+  eq((await api.getCompteurs()).riches, avant.riches, 'compteur des riches :');
+  eq((await api.getChiffres()).riches, avant.riches, 'chiffres :');
+  assert((await api.getProblemesPublics()).length > 0, 'il lit le mur');
+  for (const [nom, appel] of [
+    ['publier', () => api.soumettreProbleme({ categorie: 'reve', titre: 'Un yacht de plus', texte: 'Le premier est trop petit.', montant: 100 })],
+    ['réagir', () => api.reagir(p.id, 'rire')],
+    ['commenter', () => api.commenter(p.id, 'Bonjour les pauvres')],
+    ['écrire au club', () => api.envoyerMessageClub('Bonjour le club')],
+    ['lire le club', () => api.getClubMessages()],
+    ['signaler', () => api.signaler('probleme', p.id)]
+  ]) await rejects(appel(), 'riche_en_attente', `${nom} :`);
+  eq((await api.majProfil({ pseudo: 'Riche Toujours Patient' })).statut_riche, 'en_attente');
+});
+
+test('I. Riches payants', 'modération : activer 1 mois / 1 an (prolonge), expiration calculée, désactiver, refuser', async () => {
+  const { api, join, as, advance } = fresh();
+  const avant = (await api.getCompteurs()).riches;
+  const r = await join('riche', 'Futur Riche', { enAttente: true });
+  const modo = await join('pauvre', 'Modo Démo');
+  await api.demoAdmin.setModerateur(modo.userId);
+  const liste = await api.moderation.riches();
+  assert(liste.some((x) => x.user_id === r.userId && x.statut === 'en_attente'), 'en attente listé');
+  eq(liste[0].statut, 'en_attente', 'en attente d’abord :');
+  assertNoEmail(liste, 'riches()');
+  const a = await api.moderation.activerRiche(r.userId, 'mensuel');
+  eq(a.jusqu_au, new Date(Date.UTC(2026, 11, 20, 12)).toISOString(), '1 mois :');
+  const b = await api.moderation.activerRiche(r.userId, 'annuel');
+  eq(b.jusqu_au, new Date(Date.UTC(2027, 11, 20, 12)).toISOString(), '1 mois + 1 an :');
+  await rejects(api.moderation.activerRiche(r.userId, 'hebdo'), 'invalide');
+  await rejects(api.moderation.activerRiche(modo.userId, 'annuel'), 'invalide', 'un pauvre :');
+  eq((await api.getCompteurs()).riches, avant + 1);
+  await as(r.userId);
+  const p = await firstPublished(api);
+  eq((await api.commenter(p.id, 'Enfin validé')).texte, 'Enfin validé');
+  eq((await api.getMonEspace()).riche_formule, 'annuel');
+  advance(400 * DAY);
+  await rejects(api.reagir(p.id, 'rire'), 'riche_en_attente', 'expiré :');
+  eq((await api.getMonEspace()).statut_riche, 'en_attente');
+  eq((await api.getCompteurs()).riches, avant);
+  await as(modo.userId);
+  await api.moderation.activerRiche(r.userId, 'mensuel');
+  await api.moderation.desactiverRiche(r.userId);
+  await as(r.userId);
+  eq((await api.getSession()).profil.statut_riche, 'en_attente');
+  await as(modo.userId);
+  await api.moderation.refuserRiche(r.userId);
+  await as(r.userId);
+  eq((await api.getSession()).profil.camp, 'pauvre');
+  eq((await api.soumettreProbleme({ categorie: 'reve', titre: 'Retour chez les pauvres', texte: 'Un texte assez long.', montant: 100 })).statut, 'publie');
+});
+
+test('I. Riches payants', 'modérateur toujours actif ; passer de pauvre à riche remet en attente ; non-modérateurs refusés', async () => {
+  const { api, join, as } = fresh();
+  const modo = await join('riche', 'Modo Riche', { enAttente: true });
+  await api.demoAdmin.setModerateur(modo.userId);
+  eq((await api.getSession()).profil.statut_riche, 'actif', 'modérateur :');
+  await rejects(api.moderation.refuserRiche(modo.userId), 'invalide');
+  await rejects(api.moderation.desactiverRiche(modo.userId), 'invalide');
+  const p = await join('pauvre', 'Pauvre Ambitieux');
+  eq((await api.majProfil({ camp: 'riche' })).statut_riche, 'en_attente');
+  await rejects(api.envoyerMessageClub('Bonjour les riches'), 'riche_en_attente');
+  for (const appel of [() => api.moderation.riches(), () => api.moderation.activerRiche(p.userId, 'annuel'),
+    () => api.moderation.desactiverRiche(modo.userId), () => api.moderation.refuserRiche(modo.userId)]) {
+    await rejects(appel(), 'interdit');
+  }
+  eq((await api.getSession()).profil.statut_riche, 'en_attente', 'rien n’a changé :');
+  const riche = await join('riche', 'Riche Actif');
+  eq((await api.getSession()).profil.statut_riche, 'actif');
+  await api.majProfil({ camp: 'pauvre' });
+  eq((await api.majProfil({ camp: 'riche' })).statut_riche, 'en_attente', 'aller-retour :');
+  await as(riche.userId);
 });
 
 function assertNoEmail(payload, where) {

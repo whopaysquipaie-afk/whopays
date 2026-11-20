@@ -158,6 +158,23 @@ export function monterClub(main, profil) {
 }
 
 /** "Ce club est réservé aux …" screen. camp = the club that was requested (or null for visitors). */
+/** R-029: the rich club opens once a moderator has validated the account. */
+export function ecranRicheEnAttente(main, pseudo) {
+  main.className = 'club-page';
+  document.body.classList.remove('page-club');
+  main.replaceChildren(h('div', { class: 'container' }, h('div', { class: 'reserve' },
+    h('img', { class: 'icone-reserve', src: 'assets/img/couronne.svg', alt: '', width: '72', height: '72' }),
+    h('h1', {}, 'Le club des riches t’attend.'),
+    h('p', {}, 'Ton compte riche doit d’abord être validé par un modérateur. En attendant, tu peux lire tout le site.'),
+    h('div', { class: 'hero-actions', style: { justifyContent: 'center' } },
+      h('button', {
+        type: 'button', class: 'btn btn-primaire',
+        onclick: () => import('./riche-attente.js').then((m) => m.ouvrirPrixRiche(pseudo))
+      }, 'Voir les prix'),
+      h('a', { class: 'btn btn-secondaire', href: 'espace.html' }, 'Mon espace')))));
+  main.setAttribute('aria-busy', 'false');
+}
+
 export function ecranReserve(main, { camp = null, membre = false, onRejoindre }) {
   const c = camp ? CAMPS[camp] : null;
   main.className = 'club-page';

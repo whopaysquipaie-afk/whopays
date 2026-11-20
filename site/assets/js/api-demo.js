@@ -31,7 +31,8 @@ const ERR = {
   invalide: (msg) => new ApiError(msg, 'invalide'),
   introuvable: (msg = 'Ce problème est introuvable ou n’est pas publié.') => new ApiError(msg, 'introuvable'),
   interdit: (msg = 'Tu n’as pas le droit de faire ça.') => new ApiError(msg, 'interdit'),
-  limite: (msg) => new ApiError(msg, 'limite')
+  limite: (msg) => new ApiError(msg, 'limite'),
+  richeEnAttente: () => new ApiError('Ton compte riche attend la validation d’un modérateur : tu peux lire le site, mais pas encore publier, réagir, commenter ni écrire au club.', 'riche_en_attente')
 };
 
 /* ---------------- Storage ---------------- */
@@ -131,6 +132,7 @@ function buildSeed(now) {
     st.profiles.push({
       id, pseudo, email: `membre${i + 1}@exemple.invalid`, camp, newsletter: rand() > 0.5,
       riche_message: richeMessage || null, riche_montant: richeMontant || null,
+      statut_riche: camp === 'riche' ? 'actif' : 'en_attente', riche_formule: null, riche_jusqu_au: null,
       code_partage: code, invite_par: i > 20 && rand() > 0.7 ? st.profiles[Math.floor(rand() * 10)].id : null,
       regles_acceptees_le: iso(created), bloque: false, cree_le: iso(created)
     });
@@ -223,8 +225,18 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     const p = me(st);
     if (!p) throw ERR.profilAbsent();
     if (p.bloque) throw ERR.bloque();
+    if (p.camp === 'riche' && !richeActif(st, p)) throw ERR.richeEnAttente();
     return p;
   }
+  /** = wp_riche_actif (010): a moderator, or 'actif' with no end date / an end date in the future. */
+  function richeActif(st, p) {
+    if (!p || p.camp !== 'riche') return false;
+    if ((st.moderateurs || []).includes(p.id)) return true;
+    // profiles stored before R-029 have no statut_riche: active, like the 010 migration
+    const statut = p.statut_riche === undefined ? 'actif' : p.statut_riche;
+    return statut === 'actif' && (!p.riche_jusqu_au || Date.parse(p.riche_jusqu_au) > t());
+  }
+  const statutRiche = (st, p) => (p.camp !== 'riche' ? null : richeActif(st, p) ? 'actif' : 'en_attente');
   const pseudoOf = (st, userId) => {
     const p = st.profiles.find((x) => x.id === userId);
     return p ? { pseudo: p.pseudo, camp: p.camp } : { pseudo: 'Membre parti', camp: null };
@@ -276,7 +288,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       return {
         problemes: st.problems.filter((p) => !p.est_exemple).length,
         membres: emails.size,
-        riches: st.profiles.filter((p) => p.camp === 'riche').length,
+        riches: st.profiles.filter((p) => richeActif(st, p)).length,
         pauvres: st.profiles.filter((p) => p.camp === 'pauvre').length,
         milliardaires_verifies: st.verifications.length
       };
@@ -296,7 +308,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         problemes_publies: pub.length,
         reactions: st.reactions.length,
         commentaires: st.comments.filter((c) => !c.masque).length,
-        riches: st.profiles.filter((p) => p.camp === 'riche').length,
+        riches: st.profiles.filter((p) => richeActif(st, p)).length,
         pauvres: st.profiles.filter((p) => p.camp === 'pauvre').length
       };
     },
@@ -386,6 +398,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         }
         st.profiles.push({
           id, pseudo: ps, email: em, camp, newsletter: newsletter === true, riche_message: null, riche_montant: null,
+          statut_riche: 'en_attente', riche_formule: null, riche_jusqu_au: null,
           code_partage: code, invite_par: invitePar, regles_acceptees_le: iso(t()), bloque: false, cree_le: iso(t())
         });
         return { code_partage: code };
@@ -394,12 +407,16 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
 
     async majProfil({ pseudo = null, newsletter = null, camp = null, riche_message = undefined, riche_montant = undefined } = {}) {
       return tx((st) => {
-        const p = writer(st);
+        // = maj_profil (010): allowed while pending; a camp switch always puts the account back to 'en_attente'
+        if (!uid(st)) throw ERR.nonConnecte();
+        const p = me(st);
+        if (!p) throw ERR.profilAbsent();
+        if (p.bloque) throw ERR.bloque();
         if (pseudo !== null && pseudo !== undefined) p.pseudo = texteValide(pseudo, LIMITES.pseudo, 'Ton pseudo', { mots: st.mots_interdits });
         if (newsletter !== null && newsletter !== undefined) p.newsletter = newsletter === true;
         if (camp !== null && camp !== undefined) {
           if (camp !== 'riche' && camp !== 'pauvre') throw ERR.invalide('Choisis un camp : riche ou pauvre.');
-          p.camp = camp;
+          if (camp !== p.camp) Object.assign(p, { camp, statut_riche: 'en_attente', riche_formule: null, riche_jusqu_au: null });
         }
         if (riche_message !== undefined) {
           p.riche_message = riche_message === null || nettoyer(riche_message) === ''
@@ -407,7 +424,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
             : texteValide(riche_message, LIMITES.richeMessage, 'Ton message', { multiligne: true, mots: st.mots_interdits });
         }
         if (riche_montant !== undefined) p.riche_montant = entierValide(riche_montant, LIMITES.richeMontant, 'Le montant');
-        return { pseudo: p.pseudo, camp: p.camp, newsletter: p.newsletter, riche_message: p.riche_message, riche_montant: p.riche_montant };
+        return { pseudo: p.pseudo, camp: p.camp, newsletter: p.newsletter, riche_message: p.riche_message, riche_montant: p.riche_montant, statut_riche: statutRiche(st, p) };
       });
     },
 
@@ -547,6 +564,9 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       return {
         pseudo: p.pseudo, email: p.email, camp: p.camp, newsletter: p.newsletter,
         riche_message: p.riche_message, riche_montant: p.riche_montant, code_partage: p.code_partage,
+        statut_riche: statutRiche(st, p),
+        riche_formule: statutRiche(st, p) === 'actif' ? p.riche_formule || null : null,
+        riche_jusqu_au: statutRiche(st, p) === 'actif' ? p.riche_jusqu_au || null : null,
         nb_invites: st.profiles.filter((x) => x.invite_par === p.id).length,
         email_confirme: !!(user && user.email_confirme), bloque: !!p.bloque, verifie: st.verifications.some((v) => v.user_id === p.id),
         problemes: st.problems.filter((x) => x.user_id === p.id)
@@ -637,7 +657,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       const user = st.users.find((u) => u.id === id);
       return {
         connecte: true, userId: id,
-        profil: p ? { pseudo: p.pseudo, camp: p.camp, code_partage: p.code_partage, bloque: !!p.bloque, email_confirme: !!(user && user.email_confirme) } : null
+        profil: p ? { pseudo: p.pseudo, camp: p.camp, statut_riche: statutRiche(st, p), code_partage: p.code_partage, bloque: !!p.bloque, email_confirme: !!(user && user.email_confirme) } : null
       };
     },
 
@@ -692,6 +712,19 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
   function exigerModo(st) {
     if (!estModo(st)) throw ERR.interdit('Accès réservé aux modérateurs.');
     return uid(st);
+  }
+  function richeModifiable(st, userId, { modoOk = false } = {}) {
+    const p = st.profiles.find((x) => x.id === userId);
+    if (!p) throw ERR.introuvable('Membre introuvable.');
+    if (p.camp !== 'riche') throw ERR.invalide('Ce membre n’est pas dans le camp des riches.');
+    if (!modoOk && (st.moderateurs || []).includes(p.id)) throw ERR.invalide('Un modérateur reste toujours actif.');
+    return p;
+  }
+  /** End of a paid period: + 1 month or + 1 year (= interval in mod_activer_riche). */
+  function finFormule(depuis, formule) {
+    const d = new Date(depuis);
+    if (formule === 'annuel') d.setUTCFullYear(d.getUTCFullYear() + 1); else d.setUTCMonth(d.getUTCMonth() + 1);
+    return d.toISOString();
   }
   const auteur = (st, userId) => {
     const p = userId ? st.profiles.find((x) => x.id === userId) : null;
@@ -799,6 +832,53 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       });
     },
 
+    /* ----- paying rich members (= mod_riches / mod_activer_riche / … of 010) ----- */
+    async riches() {
+      const st = load();
+      exigerModo(st);
+      return st.profiles.filter((p) => p.camp === 'riche')
+        .map((p) => {
+          const statut = statutRiche(st, p);
+          return {
+            user_id: p.id, pseudo: p.pseudo, statut, formule: statut === 'actif' ? p.riche_formule || null : null,
+            jusqu_au: statut === 'actif' ? p.riche_jusqu_au || null : null, cree_le: p.cree_le, bloque: !!p.bloque,
+            est_moderateur: (st.moderateurs || []).includes(p.id)
+          };
+        })
+        .sort((a, b) => (a.statut === b.statut ? 0 : a.statut === 'en_attente' ? -1 : 1)
+          || (a.jusqu_au || '9').localeCompare(b.jusqu_au || '9') || a.cree_le.localeCompare(b.cree_le))
+        .slice(0, 500);
+    },
+
+    async activerRiche(userId, formule) {
+      return tx((st) => {
+        exigerModo(st);
+        if (formule !== 'mensuel' && formule !== 'annuel') throw ERR.invalide('Formule inconnue (mensuel ou annuel).');
+        const p = richeModifiable(st, userId, { modoOk: true });
+        const encours = p.statut_riche === 'actif' && p.riche_jusqu_au && Date.parse(p.riche_jusqu_au) > t();
+        Object.assign(p, { statut_riche: 'actif', riche_formule: formule, riche_jusqu_au: finFormule(encours ? Date.parse(p.riche_jusqu_au) : t(), formule) });
+        return { user_id: userId, statut: 'actif', formule, jusqu_au: p.riche_jusqu_au };
+      });
+    },
+
+    async desactiverRiche(userId) {
+      return tx((st) => {
+        exigerModo(st);
+        const p = richeModifiable(st, userId);
+        Object.assign(p, { statut_riche: 'en_attente', riche_formule: null, riche_jusqu_au: null });
+        return { user_id: userId, statut: 'en_attente' };
+      });
+    },
+
+    async refuserRiche(userId) {
+      return tx((st) => {
+        exigerModo(st);
+        const p = richeModifiable(st, userId);
+        Object.assign(p, { camp: 'pauvre', statut_riche: 'en_attente', riche_formule: null, riche_jusqu_au: null });
+        return { user_id: userId, camp: 'pauvre' };
+      });
+    },
+
     async bloquer(userId, bloque = true) {
       return tx((st) => {
         const moi = exigerModo(st);
@@ -856,6 +936,15 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         const u = st.users.find((x) => x.id === userId);
         if (!u) throw ERR.introuvable('Membre introuvable.');
         u.email_non_rattache = true; u.email_confirme = false; u.is_anonymous = true;
+        return true;
+      });
+    },
+    /** Validates a rich member without a moderator session (tests and demo, = mod_activer_riche). */
+    async activerRiche(userId, formule = 'annuel') {
+      return tx((st) => {
+        const p = st.profiles.find((x) => x.id === userId && x.camp === 'riche');
+        if (!p) throw ERR.introuvable('Membre introuvable.');
+        Object.assign(p, { statut_riche: 'actif', riche_formule: formule, riche_jusqu_au: finFormule(t(), formule) });
         return true;
       });
     },

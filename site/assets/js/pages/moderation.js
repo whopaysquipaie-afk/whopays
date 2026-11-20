@@ -3,7 +3,7 @@
 // server-side (mod_* functions, 006_moderateurs.sql): this page only displays what they allow.
 import { initPage, session as sessionCourante } from '../page.js';
 import { intent } from '../layout.js';
-import { h, $, clear, toast, toastError, confirmDialog, copyText, formatDate, plural } from '../ui.js';
+import { h, $, clear, toast, toastError, confirmDialog, copyText, formatDate, formatJour, plural } from '../ui.js';
 import { category, CAMPS } from '../categories.js';
 import { createModerationApi } from '../moderation.js';
 
@@ -11,7 +11,8 @@ const ONGLETS = [
   { id: 'a-relire', label: 'À relire', vide: 'Rien à relire. Les problèmes sensibles arrivent ici.' },
   { id: 'recents', label: 'Récents 48 h', vide: 'Aucun problème publié ces dernières 48 heures.' },
   { id: 'signales', label: 'Signalés', vide: 'Aucun signalement ces dernières 24 heures.' },
-  { id: 'masques', label: 'Masqués', vide: 'Aucun contenu masqué.' }
+  { id: 'masques', label: 'Masqués', vide: 'Aucun contenu masqué.' },
+  { id: 'riches', label: 'Riches', vide: 'Aucun membre dans le camp des riches.' }
 ];
 const TYPES = { probleme: 'Problème', commentaire: 'Commentaire', message: 'Message de club' };
 const STATUTS = { recu: 'À relire', publie: 'Publié', refuse: 'Refusé', reoriente: 'Réorienté' };
@@ -21,7 +22,7 @@ const zone = $('#moderation');
 const main = $('#contenu');
 const mod = await createModerationApi();
 let onglet = 'a-relire';
-let donnees = { 'a-relire': [], recents: [], signales: [], masques: [] };
+let donnees = { 'a-relire': [], recents: [], signales: [], masques: [], riches: [] };
 
 await afficher();
 document.addEventListener('wp:session-maj', () => afficher());
@@ -97,10 +98,10 @@ async function devenirModoDemo() {
 /* ---------------- Data ---------------- */
 
 async function chargerTout() {
-  const [aRelire, recents, signales, masques] = await Promise.all([
-    mod.aRelire(), mod.recents(48), mod.signalements24h(), mod.masques()
+  const [aRelire, recents, signales, masques, riches] = await Promise.all([
+    mod.aRelire(), mod.recents(48), mod.signalements24h(), mod.masques(), mod.riches()
   ]);
-  donnees = { 'a-relire': aRelire, recents, signales, masques };
+  donnees = { 'a-relire': aRelire, recents, signales, masques, riches };
   dessiner();
 }
 
@@ -141,7 +142,10 @@ function dessiner() {
   const liste = donnees[onglet];
   const def = ONGLETS.find((o) => o.id === onglet);
   if (!liste.length) panneau.appendChild(h('p', { class: 'modo-vide' }, def.vide));
-  for (const item of liste) panneau.appendChild(onglet === 'a-relire' || onglet === 'recents' ? carteProbleme(item) : carteCible(item));
+  for (const item of liste) {
+    panneau.appendChild(onglet === 'riches' ? carteRiche(item)
+      : onglet === 'a-relire' || onglet === 'recents' ? carteProbleme(item) : carteCible(item));
+  }
 
   zone.append(
     h('div', { class: 'modo-barre' },
@@ -239,4 +243,43 @@ function carteCible(c) {
     auteur(c, c.dernier || c.cree_le),
     h('div', { class: 'modo-actions' }, actions, boutonsCommuns(c, c.cible_type, c.cible_id))
   );
+}
+
+/* ---------------- Rich members (R-029, 010_riches_payants.sql) ---------------- */
+// No rich account is active without a moderator: activate for 1 month / 1 year (extends the current
+// period), deactivate (back to pending) or refuse (back to the poor camp). Moderators are always active.
+
+const FORMULE = { mensuel: 'mensuelle', annuel: 'annuelle' };
+
+function carteRiche(r) {
+  const actif = r.statut === 'actif';
+  const statut = r.est_moderateur ? 'Modérateur : toujours actif'
+    : actif ? (r.jusqu_au ? `Actif jusqu’au ${formatJour(r.jusqu_au)}` : 'Actif (sans date de fin)') : 'En attente de validation';
+  const actions = [];
+  if (!r.est_moderateur) {
+    actions.push(
+      bouton(actif ? 'Prolonger 1 mois' : 'Activer 1 mois', 'btn-primaire', () => action(() => mod.activerRiche(r.user_id, 'mensuel'), `${r.pseudo} : riche pour un mois de plus.`)),
+      bouton(actif ? 'Prolonger 1 an' : 'Activer 1 an', 'btn-primaire', () => action(() => mod.activerRiche(r.user_id, 'annuel'), `${r.pseudo} : riche pour un an de plus.`)));
+    if (actif) actions.push(bouton('Désactiver', 'btn-fantome', () => action(() => mod.desactiverRiche(r.user_id), `${r.pseudo} repasse en attente.`)));
+    actions.push(h('button', { type: 'button', class: 'btn btn-danger', onclick: () => refuserRiche(r) }, 'Refuser'));
+  }
+  return h('article', { class: 'modo-item' },
+    h('div', { class: 'modo-badges' },
+      h('span', { class: 'badge badge-sombre' }, 'Riche'),
+      h('span', { class: `badge badge-statut ${actif ? 'publie' : ''}` }, actif ? 'Actif' : 'En attente'),
+      r.bloque ? h('span', { class: 'badge badge-statut refuse' }, 'Bloqué') : null),
+    h('h3', { class: 'modo-titre' }, r.pseudo),
+    h('p', { class: 'modo-meta' }, statut, r.formule ? ` · formule ${FORMULE[r.formule] || r.formule}` : ''),
+    h('p', { class: 'modo-meta' }, `Inscription : ${formatDate(r.cree_le)}`),
+    actions.length ? h('div', { class: 'modo-actions' }, actions) : null
+  );
+}
+
+async function refuserRiche(r) {
+  const ok = await confirmDialog({
+    title: 'Refuser ce riche ?',
+    message: `${r.pseudo} repasse dans le camp des pauvres. Il pourra redemander à être riche plus tard.`,
+    confirmLabel: 'Refuser', danger: true
+  });
+  if (ok) await action(() => mod.refuserRiche(r.user_id), `${r.pseudo} repasse chez les pauvres.`);
 }

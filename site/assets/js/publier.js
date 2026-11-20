@@ -6,7 +6,7 @@ import { icon } from './icons.js';
 import { CATEGORIES, isCategory } from './categories.js';
 import { champ, boiteErreur, chargement } from './champs.js';
 import { phraseRiens, PLAFOND_PAUVRE } from './riens.js';
-import { champsRejoindre, executerRejoindre, INFO_DONNEES } from './auth.js';
+import { champsRejoindre, executerRejoindre, ouvrirPrixApresInscription, INFO_DONNEES } from './auth.js';
 import { creerTurnstile } from './turnstile.js';
 import { session } from './page.js';
 import { barrePartage, urlProbleme, texteProbleme } from './partage.js';
@@ -52,6 +52,11 @@ export async function ouvrirPublier({ categorie = null } = {}) {
   const membre = !!(s && s.profil);
   if (membre && s.profil.bloque) {
     toastError({ message: 'Ton compte est bloqué : tu ne peux plus publier, réagir ni écrire.' });
+    return;
+  }
+  if (membre && s.profil.camp === 'riche' && s.profil.statut_riche === 'en_attente') {
+    const m = await import('./riche-attente.js');
+    m.ouvrirPrixRiche(s.profil.pseudo);
     return;
   }
 
@@ -131,6 +136,7 @@ export async function ouvrirPublier({ categorie = null } = {}) {
           erreur.show('Tu as déjà un compte avec cet e-mail. Connecte-toi avec « Déjà membre ? », puis renvoie ton problème : on a gardé ton texte ici.');
           return;
         }
+        if (rejoindre.valeurs().camp === 'riche') { close(); ouvrirPrixApresInscription(rejoindre.valeurs().pseudo); return; }
       }
       const m = montant.value().replace(/\s/g, '');
       const r = await api.soumettreProbleme({ categorie: select.value, titre: titre.value(), texte: texte.value(), montant: m === '' ? null : Number(m) });

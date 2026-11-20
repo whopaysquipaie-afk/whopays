@@ -997,6 +997,7 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .modo-barre { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
 .modo-onglets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
 .modo-onglet { min-height: 52px; padding: 8px 12px; border-radius: 14px; border: 1px solid var(--bordure); background: var(--anthracite); color: var(--blanc); font: 700 15px/1.2 var(--f-texte); display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; text-align: left; }
+.modo-onglet:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .modo-onglet[aria-selected="true"] { background: var(--citron); color: var(--noir); border-color: var(--citron); }
 .modo-onglet:focus-visible { outline: 3px solid var(--lavande); outline-offset: 2px; }
 .modo-compte { min-width: 28px; padding: 2px 8px; border-radius: var(--r-pilule); background: var(--noir); color: var(--blanc); font-size: 13px; text-align: center; font-variant-numeric: tabular-nums; }
@@ -1013,7 +1014,8 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .modo-actions .btn { min-height: 52px; width: 100%; padding: 6px 10px; font-size: 15px; line-height: 1.2; white-space: normal; text-align: center; min-width: 0; }
 .page-texte .modo-erreur { color: var(--rouge); }
 @media (min-width: 768px) {
-  .modo-onglets { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .modo-onglets { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .modo-onglet:last-child:nth-child(odd) { grid-column: auto; }
   .modo-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
@@ -1056,3 +1058,14 @@ body.page-club .club-fil { padding-bottom: 24px; }
   .marche.bronze { order: 3; }
   .marche-titre { padding-right: 0; }
 }
+
+/* ---------- Riches payants (R-029) ---------- */
+.prix-riches { border: 0; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+.prix-riche { position: relative; display: grid; gap: 2px; padding: 16px 16px 16px 52px; border: 2px solid var(--bordure); border-radius: var(--r-carte); background: var(--anthracite); cursor: pointer; }
+.prix-riche input { position: absolute; left: 18px; top: 20px; width: 20px; height: 20px; accent-color: var(--citron); }
+.prix-riche:has(input:checked) { border-color: var(--citron); }
+.prix-riche:focus-within { outline: 3px solid var(--lavande); outline-offset: 2px; }
+.prix-montant { font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: 22px; }
+.prix-riens { color: var(--citron); font-weight: 700; }
+.bloc-riche-attente { border-color: var(--citron); }
+@media (min-width: 560px) { .prix-riches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

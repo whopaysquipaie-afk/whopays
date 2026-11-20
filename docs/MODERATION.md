@@ -23,7 +23,7 @@ Adresse : `moderation.html` à la racine du site (après `CONFIG.SITE_URL`). Ell
    `insert into public.moderateurs (user_id) values ('<identifiant>');`
 3. Retirer le droit : `delete from public.moderateurs where user_id = '<identifiant>';` (il disparaît aussi quand le compte est supprimé).
 
-**Les 4 onglets** (le nombre d'éléments est affiché sur chaque onglet) :
+**Les 5 onglets** (le nombre d'éléments est affiché sur chaque onglet) :
 
 | Onglet | Contenu | Boutons |
 |---|---|---|
@@ -31,8 +31,11 @@ Adresse : `moderation.html` à la racine du site (après `CONFIG.SITE_URL`). Ell
 | **Récents 48 h** | Problèmes publiés depuis 48 h (masqués compris), le plus récent en premier | Masquer / Rétablir · Refuser (retirer) · Voir sur le site · Bloquer l'auteur |
 | **Signalés** | Contenus signalés depuis 24 h (problèmes, commentaires, messages de club), les plus signalés en premier | Masquer / Rétablir · Refuser (problème) · Bloquer l'auteur |
 | **Masqués** | Tout ce qui est masqué (3 signalements, auteur du problème, modération) | Rétablir · Refuser (problème) · Bloquer l'auteur |
+| **Riches** | Membres du camp des riches : en attente d'abord, puis actifs avec leur date de fin (`010_riches_payants.sql`) | Activer 1 mois / 1 an (Prolonger si déjà actif) · Désactiver · Refuser (retour au camp pauvre, avec confirmation) |
 
 « Bloquer l'auteur » demande une confirmation ; un auteur bloqué affiche « Débloquer l'auteur ». Un modérateur ne peut pas se bloquer lui-même. Les fonctions ne renvoient jamais d'adresse e-mail.
+
+**Riches payants (R-029)** : aucun compte riche n'est actif sans validation d'un modérateur. Un riche qui s'inscrit (ou un pauvre qui passe chez les riches) est **en attente** : il lit le site, mais ne peut ni publier, ni réagir, ni commenter, ni signaler, ni lire ou écrire au club des riches (contrôle dans la base, `wp_exiger_membre`). Le site lui affiche les prix (300 € par mois, 3 000 € par an) et un bouton « Contacter le support » (e-mail). Après accord avec lui, onglet **Riches** → « Activer 1 mois » ou « Activer 1 an » ; une nouvelle activation prolonge à partir de la date de fin en cours. Une date de fin passée remet le compte en attente tout seul (aucune tâche planifiée). Les modérateurs sont toujours actifs. Le compteur « Riches » du site ne compte que les riches actifs.
 
 En mode démo (`?demo=1`), la page est simulée : le bouton « (Démo) Essayer en modérateur » donne le rôle au membre connecté (ou au premier membre fictif).
 

@@ -2,7 +2,7 @@
 
 import { CONFIG } from './config.js';
 import { api } from './api.js';
-import { h, clear, formatDate, formatNumber, toast, toastError, confirmDialog, openDialog } from './ui.js';
+import { h, clear, formatDate, formatJour, formatNumber, toast, toastError, confirmDialog, openDialog } from './ui.js';
 import { icon } from './icons.js';
 import { CAMPS } from './categories.js';
 import { champ, caseACocher, boiteErreur, chargement } from './champs.js';
@@ -11,6 +11,7 @@ import { barrePartage, urlProbleme, texteProbleme, partageNatif, copierLien } fr
 import { intent } from './layout.js';
 import { CLUBS } from './club.js';
 import { phraseRang, partagerRang } from './palmares.js';
+import { FORMULES, richeEnAttente, ecranPrixRiche, ouvrirPrixRiche } from './riche-attente.js';
 import { enRiens } from './riens.js';
 
 const STATUTS = {
@@ -49,8 +50,19 @@ export async function monterEspace(zone) {
         h('button', { type: 'button', class: 'btn btn-fantome btn-petit', onclick: () => modifierPseudo(e, nom) }, 'Modifier mon pseudo'),
         h('button', { type: 'button', class: 'btn btn-secondaire btn-petit', onclick: () => changerCamp(e) }, icon('switch'), 'Changer de camp'))),
     e.bloque ? h('p', { class: 'erreur-form' }, 'Ton compte est bloqué : tu peux lire le site, mais plus publier, réagir ni écrire.') : null,
+    e.camp === 'riche' && e.statut_riche === 'actif' && e.riche_jusqu_au
+      ? h('p', { class: 'gris mt-8' }, `Riche validé jusqu’au ${formatJour(e.riche_jusqu_au)}${e.riche_formule ? ` (formule ${FORMULES[e.riche_formule] ? FORMULES[e.riche_formule].nom : e.riche_formule})` : ''}.`)
+      : null,
     !e.email_confirme ? confirmation(e) : null
   ));
+
+  /* ---------- Rich waiting for a moderator (R-029) ---------- */
+  if (richeEnAttente(e)) {
+    grille.appendChild(h('section', { class: 'bloc pleine bloc-riche-attente', 'aria-labelledby': 'titre-riche-attente' },
+      h('h2', { id: 'titre-riche-attente' }, 'Être riche sur Qui paie ?'),
+      h('p', { class: 'gris mt-8' }, 'Ton compte riche attend la validation d’un modérateur. En attendant, tu peux tout lire, mais pas encore publier, réagir, commenter ni écrire au club des riches.'),
+      ecranPrixRiche(e.pseudo)));
+  }
 
   /* ---------- Poor: my total and my rank (R-028) ---------- */
   if (e.camp === 'pauvre') grille.appendChild(blocRang(e));
@@ -241,13 +253,16 @@ async function changerCamp(e) {
   const autre = CAMPS[e.camp === 'riche' ? 'pauvre' : 'riche'];
   const ok = await confirmDialog({
     title: `Passer chez les ${autre.plural} ?`,
-    message: `Tu quittes le club des ${actuel.plural}. Tu rejoins le club des ${autre.plural} et le score du match change.`,
+    message: autre.id === 'riche'
+      ? 'Tu quittes le club des pauvres. Un compte riche doit être validé par un modérateur : en attendant, tu pourras tout lire, mais ni publier, ni réagir, ni écrire.'
+      : `Tu quittes le club des ${actuel.plural}. Tu rejoins le club des ${autre.plural} et le score du match change.`,
     confirmLabel: `Devenir ${autre.label.toLowerCase()}`
   });
   if (!ok) return;
   try {
-    await api.majProfil({ camp: autre.id });
-    toast(`Bienvenue chez les ${autre.plural} !`);
+    const r = await api.majProfil({ camp: autre.id });
+    if (r.statut_riche === 'en_attente') ouvrirPrixRiche(r.pseudo);
+    else toast(`Bienvenue chez les ${autre.plural} !`);
   } catch (err) { toastError(err); }
 }
 

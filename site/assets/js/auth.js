@@ -59,6 +59,15 @@ export async function executerRejoindre(valeurs, turnstile) {
   return r.statut;
 }
 
+/** R-029: right after joining as rich, the account waits for a moderator: show the prices. */
+export function ouvrirPrixApresInscription(pseudo) {
+  import('./riche-attente.js').then(async (m) => {
+    const s = await api.getSession();
+    try { sessionStorage.setItem(`wp:prix-riche:${s.userId}`, '1'); } catch { /* ignore */ }
+    m.ouvrirPrixRiche(pseudo.trim());
+  }).catch(toastError);
+}
+
 function messageDejaMembre() {
   return h('div', { class: 'succes' },
     h('p', { class: 'grand' }, 'Tu as déjà un compte !'),
@@ -106,7 +115,8 @@ export function ouvrirRejoindre({ camp = null, apres = null, raison = '' } = {})
         return;
       }
       close();
-      if (typeof apres === 'function') setTimeout(() => apres(), 350);
+      if (v.camp === 'riche') ouvrirPrixApresInscription(v.pseudo);
+      else if (typeof apres === 'function') setTimeout(() => apres(), 350);
     } catch (err) {
       erreur.show(err.message || 'Oups, quelque chose a coincé. Réessaie.');
     } finally {

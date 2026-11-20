@@ -37,7 +37,7 @@ export function initLayout({ page = '', session = null, mobileCta = true } = {})
 
   body.appendChild(buildFooter());
   body.appendChild(h('div', { class: 'bandeau-transparence', role: 'note' },
-    icon('shield-check'), 'Projet test — aucune collecte ni aucun paiement.'));
+    icon('shield-check'), 'Projet humoristique — aucun argent ne circule entre membres.'));
 
   if (mobileCta) {
     body.classList.add('avec-cta-mobile');

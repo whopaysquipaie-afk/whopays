@@ -135,8 +135,8 @@ for (const camp of ['riche', 'pauvre']) {
 
     // 005 (R-017): a clean problem is published at once; a sensitive one waits for review.
     // The published test problem is visible on the real wall for a few seconds only (deleted with the account).
-    await step(`[${camp}] Publier un problème : publication immédiate (statut « publié », visible)`, async () => {
-      const r = await api.soumettreProbleme({ categorie: 'quotidien', titre: `Test automatique ${suffixe}`, texte: 'Problème de test créé par tools/e2e-supabase.mjs, supprimé à la fin du test.' });
+    if (camp === 'pauvre') await step(`[${camp}] Publier un problème : publication immédiate (statut « publié », visible)`, async () => {
+      const r = await api.soumettreProbleme({ categorie: 'quotidien', titre: `Test automatique ${suffixe}`, texte: 'Problème de test créé par tools/e2e-supabase.mjs, supprimé à la fin du test.', montant: 40 });
       monProbleme = r && r.id;
       assert(r && r.statut === 'publie', `statut renvoyé « ${r && r.statut} » au lieu de « publie » (005 appliquée ?)`);
       const e = await api.getMonEspace();
@@ -146,8 +146,8 @@ for (const camp of ['riche', 'pauvre']) {
       assert(pub && pub.titre === `Test automatique ${suffixe}` && pub.est_mon_probleme === true, 'le problème publié doit être public');
     });
 
-    await step(`[${camp}] Publier un problème avec un mot sensible (statut « reçu », invisible)`, async () => {
-      const r = await api.soumettreProbleme({ categorie: 'famille', titre: `Test sensible ${suffixe}`, texte: 'Ma mère commence sa chimio lundi. Problème de test, supprimé à la fin.' });
+    if (camp === 'pauvre') await step(`[${camp}] Publier un problème avec un mot sensible (statut « reçu », invisible)`, async () => {
+      const r = await api.soumettreProbleme({ categorie: 'famille', titre: `Test sensible ${suffixe}`, texte: 'Ma mère commence sa chimio lundi. Problème de test, supprimé à la fin.', montant: 40 });
       assert(r && r.statut === 'recu', `statut renvoyé « ${r && r.statut} » au lieu de « recu »`);
       assert(await api.getProblemePublic(r.id) === null, 'un problème non publié ne doit pas être public');
     });
@@ -166,10 +166,10 @@ for (const camp of ['riche', 'pauvre']) {
       assert(p && p.id === exemple.id, 'l’exemple doit rester publié et visible');
     });
 
-    await step(`[${camp}] Filtre : un numéro de téléphone est refusé`, () =>
+    if (camp === 'pauvre') await step(`[${camp}] Filtre : un numéro de téléphone est refusé`, () =>
       rejects(api.commenter(exemple.id, 'Appelle-moi au 06 12 34 56 78')));
 
-    await step(`[${camp}] Réagir (ajout puis retrait)`, async () => {
+    if (camp === 'pauvre') await step(`[${camp}] Réagir (ajout puis retrait)`, async () => {
       const r1 = await api.reagir(exemple.id, 'rire');
       const mes = await api.getMesReactions([exemple.id]);
       assert(mes.some((x) => x.problem_id === exemple.id && x.type === 'rire'), `réaction absente (${JSON.stringify(r1)})`);
@@ -179,7 +179,7 @@ for (const camp of ['riche', 'pauvre']) {
       await api.reagir(exemple.id, 'courage');
     });
 
-    await step(`[${camp}] Commenter, lire, supprimer son commentaire`, async () => {
+    if (camp === 'pauvre') await step(`[${camp}] Commenter, lire, supprimer son commentaire`, async () => {
       const texte = `Commentaire de test ${suffixe} (${camp})`;
       await api.commenter(exemple.id, texte);
       const l = await api.getCommentaires(exemple.id);
@@ -193,12 +193,12 @@ for (const camp of ['riche', 'pauvre']) {
       await api.commenter(exemple.id, `${texte} — gardé jusqu'à la suppression du compte`);
     });
 
-    await step(`[${camp}] Signaler un problème (et pas deux fois)`, async () => {
+    if (camp === 'pauvre') await step(`[${camp}] Signaler un problème (et pas deux fois)`, async () => {
       await api.signaler('probleme', exemple.id);
       await rejects(api.signaler('probleme', exemple.id), 'deja_fait');
     });
 
-    await step(`[${camp}] Club : envoyer et lire`, async () => {
+    if (camp === 'pauvre') await step(`[${camp}] Club : envoyer et lire`, async () => {
       const texte = `Message de test ${suffixe} (${camp})`;
       await api.envoyerMessageClub(texte);
       const msgs = await api.getClubMessages();
@@ -216,6 +216,18 @@ for (const camp of ['riche', 'pauvre']) {
     });
 
     if (camp === 'riche') {
+      await step(`[${camp}] 010 : compte riche en attente, toute écriture refusée (riche_en_attente)`, async () => {
+        const s = await api.getSession();
+        assert(s.profil.statut_riche === 'en_attente', `statut_riche « ${s.profil.statut_riche} » (010 appliquée ?)`);
+        await rejects(api.soumettreProbleme({ categorie: 'quotidien', titre: `Test riche ${suffixe}`, texte: 'Problème de test refusé : riche en attente.', montant: 40 }), 'riche_en_attente');
+        await rejects(api.reagir(exemple.id, 'rire'), 'riche_en_attente');
+        await rejects(api.commenter(exemple.id, 'Commentaire refusé'), 'riche_en_attente');
+        await rejects(api.signaler('probleme', exemple.id), 'riche_en_attente');
+        await rejects(api.envoyerMessageClub('Message refusé'), 'riche_en_attente');
+        await rejects(api.getClubMessages(), 'riche_en_attente');
+        await rejects(mod.riches(), 'interdit');
+        await rejects(mod.activerRiche(s.userId, 'annuel'), 'interdit');
+      });
       await step(`[${camp}] Bloc riche « Ce que je serais prêt à financer »`, async () => {
         const r = await api.majProfil({ riche_message: 'Un an de croquettes pour le chien à lunettes.', riche_montant: 500 });
         assert(r.riche_montant === 500, 'montant');
@@ -229,8 +241,13 @@ for (const camp of ['riche', 'pauvre']) {
       api.rafraichirSession?.();
       const e = await api.getMonEspace();
       assert(e.camp === autre, 'camp non changé');
-      const msgs = await api.getClubMessages();
-      assert(!msgs.some((x) => x.id === monMessage), 'message de l\'autre club visible');
+      if (autre === 'pauvre') {
+        const msgs = await api.getClubMessages();
+        assert(!msgs.some((x) => x.id === monMessage), 'message de l\'autre club visible');
+      } else {
+        assert(e.statut_riche === 'en_attente', 'un pauvre devenu riche doit être en attente (010)');
+        await rejects(api.getClubMessages(), 'riche_en_attente');
+      }
       await api.majProfil({ camp });
     });
 

@@ -10,6 +10,8 @@ export const CONFIG = {
   SUPABASE_PUBLIC_KEY: 'sb_publishable_LEP6wln2QlpHwK5xn1ZbXg_LXu0uVvG',
   // Turnstile SITE key (the secret goes into the Supabase dashboard only)
   TURNSTILE_SITE_KEY: '',
+  // Support address (R-029: "Contacter le support" to become rich)
+  SUPPORT_EMAIL: 'whopays.quipaie@gmail.com',
   // Cloudflare Web Analytics token (cookieless). Empty = no analytics.
   CF_ANALYTICS_TOKEN: ''
 };
