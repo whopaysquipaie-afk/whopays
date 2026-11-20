@@ -60,10 +60,11 @@ site/
         ├── carte.js       problem card · mur.js wall · reactions.js · commentaires.js · signalement.js
         ├── story.js       1080×1920 canvas story card
         ├── club.js · espace.js · partage.js · parrainage.js · animations.js · champs.js
+        ├── moderation.js  data layer of the private moderation page (mod_* RPC | demo)
         ├── pages/         one entry module per page
         └── tests/contrat.js  API contract suite (Node + browser)
 supabase/
-├── migrations/001_schema.sql · 002_securite.sql · 003_fonctions.sql · 004_moderation.sql · 005_publication_auto.sql
+├── migrations/001_schema.sql · 002_securite.sql · 003_fonctions.sql · 004_moderation.sql · 005_publication_auto.sql · 006_moderateurs.sql
 ├── seed/exemples.sql · seed/mots_interdits.sql
 └── tests/verif_securite.sql
 tools/
@@ -78,6 +79,7 @@ tools/
 
 | Table | Purpose |
 |---|---|
+| `moderateurs` | members allowed to use `moderation.html` (filled in the SQL editor only; `mod_*` functions check it) |
 | `profiles` | one member: pseudo, e-mail, camp (`riche`/`pauvre`), newsletter, referral code, `bloque` |
 | `problems` | category, title, text, optional amount, status `recu` → `publie` / `refuse` / `reoriente`, `masque` |
 | `reactions` | `rire` · `courage` · `paierais`, one of each per member and problem |

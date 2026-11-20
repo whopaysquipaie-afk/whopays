@@ -956,3 +956,32 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
 /* Club: the input bar is the end of the page (no footer under the chat) */
 body.page-club .pied { display: none; }
 body.page-club .club-fil { padding-bottom: 24px; }
+
+/* Moderation page (moderation.html, R-018): phone first, big thumb-sized buttons */
+.modo { max-width: 760px; }
+.modo-acces { margin-top: 24px; padding: 20px; border: 1px solid var(--bordure); border-radius: var(--r-carte); background: var(--anthracite); }
+.modo-acces .btn { margin-top: 14px; }
+.page-texte .modo-acces h2 { margin-top: 0; }
+.modo-identifiant { display: block; margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--noir); border: 1px solid var(--bordure); color: var(--citron); font-size: 14px; word-break: break-all; user-select: all; }
+.page-texte p.modo-note { color: var(--gris); font-size: 14px; margin-top: 0; }
+.modo-barre { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.modo-onglets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+.modo-onglet { min-height: 52px; padding: 8px 12px; border-radius: 14px; border: 1px solid var(--bordure); background: var(--anthracite); color: var(--blanc); font: 700 15px/1.2 var(--f-texte); display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; text-align: left; }
+.modo-onglet[aria-selected="true"] { background: var(--citron); color: var(--noir); border-color: var(--citron); }
+.modo-onglet:focus-visible { outline: 3px solid var(--lavande); outline-offset: 2px; }
+.modo-compte { min-width: 28px; padding: 2px 8px; border-radius: var(--r-pilule); background: var(--noir); color: var(--blanc); font-size: 13px; text-align: center; font-variant-numeric: tabular-nums; }
+.modo-panneau { margin-top: 16px; display: grid; gap: 14px; }
+.modo-panneau:focus { outline: none; }
+.page-texte .modo-vide { color: var(--gris); padding: 24px 0; text-align: center; }
+.modo-item { padding: 16px; border: 1px solid var(--bordure); border-radius: var(--r-carte); background: var(--anthracite); }
+.modo-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.page-texte .modo-titre { font-weight: 800; font-size: 19px; margin-top: 10px; overflow-wrap: anywhere; }
+.page-texte .modo-texte { color: var(--blanc); white-space: pre-wrap; overflow-wrap: anywhere; }
+.page-texte .modo-meta { color: var(--gris); font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.modo-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.modo-actions .btn { min-height: 52px; width: 100%; padding: 0 10px; font-size: 15px; }
+.page-texte .modo-erreur { color: var(--rouge); }
+@media (min-width: 768px) {
+  .modo-onglets { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .modo-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

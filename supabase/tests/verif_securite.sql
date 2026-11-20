@@ -1,7 +1,7 @@
 -- =====================================================================
 -- Qui paie ? / Who pays? — security tests (brief dev §5.7)
 --
--- Run in the Supabase SQL editor (as postgres) AFTER all the migrations (001 to 005; seeds optional).
+-- Run in the Supabase SQL editor (as postgres) AFTER all the migrations (001 to 006; seeds optional).
 -- Prints one line per test: "OK - ..." or "ÉCHEC - ...", as NOTICE messages and as the result
 -- grid of the final SELECT.
 --
@@ -95,12 +95,21 @@ declare
   v_msg_cible   uuid;
   -- direct table access
   v_tables   text[] := array['profiles', 'problems', 'reactions', 'comments', 'club_messages',
-                             'reports', 'verifications', 'mots_interdits', 'reglages', 'mots_sensibles'];
+                             'reports', 'verifications', 'mots_interdits', 'reglages', 'mots_sensibles',
+                             'moderateurs'];
   v_colonnes text[] := array['pseudo', 'titre', 'type', 'texte', 'texte',
-                             'cible_type', 'verifie_le', 'mot', 'valeur', 'mot'];
+                             'cible_type', 'verifie_le', 'mot', 'valeur', 'mot',
+                             'user_id'];
   v_pb_auto     uuid;
   v_pb_sensible uuid;
   v_pb_premod   uuid;
+  -- moderators (006)
+  v_modo        uuid := gen_random_uuid();
+  v_auteur      uuid := gen_random_uuid();
+  v_mod_fns     text[];
+  v_pb_m_pub    uuid;
+  v_pb_m_recu   uuid;
+  v_com_m       uuid;
 begin
   begin  -- sub-transaction: rolled back on purpose at the end (P0999)
 
@@ -278,7 +287,8 @@ begin
       'select * from public.moderation_newsletter',
       format('select public.wp_raison_filtre(%L)', 'test'),
       format('select public.wp_texte_valide(%L, 1, 10, %L, false)', 'test', 'Test'),
-      'select public.wp_exiger_membre(false)'
+      'select public.wp_exiger_membre(false)',
+      'select public.wp_exiger_moderateur()'
     ] loop
       begin
         execute v_t;
@@ -838,6 +848,208 @@ begin
       and not exists (select 1 from public.reactions r where r.user_id = v_partant)
       and not exists (select 1 from auth.users u where u.id = v_partant),
       'supprimer_mon_compte efface le profil, les contenus et l''utilisateur auth');
+
+    -- =================================================================
+    -- 16. Moderators (006): mod_* closed to anon and to non-moderators,
+    --     full moderator flow, never an e-mail
+    -- =================================================================
+    perform pg_temp.wp_jouer(null);
+    insert into public.reglages (cle, valeur) values ('publication_auto', 'true'::jsonb)
+    on conflict (cle) do update set valeur = excluded.valeur;
+    insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                            email_confirmed_at, created_at, updated_at,
+                            raw_app_meta_data, raw_user_meta_data, is_anonymous)
+    select '00000000-0000-0000-0000-000000000000'::uuid, u.id, 'authenticated', 'authenticated',
+           u.nom || '-' || v_suffixe || '@exemple.invalid', '', now(), now(), now(),
+           '{}'::jsonb, '{}'::jsonb, false
+    from (values (v_modo, 'modo'), (v_auteur, 'auteur')) as u(id, nom);
+    perform pg_temp.wp_jouer('authenticated', v_modo);
+    perform public.creer_profil('riche', 'Modo de test', 'modo-' || v_suffixe || '@exemple.invalid');
+    perform pg_temp.wp_jouer('authenticated', v_auteur);
+    perform public.creer_profil('pauvre', 'Auteur modere', 'auteur-' || v_suffixe || '@exemple.invalid');
+    v_j := public.soumettre_probleme('quotidien', 'Mon chat me snobe', 'Mon chat refuse de me dire bonjour le matin.', null);
+    v_pb_m_pub := (v_j ->> 'id')::uuid;
+    v_j := public.soumettre_probleme('famille', 'Ma soeur malade', 'Ma soeur commence sa chimio, on aimerait un coup de main.', null);
+    v_pb_m_recu := (v_j ->> 'id')::uuid;
+    v_com_m := (public.commenter(v_pb_m_pub, 'Commentaire a moderer') ->> 'id')::uuid;
+    perform pg_temp.wp_jouer(null);
+    insert into public.moderateurs (user_id) values (v_modo);
+
+    v_mod_fns := array[
+      'select public.mod_suis_je()',
+      'select public.mod_a_relire()',
+      'select public.mod_recents(48)',
+      'select public.mod_masques()',
+      'select public.mod_signalements_24h()',
+      format('select public.mod_moderer_probleme(%L::uuid, %L)', v_pb_m_recu, 'publie'),
+      format('select public.mod_masquer(%L, %L::uuid, true)', 'probleme', v_pb_m_pub),
+      format('select public.mod_bloquer(%L::uuid, true)', v_auteur)
+    ];
+
+    -- anon: no EXECUTE on any mod_* function
+    perform pg_temp.wp_jouer('anon');
+    foreach v_t in array v_mod_fns loop
+      begin
+        execute v_t;
+        v_hint := 'exécuté';
+      exception when insufficient_privilege then v_hint := null;
+                when others then v_hint := 'erreur ' || sqlstate;
+      end;
+      v_res := v_res || pg_temp.wp_ligne(v_hint is null, 'anon ne peut pas exécuter : ' || v_t, v_hint);
+    end loop;
+
+    -- a member who is not a moderator: mod_suis_je() = false, every other mod_* refused ('interdit')
+    perform pg_temp.wp_jouer('authenticated', v_pauvre);
+    v_res := v_res || pg_temp.wp_ligne(public.mod_suis_je() = false,
+      'mod_suis_je() renvoie false pour un membre non modérateur');
+    foreach v_t in array v_mod_fns[2:] loop
+      begin
+        execute v_t;
+        v_hint := 'exécuté';
+      exception when others then
+        get stacked diagnostics v_hint = pg_exception_hint;
+      end;
+      v_res := v_res || pg_temp.wp_ligne(v_hint = 'interdit', 'un non-modérateur est refusé : ' || v_t, v_hint);
+    end loop;
+    -- the author of the problems (not a moderator either), and a caller without uid
+    perform pg_temp.wp_jouer('authenticated', v_auteur);
+    begin
+      perform public.mod_moderer_probleme(v_pb_m_recu, 'publie');
+      v_hint := 'exécuté';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'interdit',
+      'un auteur ne peut pas publier lui-même son problème en attente', v_hint);
+    perform pg_temp.wp_jouer('authenticated', null);
+    begin
+      perform public.mod_a_relire();
+      v_hint := 'exécuté';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(public.mod_suis_je() = false and v_hint = 'interdit',
+      'sans identifiant : mod_suis_je() = false et mod_a_relire refusé', v_hint);
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      (select p.statut from public.problems p where p.id = v_pb_m_recu) = 'recu'
+      and not (select p.masque from public.problems p where p.id = v_pb_m_pub)
+      and not (select pr.bloque from public.profiles pr where pr.id = v_auteur),
+      'les refus n''ont rien modifié (statut, masque, blocage)');
+
+    -- the moderator
+    perform pg_temp.wp_jouer('authenticated', v_modo);
+    v_res := v_res || pg_temp.wp_ligne(public.mod_suis_je(), 'mod_suis_je() renvoie true pour un modérateur');
+
+    v_j := public.mod_a_relire();
+    v_res := v_res || pg_temp.wp_ligne(
+      jsonb_typeof(v_j) = 'array'
+      and exists (select 1 from jsonb_array_elements(v_j) e
+                  where e ->> 'id' = v_pb_m_recu::text and e ->> 'user_id' = v_auteur::text
+                    and e ->> 'pseudo' = 'Auteur modere')
+      and not exists (select 1 from jsonb_array_elements(v_j) e where e ->> 'id' = v_pb_m_pub::text),
+      'mod_a_relire liste le problème sensible en attente (avec son auteur), pas le publié');
+
+    v_j := public.mod_recents(48);
+    v_res := v_res || pg_temp.wp_ligne(
+      exists (select 1 from jsonb_array_elements(v_j) e where e ->> 'id' = v_pb_m_pub::text)
+      and not exists (select 1 from jsonb_array_elements(v_j) e where e ->> 'id' = v_pb_m_recu::text)
+      and not exists (select 1 from jsonb_array_elements(v_j) e where (e ->> 'statut') <> 'publie'),
+      'mod_recents(48) liste les problèmes publiés récents seulement');
+
+    v_j := public.mod_moderer_probleme(v_pb_m_recu, 'publie');
+    v_res := v_res || pg_temp.wp_ligne(
+      v_j ->> 'statut' = 'publie'
+      and exists (select 1 from public.problems p
+                  where p.id = v_pb_m_recu and p.statut = 'publie' and p.modere_le is not null)
+      and public.get_probleme_public(v_pb_m_recu) is not null,
+      'mod_moderer_probleme publie un problème en attente (visible sur le site)');
+    perform public.mod_moderer_probleme(v_pb_m_recu, 'reoriente');
+    perform public.mod_moderer_probleme(v_pb_m_recu, 'refuse');
+    v_res := v_res || pg_temp.wp_ligne(
+      (select p.statut from public.problems p where p.id = v_pb_m_recu) = 'refuse'
+      and public.get_probleme_public(v_pb_m_recu) is null,
+      'mod_moderer_probleme réoriente puis refuse (retiré du site)');
+    begin
+      perform public.mod_moderer_probleme(v_pb_m_recu, 'supprime');
+      v_hint := 'exécuté';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'invalide', 'mod_moderer_probleme refuse un statut inconnu', v_hint);
+
+    perform public.signaler('probleme', v_pb_m_pub);
+    v_j := public.mod_signalements_24h();
+    v_res := v_res || pg_temp.wp_ligne(
+      exists (select 1 from jsonb_array_elements(v_j) e
+              where e ->> 'cible_id' = v_pb_m_pub::text and (e ->> 'nb_signalements')::integer = 1
+                and e ->> 'user_id' = v_auteur::text),
+      'mod_signalements_24h liste le contenu signalé et son auteur');
+
+    v_j := public.mod_masquer('probleme', v_pb_m_pub, true);
+    v_ok := (select p.masque from public.problems p where p.id = v_pb_m_pub)
+            and public.get_probleme_public(v_pb_m_pub) is null
+            and exists (select 1 from jsonb_array_elements(public.mod_masques()) e
+                        where e ->> 'cible_id' = v_pb_m_pub::text and e ->> 'cible_type' = 'probleme');
+    perform public.mod_masquer('problem', v_pb_m_pub, false);
+    v_res := v_res || pg_temp.wp_ligne(
+      v_ok and not (select p.masque from public.problems p where p.id = v_pb_m_pub)
+      and public.get_probleme_public(v_pb_m_pub) is not null,
+      'mod_masquer masque un problème (listé dans mod_masques) puis le rétablit (alias problem)');
+
+    perform public.mod_masquer('commentaire', v_com_m, true);
+    v_ok := exists (select 1 from public.comments c where c.id = v_com_m and c.masque and c.masque_par = 'admin');
+    perform public.mod_masquer('comment', v_com_m, false);
+    v_res := v_res || pg_temp.wp_ligne(
+      v_ok and exists (select 1 from public.comments c where c.id = v_com_m and not c.masque and c.masque_par is null),
+      'mod_masquer masque puis rétablit un commentaire');
+    perform public.mod_masquer('message', v_msg_cible, true);
+    v_ok := exists (select 1 from public.club_messages m where m.id = v_msg_cible and m.masque);
+    perform public.mod_masquer('club_message', v_msg_cible, false);
+    v_res := v_res || pg_temp.wp_ligne(
+      v_ok and exists (select 1 from public.club_messages m where m.id = v_msg_cible and not m.masque),
+      'mod_masquer masque puis rétablit un message de club');
+    begin
+      perform public.mod_masquer('profil', v_pb_m_pub, true);
+      v_hint := 'exécuté';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'invalide', 'mod_masquer refuse un type inconnu', v_hint);
+
+    perform public.mod_bloquer(v_auteur, true);
+    perform pg_temp.wp_jouer('authenticated', v_auteur);
+    begin
+      perform public.commenter(v_pb_m_pub, 'Je suis bloqué');
+      v_hint := 'exécuté';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    perform pg_temp.wp_jouer('authenticated', v_modo);
+    v_txt := v_hint;
+    perform public.mod_bloquer(v_auteur, false);
+    v_res := v_res || pg_temp.wp_ligne(
+      v_txt = 'bloque' and not (select pr.bloque from public.profiles pr where pr.id = v_auteur),
+      'mod_bloquer bloque un auteur (plus d''écriture) puis le débloque', v_txt);
+    begin
+      perform public.mod_bloquer(v_modo, true);
+      v_hint := 'exécuté';
+    exception when others then
+      get stacked diagnostics v_hint = pg_exception_hint;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint = 'invalide', 'un modérateur ne peut pas se bloquer lui-même', v_hint);
+
+    v_txt := public.mod_a_relire()::text || public.mod_recents(720)::text || public.mod_masques()::text
+          || public.mod_signalements_24h()::text;
+    v_res := v_res || pg_temp.wp_ligne(position(v_suffixe in v_txt) = 0 and v_txt !~ '"email"',
+      'les fonctions mod_* ne renvoient aucune adresse e-mail');
+
+    -- deleting the moderator's account removes their moderator right
+    v_ok := public.supprimer_mon_compte();
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      v_ok and not exists (select 1 from public.moderateurs m where m.user_id = v_modo),
+      'supprimer_mon_compte retire aussi le droit de modérateur');
 
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';

@@ -27,7 +27,7 @@ function toApiError(error) {
   return new ApiError('Oups, le serveur a répondu bizarrement. Réessaie dans un instant.', 'serveur');
 }
 
-async function rpc(name, params = {}) {
+export async function rpc(name, params = {}) {
   const sb = await getClient();
   const { data, error } = await sb.rpc(name, params);
   if (error) throw toApiError(error);

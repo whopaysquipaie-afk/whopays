@@ -11,6 +11,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Versions fol
 - The live site now runs on the real Supabase backend (`MODE: 'supabase'`). Without a Turnstile site key, anonymous sign-in and magic links are called without a captcha token.
 
 ### Added
+- Mobile moderation page (`moderation.html`, linked from nowhere, `noindex`, never cached): four tabs (to review · published in the last 48 h · reported · masked) with thumb-sized buttons to publish, refuse, redirect, mask / restore and block the author. Backed by `006_moderateurs.sql`: table `moderateurs` and `mod_*` functions that refuse anyone who is not a moderator (no execute right for `anon`) and never return an e-mail address. Simulated in demo mode.
 - Demo on demand: `?demo=1` switches the current tab to demo mode (no call to Supabase), with a "Quitter la démo" link and `demo=1` kept in internal links; "Essayer la démo" link in the footer.
 - `tools/e2e-supabase.mjs`: end-to-end test against the real Supabase project (join rich/poor, publish, react, comment, report, club isolation, my space, camp switch, account deletion), every test account deleted at the end.
 

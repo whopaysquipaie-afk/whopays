@@ -1,8 +1,39 @@
-# Modération — routine quotidienne dans Supabase Studio
+# Modération — routine quotidienne
 
-Tout se fait dans **Supabase Studio** (Table Editor et SQL Editor), connecté avec le compte administrateur. Rien n'est exposé sur le site : les vues et fonctions de modération (`004_moderation.sql`) ne sont accessibles ni à `anon` ni à `authenticated`.
+Deux façons de modérer :
+
+- **Depuis un téléphone** : la page privée `moderation.html` (section « Page de modération » ci-dessous), réservée aux membres inscrits dans `public.moderateurs` (`006_moderateurs.sql`). C'est le plus rapide pour la routine quotidienne.
+- **Dans Supabase Studio** (Table Editor et SQL Editor), connecté avec le compte administrateur : toutes les commandes SQL des sections 0 à 7. Les vues et fonctions de `004_moderation.sql` ne sont accessibles ni à `anon` ni à `authenticated`.
 
 Durée : 5 à 15 minutes par jour selon le volume.
+
+## Page de modération (mobile)
+
+Adresse : `moderation.html` à la racine du site (après `CONFIG.SITE_URL`). Elle n'est liée nulle part, porte `noindex` et n'est jamais mise en cache par le service worker. Chaque action est vérifiée **côté serveur** : les fonctions `mod_*` (`006_moderateurs.sql`) refusent tout appelant absent de `public.moderateurs` (et `anon` n'a aucun droit d'exécution).
+
+**Devenir modérateur** (une fois, dans le SQL Editor) :
+
+1. Avoir un compte de membre sur le site, avec un e-mail confirmé (pour pouvoir se reconnecter par lien magique sur le téléphone).
+2. Exécuter, en remplaçant le pseudo :
+   ```sql
+   insert into public.moderateurs (user_id) select id from public.profiles where pseudo = '<pseudo>';
+   ```
+   Variante : ouvrir `moderation.html` connecté avec ce compte ; la page « Accès réservé » affiche l'identifiant du membre à copier, puis
+   `insert into public.moderateurs (user_id) values ('<identifiant>');`
+3. Retirer le droit : `delete from public.moderateurs where user_id = '<identifiant>';` (il disparaît aussi quand le compte est supprimé).
+
+**Les 4 onglets** (le nombre d'éléments est affiché sur chaque onglet) :
+
+| Onglet | Contenu | Boutons |
+|---|---|---|
+| **À relire** | Problèmes en attente (`recu` = cas sensibles, ou tout en pré-modération), le plus ancien en premier | Publier · Refuser · Réorienter · Bloquer l'auteur |
+| **Récents 48 h** | Problèmes publiés depuis 48 h (masqués compris), le plus récent en premier | Masquer / Rétablir · Refuser (retirer) · Voir sur le site · Bloquer l'auteur |
+| **Signalés** | Contenus signalés depuis 24 h (problèmes, commentaires, messages de club), les plus signalés en premier | Masquer / Rétablir · Refuser (problème) · Bloquer l'auteur |
+| **Masqués** | Tout ce qui est masqué (3 signalements, auteur du problème, modération) | Rétablir · Refuser (problème) · Bloquer l'auteur |
+
+« Bloquer l'auteur » demande une confirmation ; un auteur bloqué affiche « Débloquer l'auteur ». Un modérateur ne peut pas se bloquer lui-même. Les fonctions ne renvoient jamais d'adresse e-mail.
+
+En mode démo (`?demo=1`), la page est simulée : le bouton « (Démo) Essayer en modérateur » donne le rôle au membre connecté (ou au premier membre fictif).
 
 ## 0. Publication immédiate (depuis `005_publication_auto.sql`)
 

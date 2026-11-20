@@ -8,6 +8,7 @@
 //  6. no secret pattern in the working tree AND in the whole Git history
 //  7. visible texts: "problème" never misspelled "probléme"
 //  8. site JavaScript budget < 150 KB (vendor/ excluded)
+//  (+ 7b service worker / assets, 7c sensitive words JS = SQL, 7d private moderation page)
 
 import { readFileSync, readdirSync, statSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { join, relative, extname, dirname, basename } from 'node:path';
@@ -274,6 +275,31 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
     }
   }
   check('Mots sensibles identiques en JS (démo) et en SQL (005)', problems);
+}
+
+/* 7d. Private moderation page (R-018): noindex, linked from nowhere, never cached by the service worker */
+{
+  const problems = [];
+  const page = join(SITE, 'moderation.html');
+  if (!existsSync(page)) problems.push('site/moderation.html absent');
+  else if (!/<meta name="robots" content="noindex[^"]*">/.test(read(page))) problems.push('moderation.html : <meta name="robots" content="noindex"> manquant');
+  const lien = /moderation\.html/;
+  for (const f of siteFiles.filter((x) => ['.html', '.js', '.webmanifest', '.xml', '.txt'].includes(extname(x)) && !isVendor(x))) {
+    if (f === page || /^site\/(sw\.js|assets\/js\/(pages\/)?moderation\.js)$/.test(rel(f))) continue;
+    if (lien.test(read(f))) problems.push(`${rel(f)} : lien vers moderation.html`);
+  }
+  const sw = join(SITE, 'sw.js');
+  if (existsSync(sw)) {
+    const src = read(sw);
+    const statique = (src.match(/const STATIC = \[([\s\S]*?)\];/) || [])[1] || '';
+    if (/moderation/.test(statique)) problems.push('sw.js : la page de modération est dans le précache');
+    const m = src.match(/const NO_CACHE = (\/.*\/);/);
+    const re = m ? new RegExp(m[1].slice(1, -1)) : null;
+    for (const chemin of ['/whopays/moderation.html', '/whopays/moderation', '/whopays/assets/js/moderation.js', '/whopays/assets/js/pages/moderation.js']) {
+      if (!re || !re.test(chemin)) problems.push(`sw.js : ${chemin} n'est pas exclu du cache (NO_CACHE)`);
+    }
+  }
+  check('Page de modération privée (noindex, aucun lien, hors cache du service worker)', problems);
 }
 
 /* 8. JS budget */

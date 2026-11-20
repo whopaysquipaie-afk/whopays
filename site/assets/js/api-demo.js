@@ -107,7 +107,8 @@ function buildSeed(now) {
     users: [], profiles: [], problems: [], reactions: [], comments: [], club_messages: [], reports: [], verifications: [],
     mots_interdits: [...MOTS_INTERDITS_DEFAUT],
     mots_sensibles: [...MOTS_SENSIBLES_DEFAUT],
-    reglages: { publication_auto: true }
+    reglages: { publication_auto: true },
+    moderateurs: []
   };
   const codes = new Set();
   // Members, registered over the last 30 days
@@ -522,6 +523,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         st.reports = st.reports.filter((r) => r.user_id !== id);
         st.problems = st.problems.filter((p) => p.user_id !== id);
         st.verifications = st.verifications.filter((v) => v.user_id !== id);
+        st.moderateurs = (st.moderateurs || []).filter((m) => m !== id);
         for (const p of st.profiles) if (p.invite_par === id) p.invite_par = null;
         st.profiles = st.profiles.filter((p) => p.id !== id);
         st.users = st.users.filter((u) => u.id !== id);
@@ -608,6 +610,134 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     }
   };
 
+  /* ================= Moderation page (= mod_* functions of 006_moderateurs.sql) ================= */
+  // Same rules as SQL: every function except suisJe() requires the caller to be in st.moderateurs
+  // ('interdit' otherwise); results never contain an e-mail address.
+  const MOD_TABLES = { probleme: 'problems', commentaire: 'comments', message: 'club_messages' };
+  const MOD_ALIAS = { problem: 'probleme', comment: 'commentaire', club_message: 'message' };
+  const estModo = (st) => !!uid(st) && (st.moderateurs || []).includes(uid(st));
+  function exigerModo(st) {
+    if (!estModo(st)) throw ERR.interdit('Accès réservé aux modérateurs.');
+    return uid(st);
+  }
+  const auteur = (st, userId) => {
+    const p = userId ? st.profiles.find((x) => x.id === userId) : null;
+    return { pseudo: p ? p.pseudo : null, camp: p ? p.camp : null, user_id: userId || null, bloque: !!(p && p.bloque) };
+  };
+  const nbSignalements = (st, type, id, depuis = 0) =>
+    st.reports.filter((r) => r.cible_type === type && r.cible_id === id && Date.parse(r.cree_le) > depuis).length;
+  const problemeModo = (st, p) => ({
+    id: p.id, cree_le: p.modere_le || p.cree_le, categorie: p.categorie, titre: p.titre, texte: p.texte, montant: p.montant,
+    statut: p.statut, masque: !!p.masque, ...auteur(st, p.user_id), nb_signalements: nbSignalements(st, 'probleme', p.id)
+  });
+  const contenuDe = (type, row) => (type === 'probleme' ? `${row.titre} — ${row.texte}` : type === 'message' ? `[${row.camp}] ${row.texte}` : row.texte);
+
+  api.moderation = {
+    async suisJe() { return estModo(load()); },
+
+    async aRelire() {
+      const st = load();
+      exigerModo(st);
+      return st.problems.filter((p) => p.statut === 'recu')
+        .sort((a, b) => a.cree_le.localeCompare(b.cree_le))
+        .slice(0, 200)
+        .map((p) => ({
+          ...problemeModo(st, p), cree_le: p.cree_le,
+          auteur_nb_publies: st.problems.filter((x) => p.user_id && x.user_id === p.user_id && x.statut === 'publie').length,
+          auteur_signalements_24h: st.reports.filter((r) => p.user_id && r.user_id === p.user_id && Date.parse(r.cree_le) > t() - DAY).length
+        }));
+    },
+
+    async recents(heures = 48) {
+      const st = load();
+      exigerModo(st);
+      const h = Math.min(720, Math.max(1, Number.isInteger(heures) ? heures : 48));
+      return st.problems
+        .filter((p) => p.statut === 'publie' && !p.est_exemple && Date.parse(sortDate(p)) > t() - h * HOUR)
+        .sort((a, b) => sortDate(b).localeCompare(sortDate(a)))
+        .slice(0, 200)
+        .map((p) => problemeModo(st, p));
+    },
+
+    async masques() {
+      const st = load();
+      exigerModo(st);
+      const rows = [];
+      for (const [type, table] of Object.entries(MOD_TABLES)) {
+        for (const row of st[table].filter((x) => x.masque)) {
+          rows.push({
+            cible_type: type, cible_id: row.id, contenu: contenuDe(type, row), masque: true,
+            masque_par: type === 'commentaire' ? row.masque_par || null : null,
+            nb_signalements: nbSignalements(st, type, row.id), ...auteur(st, row.user_id),
+            statut: type === 'probleme' ? row.statut : null, cree_le: row.cree_le
+          });
+        }
+      }
+      return rows.sort((a, b) => b.cree_le.localeCompare(a.cree_le)).slice(0, 200)
+        .map(({ camp, ...r }) => r);
+    },
+
+    async signalements24h() {
+      const st = load();
+      exigerModo(st);
+      const depuis = t() - DAY;
+      const groupes = new Map();
+      for (const r of st.reports.filter((x) => Date.parse(x.cree_le) > depuis)) {
+        const k = `${r.cible_type}:${r.cible_id}`;
+        const g = groupes.get(k) || { cible_type: r.cible_type, cible_id: r.cible_id, nb_signalements: 0, premier: r.cree_le, dernier: r.cree_le };
+        g.nb_signalements++;
+        if (r.cree_le < g.premier) g.premier = r.cree_le;
+        if (r.cree_le > g.dernier) g.dernier = r.cree_le;
+        groupes.set(k, g);
+      }
+      return [...groupes.values()].map((g) => {
+        const row = st[MOD_TABLES[g.cible_type]].find((x) => x.id === g.cible_id);
+        const a = auteur(st, row && row.user_id);
+        return {
+          ...g, contenu: row ? contenuDe(g.cible_type, row) : '(contenu supprimé)', masque: !!(row && row.masque),
+          statut: g.cible_type === 'probleme' && row ? row.statut : null, user_id: a.user_id, pseudo: a.pseudo, bloque: a.bloque
+        };
+      }).sort((a, b) => b.nb_signalements - a.nb_signalements || b.dernier.localeCompare(a.dernier)).slice(0, 200);
+    },
+
+    async modererProbleme(id, statut) {
+      return tx((st) => {
+        exigerModo(st);
+        if (!['recu', 'publie', 'refuse', 'reoriente'].includes(statut)) throw ERR.invalide('Statut inconnu (recu, publie, refuse, reoriente).');
+        const p = st.problems.find((x) => x.id === id);
+        if (!p) throw ERR.introuvable('Ce problème est introuvable.');
+        p.statut = statut;
+        p.modere_le = statut === 'recu' ? null : iso(t());
+        return { id, statut };
+      });
+    },
+
+    async masquer(type, id, masque = true) {
+      return tx((st) => {
+        exigerModo(st);
+        const ty = MOD_ALIAS[type] || type;
+        if (!MOD_TABLES[ty]) throw ERR.invalide('Type de contenu inconnu.');
+        const row = st[MOD_TABLES[ty]].find((x) => x.id === id);
+        if (!row) throw ERR.introuvable('Contenu introuvable.');
+        const v = masque !== false;
+        row.masque = v;
+        if (ty === 'commentaire') row.masque_par = v ? 'admin' : null;
+        return { cible_type: ty, cible_id: id, masque: v };
+      });
+    },
+
+    async bloquer(userId, bloque = true) {
+      return tx((st) => {
+        const moi = exigerModo(st);
+        if (userId === moi) throw ERR.invalide('Tu ne peux pas te bloquer toi-même.');
+        const p = st.profiles.find((x) => x.id === userId);
+        if (!p) throw ERR.introuvable('Membre introuvable.');
+        p.bloque = bloque !== false;
+        return { user_id: userId, bloque: p.bloque };
+      });
+    }
+  };
+
   /* ================= Moderation helpers (tests & demo only) ================= */
   const setStatut = (statut) => async (problemId) => tx((st) => {
     const p = st.problems.find((x) => x.id === problemId);
@@ -637,6 +767,15 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     async masquer(type, id, valeur = true) {
       const tables = { probleme: 'problems', commentaire: 'comments', message: 'club_messages' };
       return tx((st) => { const row = (st[tables[type]] || []).find((x) => x.id === id); if (!row) throw ERR.introuvable('Contenu introuvable.'); row.masque = valeur; if (type === 'commentaire') row.masque_par = valeur ? 'admin' : null; return true; });
+    },
+    /** Adds (or removes) a moderator (= insert into public.moderateurs, SQL editor only). */
+    async setModerateur(userId, valeur = true) {
+      return tx((st) => {
+        if (!st.users.some((u) => u.id === userId)) throw ERR.introuvable('Membre introuvable.');
+        const autres = (st.moderateurs || []).filter((m) => m !== userId);
+        st.moderateurs = valeur === false ? autres : [...autres, userId];
+        return true;
+      });
     },
     /** Signs in as an existing member (tests). */
     async connecterEnTantQue(userId) {

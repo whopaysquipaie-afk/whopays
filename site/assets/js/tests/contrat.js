@@ -604,6 +604,110 @@ test('Persistance', 'l’état survit à un rechargement (même stockage)', asyn
 
 /* ================= Runner ================= */
 
+/* ================= H. Moderation page (= mod_* of 006_moderateurs.sql) ================= */
+
+const MOD_APPELS = (m, ids) => [
+  ['aRelire', () => m.aRelire()],
+  ['recents', () => m.recents(48)],
+  ['masques', () => m.masques()],
+  ['signalements24h', () => m.signalements24h()],
+  ['modererProbleme', () => m.modererProbleme(ids.probleme, 'publie')],
+  ['masquer', () => m.masquer('probleme', ids.probleme, true)],
+  ['bloquer', () => m.bloquer(ids.membre, true)]
+];
+
+test('H. Modération', 'visiteur et membre non modérateur : refusés sur chaque fonction, rien ne change', async () => {
+  const { api, join } = fresh();
+  const auteur = await join('pauvre');
+  const r = await api.soumettreProbleme({ categorie: 'famille', titre: 'Une semaine compliquée', texte: 'Ma mère commence sa chimio lundi.' });
+  eq(r.statut, 'recu');
+  const ids = { probleme: r.id, membre: auteur.userId };
+  await api.seDeconnecter();
+  eq(await api.moderation.suisJe(), false, 'visiteur :');
+  for (const [nom, appel] of MOD_APPELS(api.moderation, ids)) await rejects(appel(), 'interdit', `visiteur, ${nom} :`);
+  await join('riche');
+  eq(await api.moderation.suisJe(), false, 'membre :');
+  for (const [nom, appel] of MOD_APPELS(api.moderation, ids)) await rejects(appel(), 'interdit', `membre, ${nom} :`);
+  const brut = api.demoAdmin.etatBrut();
+  eq(brut.problems.find((p) => p.id === r.id).statut, 'recu');
+  eq(brut.problems.find((p) => p.id === r.id).masque, false);
+  eq(brut.profiles.find((p) => p.id === auteur.userId).bloque, false);
+});
+
+test('H. Modération', 'modérateur : à relire, publier, refuser, réorienter, récents', async () => {
+  const { api, join, as, admin } = fresh();
+  const auteur = await join('pauvre');
+  const sensible = await api.soumettreProbleme({ categorie: 'famille', titre: 'Une semaine compliquée', texte: 'Ma mère commence sa chimio lundi.' });
+  const normal = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon grille-pain me juge', texte: 'Il brûle tout, sauf mes factures.' });
+  const modo = await join('riche', 'Modo');
+  await admin.setModerateur(modo.userId);
+  eq(await api.moderation.suisJe(), true);
+  const file = await api.moderation.aRelire();
+  const item = file.find((x) => x.id === sensible.id);
+  assert(item && item.user_id === auteur.userId && item.pseudo, 'problème sensible dans la file, avec son auteur');
+  assert(!file.some((x) => x.id === normal.id), 'le problème publié n’est pas dans la file');
+  assertNoEmail(file, 'aRelire');
+  const recents = await api.moderation.recents(48);
+  assert(recents.some((x) => x.id === normal.id) && recents.every((x) => x.statut === 'publie'), 'récents = publiés');
+  assert(!recents.some((x) => x.id === sensible.id), 'récents sans le problème en attente');
+  eq((await api.moderation.modererProbleme(sensible.id, 'publie')).statut, 'publie');
+  eq((await api.getProblemePublic(sensible.id)).titre, 'Une semaine compliquée');
+  await api.moderation.modererProbleme(sensible.id, 'reoriente');
+  eq(await api.getProblemePublic(sensible.id), null);
+  await api.moderation.modererProbleme(normal.id, 'refuse');
+  eq(await api.getProblemePublic(normal.id), null);
+  await rejects(api.moderation.modererProbleme(normal.id, 'supprime'), 'invalide');
+  await as(auteur.userId);
+  const e = await api.getMonEspace();
+  eq(e.problemes.find((x) => x.id === sensible.id).statut, 'reoriente');
+});
+
+test('H. Modération', 'modérateur : signalés, masquer / rétablir (alias anglais), bloquer / débloquer', async () => {
+  const { api, join, as, admin } = fresh();
+  const auteur = await join('pauvre');
+  const pb = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon chat me snobe', texte: 'Il refuse de me dire bonjour le matin.' });
+  const com = await api.commenter(pb.id, 'Commentaire à modérer');
+  const modo = await join('riche', 'Modo');
+  await admin.setModerateur(modo.userId);
+  await api.signaler('probleme', pb.id);
+  const sig = await api.moderation.signalements24h();
+  const s = sig.find((x) => x.cible_id === pb.id);
+  assert(s && s.nb_signalements === 1 && s.user_id === auteur.userId && s.cible_type === 'probleme', 'contenu signalé listé');
+  assertNoEmail(sig, 'signalements24h');
+  await api.moderation.masquer('probleme', pb.id, true);
+  eq(await api.getProblemePublic(pb.id), null);
+  assert((await api.moderation.masques()).some((x) => x.cible_id === pb.id && x.cible_type === 'probleme'), 'listé dans masqués');
+  await api.moderation.masquer('problem', pb.id, false);
+  assert(await api.getProblemePublic(pb.id), 'rétabli');
+  await api.moderation.masquer('comment', com.id, true);
+  const c = api.demoAdmin.etatBrut().comments.find((x) => x.id === com.id);
+  assert(c.masque && c.masque_par === 'admin', 'commentaire masqué par la modération');
+  await api.moderation.masquer('commentaire', com.id, false);
+  await rejects(api.moderation.masquer('profil', pb.id, true), 'invalide');
+  await api.moderation.bloquer(auteur.userId, true);
+  await rejects(api.moderation.bloquer(modo.userId, true), 'invalide', 'se bloquer soi-même :');
+  await as(auteur.userId);
+  await rejects(api.commenter(pb.id, 'Je suis bloqué'), 'bloque');
+  await as(modo.userId);
+  await api.moderation.bloquer(auteur.userId, false);
+  await as(auteur.userId);
+  await api.commenter(pb.id, 'Je suis débloqué');
+});
+
+test('H. Modération', 'supprimer son compte retire le droit de modérateur', async () => {
+  const { api, join, admin } = fresh();
+  const modo = await join('riche', 'Modo');
+  await admin.setModerateur(modo.userId);
+  await api.supprimerMonCompte();
+  eq(admin.etatBrut().moderateurs.length, 0);
+  eq(await api.moderation.suisJe(), false);
+});
+
+function assertNoEmail(payload, where) {
+  const json = JSON.stringify(payload);
+  assert(!/@/.test(json) && !/"email"/.test(json), `${where} : contient une adresse e-mail`);
+}
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {

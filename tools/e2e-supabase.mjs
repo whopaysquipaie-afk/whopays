@@ -2,7 +2,7 @@
 // End-to-end test against the REAL Supabase project configured in site/assets/js/config.js.
 // Drives the real data layer (site/assets/js/api-supabase.js + the vendored supabase-js) from Node:
 // join (rich and poor), publish, react, comment, report, club (with camp isolation), my space,
-// switch camp, delete the account. Every test account is named "test-…" and is deleted at the end
+// switch camp, delete the account, moderation refused to non-moderators (006). Every test account is named "test-…" and is deleted at the end
 // with "Supprimer mon compte" (also on failure). Nothing is left in the database.
 //
 // Usage: node tools/e2e-supabase.mjs
@@ -27,9 +27,11 @@ if (!globalThis.supabase || !globalThis.supabase.createClient) {
 
 const { CONFIG } = await import(pathToFileURL(join(JS, 'config.js')).href);
 const { createSupabaseApi } = await import(pathToFileURL(join(JS, 'api-supabase.js')).href);
+const { createModerationApi } = await import(pathToFileURL(join(JS, 'moderation.js')).href);
 const { getClient } = await import(pathToFileURL(join(JS, 'supabase.js')).href);
 
 const api = createSupabaseApi();
+const mod = await createModerationApi();
 const results = [];
 const suffixe = Date.now().toString(36).slice(-5);
 
@@ -91,6 +93,12 @@ await step('Lecture publique : compteurs, chiffres, mur', async () => {
 
 await step('Visiteur : réagir est refusé (non connecté)', () => rejects(api.reagir(exemple.id, 'rire')));
 
+// 006 (R-018): the moderation functions are closed to visitors and to members who are not moderators.
+await step('Visiteur : modération refusée (mod_suis_je = false, mod_a_relire interdit)', async () => {
+  assert(await mod.suisJe() === false, 'mod_suis_je devrait renvoyer false');
+  await rejects(mod.aRelire(), 'interdit');
+});
+
 for (const camp of ['riche', 'pauvre']) {
   const autre = camp === 'riche' ? 'pauvre' : 'riche';
   const pseudo = `test-${camp}-${suffixe}`;
@@ -125,6 +133,20 @@ for (const camp of ['riche', 'pauvre']) {
       const r = await api.soumettreProbleme({ categorie: 'famille', titre: `Test sensible ${suffixe}`, texte: 'Ma mère commence sa chimio lundi. Problème de test, supprimé à la fin.' });
       assert(r && r.statut === 'recu', `statut renvoyé « ${r && r.statut} » au lieu de « recu »`);
       assert(await api.getProblemePublic(r.id) === null, 'un problème non publié ne doit pas être public');
+    });
+
+    await step(`[${camp}] Membre non modérateur : chaque fonction de modération est refusée`, async () => {
+      assert(await mod.suisJe() === false, 'mod_suis_je devrait renvoyer false (006 appliquée ?)');
+      await rejects(mod.aRelire(), 'interdit');
+      await rejects(mod.recents(48), 'interdit');
+      await rejects(mod.masques(), 'interdit');
+      await rejects(mod.signalements24h(), 'interdit');
+      await rejects(mod.modererProbleme(exemple.id, 'refuse'), 'interdit');
+      await rejects(mod.masquer('probleme', exemple.id, true), 'interdit');
+      const s = await api.getSession();
+      await rejects(mod.bloquer(s.userId, true), 'interdit');
+      const p = await api.getProblemePublic(exemple.id);
+      assert(p && p.id === exemple.id, 'l’exemple doit rester publié et visible');
     });
 
     await step(`[${camp}] Filtre : un numéro de téléphone est refusé`, () =>
