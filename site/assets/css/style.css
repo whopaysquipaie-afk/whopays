@@ -75,7 +75,7 @@
   --ease: cubic-bezier(.2, .8, .2, 1);
 
   --header-h: 68px;
-  --banner-h: 40px;
+  --banner-h: calc(40px + env(safe-area-inset-bottom, 0px)); /* bottom banner, iPhone home bar included */
   --cta-mobile-h: 0px;
 
   --ombre: 0 18px 50px rgba(0, 0, 0, .45);
@@ -291,9 +291,12 @@ body.avec-cta-mobile { --cta-mobile-h: 68px; }
   min-height: var(--banner-h);
   display: flex; align-items: center; justify-content: center; gap: 8px;
   background: var(--anthracite); border-top: 1px solid var(--bordure);
-  color: var(--gris); font-size: 13px; text-align: center; padding: 6px 14px;
+  color: var(--gris); font-size: 13px; line-height: 1.3; text-align: center;
+  padding: 6px 14px calc(6px + env(safe-area-inset-bottom, 0px));
 }
 .bandeau-transparence svg { width: 16px; height: 16px; color: var(--citron); flex: none; }
+/* Keep the banner on one line, so that --banner-h (body padding, sticky button) stays exact. */
+@media (max-width: 359px) { .bandeau-transparence { font-size: 11.5px; padding-left: 8px; padding-right: 8px; gap: 6px; } }
 
 /* ---------- Footer ---------- */
 .pied {
@@ -604,6 +607,8 @@ a.engagement:hover { border-color: var(--citron); }
   font-size: 14px;
 }
 .avertissement svg { width: 20px; height: 20px; flex: none; margin-top: 1px; }
+.avertissement > div { min-width: 0; }
+.avertissement .btn { white-space: normal; text-align: center; max-width: 100%; }
 .avertissement a { color: var(--lavande); font-weight: 600; }
 
 /* Camp chooser */
@@ -812,15 +817,28 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
 .reserve .btn { margin-top: 22px; }
 
 /* ---------- Mon espace ---------- */
-.espace-grille { display: grid; gap: 16px; margin-top: 24px; }
+/* Grid tracks are minmax(0, 1fr): an `auto` track grows to the widest min-content of its items
+   (the referral link is one unbreakable line), which made the whole page overflow at 360 px (R-023). */
+.espace-grille { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 24px; }
+.espace-grille > * { min-width: 0; }
+/* Mobile first: row 1 = avatar + pseudo/camp, row 2 = the two buttons. */
 .carte-identite {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 16px 14px;
 }
 .carte-identite .avatar {
-  width: 72px; height: 72px; border-radius: 22px; display: flex; align-items: center; justify-content: center; flex: none;
+  width: 56px; height: 56px; border-radius: 18px; display: flex; align-items: center; justify-content: center;
 }
-.carte-identite .avatar svg { width: 42px; height: 42px; }
-.carte-identite .nom { font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: 28px; overflow-wrap: anywhere; }
+.carte-identite .avatar svg { width: 34px; height: 34px; }
+.identite-infos { min-width: 0; }
+.carte-identite .nom {
+  font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: clamp(20px, 6vw, 28px); line-height: 1.15;
+  overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+.page-texte .identite-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.identite-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; }
+.identite-actions .btn { flex: 1 1 auto; min-height: 44px; white-space: normal; text-align: center; }
+@media (max-width: 389px) { .identite-actions .btn { flex-basis: 100%; } }
 .lien-parrainage {
   display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap;
 }
@@ -891,8 +909,13 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
   .btn { font-size: 16px; }
   .entete-actions .btn-rejoindre { display: inline-flex; }
   .club-entete h1 { font-size: 34px; }
-  .espace-grille { grid-template-columns: 1fr 1fr; }
+  .espace-grille { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .espace-grille .pleine { grid-column: 1 / -1; }
+  .carte-identite { grid-template-columns: 72px minmax(0, 1fr) auto; gap: 16px; }
+  .carte-identite .avatar { width: 72px; height: 72px; border-radius: 22px; }
+  .carte-identite .avatar svg { width: 42px; height: 42px; }
+  .identite-actions { grid-column: auto; flex-wrap: nowrap; }
+  .identite-actions .btn { flex: none; white-space: nowrap; }
   .pied-interieur { flex-direction: row; justify-content: space-between; align-items: flex-start; }
 }
 
@@ -972,7 +995,8 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .modo-onglet[aria-selected="true"] { background: var(--citron); color: var(--noir); border-color: var(--citron); }
 .modo-onglet:focus-visible { outline: 3px solid var(--lavande); outline-offset: 2px; }
 .modo-compte { min-width: 28px; padding: 2px 8px; border-radius: var(--r-pilule); background: var(--noir); color: var(--blanc); font-size: 13px; text-align: center; font-variant-numeric: tabular-nums; }
-.modo-panneau { margin-top: 16px; display: grid; gap: 14px; }
+.modo-panneau { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.modo-item { min-width: 0; }
 .modo-panneau:focus { outline: none; }
 .page-texte .modo-vide { color: var(--gris); padding: 24px 0; text-align: center; }
 .modo-item { padding: 16px; border: 1px solid var(--bordure); border-radius: var(--r-carte); background: var(--anthracite); }
@@ -981,7 +1005,7 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .page-texte .modo-texte { color: var(--blanc); white-space: pre-wrap; overflow-wrap: anywhere; }
 .page-texte .modo-meta { color: var(--gris); font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .modo-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
-.modo-actions .btn { min-height: 52px; width: 100%; padding: 0 10px; font-size: 15px; }
+.modo-actions .btn { min-height: 52px; width: 100%; padding: 6px 10px; font-size: 15px; line-height: 1.2; white-space: normal; text-align: center; min-width: 0; }
 .page-texte .modo-erreur { color: var(--rouge); }
 @media (min-width: 768px) {
   .modo-onglets { grid-template-columns: repeat(4, minmax(0, 1fr)); }

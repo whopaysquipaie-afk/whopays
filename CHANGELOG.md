@@ -5,6 +5,9 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Versions fol
 
 ## [Unreleased]
 
+### Fixed
+- « Mon espace » on phones: the identity card is now mobile first (avatar + pseudo on one row, pseudo on two lines at most, buttons below at full width; former layout from 768 px), and the page no longer overflows horizontally at 360 px (grid tracks `minmax(0, 1fr)` instead of `auto`, which grew to the width of the referral link). Moderation buttons wrap instead of overflowing; the bottom banner reserves the iPhone home-bar area.
+
 ### Changed
 - Moderation page, restricted-access screen: a visitor without an account now gets a main « Rejoindre » button (the join dialog stays on the page, which refreshes once the account exists), with « Déjà membre ? Se connecter » as secondary; a member who is not a moderator sees their pseudo, their member id to copy and a hint to ask the administrator.
 - Sensitive expressions, v2 (`007_mots_sensibles_v2.sql`): fewer false positives on a humour site. Ambiguous single words (`mourir`, `enceinte`, `abus`, `drogue(s)`, `frappe`) are replaced by explicit first-person expressions (`veux mourir`, `je suis enceinte`, `abuse de moi`, `je me drogue`, `il me frappe`…); `addiction`, `alcoolique`, `pensees suicidaires`, `idees noires` added. « Je vais mourir de rire » and « mon enceinte Bluetooth » are now published at once.
