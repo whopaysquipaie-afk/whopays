@@ -1,8 +1,7 @@
-/* Service worker — caches ONLY the static files of the site (HTML, CSS, JS, fonts, images).
-   Never caches Supabase, Turnstile or analytics responses (cross-origin requests are not touched).
-   Bump VERSION to refresh every cached file after a deploy. */
+/* Service worker: own static files only (never Supabase/Cloudflare). Code = network first,
+   fonts/images = stale-while-revalidate. __BUILD__ is replaced by the commit at deploy (docs/ARCHITECTURE.md). */
 
-const VERSION = 'whopays-v3';
+const VERSION = 'whopays-__BUILD__';
 const STATIC = [
   './', 'index.html', 'p.html', 'chiffres.html', 'club.html', 'espace.html', 'aide.html', '404.html',
   'manifest.webmanifest',
@@ -21,12 +20,14 @@ const STATIC = [
   'assets/fonts/Montserrat-BlackItalic.woff2', 'assets/fonts/Montserrat-ExtraBold.woff2', 'assets/fonts/Montserrat-BoldItalic.woff2',
   'assets/fonts/Inter-Regular.woff2', 'assets/fonts/Inter-SemiBold.woff2'
 ];
-const STATIC_EXT = /\.(?:html|css|js|mjs|svg|png|webp|jpg|jpeg|woff2|webmanifest)$/;
+const CODE_EXT = /\.(?:html|css|js|mjs|webmanifest)$/;
+const MEDIA_EXT = /\.(?:svg|png|webp|jpg|jpeg|woff2)$/;
+const NO_CACHE = /\/moderation(?:\.html)?$|\/assets\/js\/(?:pages\/)?moderation\.js$/;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(VERSION)
-      .then((cache) => Promise.all(STATIC.map((url) => cache.add(url).catch(() => null))))
+      .then((cache) => Promise.all(STATIC.map((url) => cache.add(new Request(url, { cache: 'reload' })).catch(() => null))))
       .then(() => self.skipWaiting())
   );
 });
@@ -39,36 +40,38 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function networkFirst(req, key) {
+  const fresh = req.mode === 'navigate' ? fetch(req) : fetch(req, { cache: 'no-cache' });
+  return fresh
+    .then((res) => {
+      if (res.ok && res.type === 'basic') { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(key, copy)); }
+      return res;
+    })
+    .catch(() => caches.match(key).then((r) => r || (req.mode === 'navigate' ? caches.match('index.html') : Response.error())));
+}
+
+function staleWhileRevalidate(event, req) {
+  return caches.open(VERSION).then((cache) => cache.match(req).then((cached) => {
+    const network = fetch(req).then((res) => {
+      if (res.ok && res.type === 'basic') cache.put(req, res.clone());
+      return res;
+    }).catch(() => cached);
+    if (cached) { event.waitUntil(network.catch(() => null)); return cached; }
+    return network;
+  }));
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  // Only our own static files. Supabase, Turnstile, analytics: never intercepted, never cached.
   if (url.origin !== self.location.origin) return;
-  const isPage = req.mode === 'navigate';
-  if (!isPage && !STATIC_EXT.test(url.pathname)) return;
+  if (NO_CACHE.test(url.pathname)) return;
 
-  if (isPage) {
-    // Network first for pages (fresh content), cache as offline fallback.
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(url.pathname, copy)); }
-          return res;
-        })
-        .catch(() => caches.match(url.pathname).then((r) => r || caches.match('index.html')))
-    );
+  if (req.mode === 'navigate') {
+    event.respondWith(networkFirst(req, url.pathname));
     return;
   }
-
-  // Stale-while-revalidate for static assets.
-  event.respondWith(
-    caches.open(VERSION).then((cache) => cache.match(req).then((cached) => {
-      const network = fetch(req).then((res) => {
-        if (res.ok && res.type === 'basic') cache.put(req, res.clone());
-        return res;
-      }).catch(() => cached);
-      return cached || network;
-    }))
-  );
+  if (CODE_EXT.test(url.pathname)) { event.respondWith(networkFirst(req, req)); return; }
+  if (MEDIA_EXT.test(url.pathname)) { event.respondWith(staleWhileRevalidate(event, req)); }
 });

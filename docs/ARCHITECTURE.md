@@ -98,6 +98,14 @@ tools/
 
 `api-demo.js` keeps a full fake database in `localStorage` (`whopays_demo_v1`): 60 fictional members, 7 examples, 44 problems, reactions, comments and club messages. It applies the same validation, filters, limits, camp isolation, auto-masking and blocking as the SQL functions. `window.demoAdmin` exposes moderation helpers (`publier`, `refuser`, `reorienter`, `bloquer`, `verifier`, `masquer`) for testers.
 
+## Service worker and deploys
+
+- `sw.js` only handles same-origin static files; Supabase, Turnstile and analytics requests are never intercepted.
+- Pages, JavaScript, CSS and the manifest are **network first** (revalidated with the server, `cache: 'no-cache'`); the cache is only an offline fallback. Fonts and images are **stale-while-revalidate**.
+- The cache name is `whopays-__BUILD__`: `deploy.yml` replaces `__BUILD__` with the short commit SHA before uploading `site/`, so every deploy installs a new worker and deletes the old cache. Locally the placeholder stays as is.
+- When a new worker takes control of an open page (`controllerchange`), `layout.js` reloads it **once** (30 s guard in `sessionStorage`), so a page never runs a mix of old and new files. No reload on the very first install.
+- `moderation.html` and its scripts are never cached.
+
 ## Known limits
 
 | Limit | Consequence | Mitigation |

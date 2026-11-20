@@ -274,6 +274,17 @@ async function install() {
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') return;
+  // New deploy = new SW taking over: reload once (not on first install; 30 s guard against loops).
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;
+    const KEY = 'whopays-sw-reload';
+    let last = 0;
+    try { last = Number(sessionStorage.getItem(KEY)) || 0; } catch { /* storage disabled */ }
+    if (Date.now() - last < 30_000) return;
+    try { sessionStorage.setItem(KEY, String(Date.now())); } catch { return; }
+    location.reload();
+  });
   const go = () => navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => { /* offline support is optional */ });
   // Pages use top-level await: the load event may already be over when we get here.
   if (document.readyState === 'complete') go();

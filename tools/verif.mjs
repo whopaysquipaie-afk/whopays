@@ -232,6 +232,12 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
       if (!existsSync(join(SITE, m[1]))) problems.push(`sw.js : fichier absent ${m[1]}`);
     }
     if (/supabase\.co|challenges\.cloudflare/.test(read(sw).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''))) problems.push('sw.js ne doit jamais référencer Supabase ou Cloudflare');
+    // Cache version stamped automatically at deploy time (R-016).
+    if (!/const VERSION = 'whopays-__BUILD__';/.test(read(sw))) problems.push("sw.js : VERSION doit valoir 'whopays-__BUILD__' (remplacé au déploiement)");
+    const deploy = join(ROOT, '.github/workflows/deploy.yml');
+    const dy = existsSync(deploy) ? read(deploy) : '';
+    if (!/sed -i "s\/__BUILD__\/\$\{GITHUB_SHA::7\}\/" site\/sw\.js/.test(dy)) problems.push('deploy.yml : remplacement de __BUILD__ par le commit absent');
+    else if (dy.indexOf('__BUILD__') > dy.indexOf('upload-pages-artifact')) problems.push('deploy.yml : le remplacement de __BUILD__ doit précéder l\'upload');
   }
   const manifest = join(SITE, 'manifest.webmanifest');
   if (existsSync(manifest)) {
@@ -253,11 +259,13 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
 {
   // Budget = JavaScript shipped to visitors of the real site: vendor/ excluded, and also the test
   // suite (tests.html only) and the demo simulation + demo UI (loaded only in demo mode or with ?demo=1).
-  const horsBudget = (f) => /site\/assets\/js\/(tests\/|api-demo\.js$|demo-data\.js$|demo-ui\.js$|pages\/tests\.js$)/.test(rel(f));
+  // Also excluded: sw.js (runs in a worker, registered after the load event, never executed by
+  // pages) and the private moderation page (moderators only, never loaded by visitors). DC-017.
+  const horsBudget = (f) => /site\/(sw\.js$|assets\/js\/(tests\/|api-demo\.js$|demo-data\.js$|demo-ui\.js$|pages\/tests\.js$|moderation\.js$|pages\/moderation\.js$))/.test(rel(f));
   const total = siteJs.filter((f) => !horsBudget(f)).reduce((s, f) => s + statSync(f).size, 0);
   const demo = siteJs.filter(horsBudget).reduce((s, f) => s + statSync(f).size, 0);
   const kb = Math.round(total / 1024);
-  check(`Poids du JavaScript du site : ${kb} Ko (limite 150 Ko ; hors vendor, tests et simulation démo : +${Math.round(demo / 1024)} Ko)`, total > 150 * 1024 ? [`${kb} Ko > 150 Ko`] : []);
+  check(`Poids du JavaScript du site : ${kb} Ko (limite 150 Ko ; hors vendor, tests, simulation démo, sw.js et modération : +${Math.round(demo / 1024)} Ko)`, total > 150 * 1024 ? [`${kb} Ko > 150 Ko`] : []);
 }
 
 /* Report */

@@ -6,6 +6,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Versions fol
 ## [Unreleased]
 
 ### Changed
+- Service worker: pages, JavaScript, CSS and the manifest are now network first (cache only offline); fonts and images stay stale-while-revalidate. The cache version is stamped with the commit SHA at deploy time, and an open page reloads once when a new version takes over: no more stale `config.js` after a deploy.
 - The live site now runs on the real Supabase backend (`MODE: 'supabase'`). Without a Turnstile site key, anonymous sign-in and magic links are called without a captcha token.
 
 ### Added
