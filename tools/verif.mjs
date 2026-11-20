@@ -209,7 +209,7 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
       // Only check visible strings (quoted text, HTML text), not identifiers like get_probleme_public.
       // Enum values such as 'probleme' (lowercase, no space) are identifiers, not visible text.
       const strings = (line.match(/(["'`])(?:(?!\1).)*\1|>[^<]+</g) || [])
-        .filter((s) => !/^(["'`])[a-z0-9_.-]*\1$/.test(s)).join(' ');
+        .filter((s) => !/^(["'`])[#a-z0-9_.-]*\1$/.test(s)).join(' ');
       const cleaned = strings.replace(/[\w-]*probleme[\w-]*\.(html|js)/gi, '').replace(/\b[a-z_]*probleme[a-z_]*\b(?=\s*[(:])/gi, '');
       for (const m of cleaned.matchAll(/[A-Za-zÀ-ÿ'_-]*probl[eéê]m+e[A-Za-zÀ-ÿ_-]*/gi)) {
         const w = m[0];

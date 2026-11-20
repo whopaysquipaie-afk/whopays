@@ -680,11 +680,16 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
 /* ---------- Problem page ---------- */
 .page-probleme { padding-top: 28px; }
 .fil-ariane { display: flex; align-items: center; gap: 8px; color: var(--gris); font-size: 14px; }
-.fil-ariane a { color: var(--gris); text-decoration: none; font-weight: 600; }
+.fil-ariane a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--gris); text-decoration: none; font-weight: 600; }
+.fil-ariane svg { width: 18px; height: 18px; }
 .fil-ariane a:hover { color: var(--blanc); }
-.probleme-grille { display: grid; gap: 28px; margin-top: 18px; }
+.probleme-grille { display: grid; gap: 28px; margin-top: 18px; grid-template-areas: "carte" "cote" "com"; grid-template-columns: minmax(0, 1fr); }
+#zone-carte { grid-area: carte; }
+#zone-cote { grid-area: cote; }
+#zone-commentaires { grid-area: com; }
+#zone-commentaires .sous-titre-bloc { margin-top: 0; }
 .probleme-carte-wrap { position: relative; }
-.probleme-carte-wrap .menu-points { position: absolute; top: 14px; right: 14px; z-index: 5; color: var(--noir-doux); }
+.probleme-carte-wrap > .menu-points { position: absolute; top: 14px; right: 14px; z-index: 5; color: var(--noir-doux); }
 .reactions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
 .reaction {
   display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 18px;
@@ -890,7 +895,7 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
   body.avec-cta-mobile { --cta-mobile-h: 0px; }
   .tuiles-cat { display: grid; grid-template-columns: repeat(6, 1fr); overflow: visible; }
   .tuile-cat { flex: auto; }
-  .probleme-grille { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; }
+  .probleme-grille { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); grid-template-areas: "carte cote" "com cote"; grid-template-rows: auto 1fr; align-items: start; }
   .probleme-cote { position: sticky; top: calc(var(--header-h) + 20px); }
 }
 
@@ -922,3 +927,14 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
 .succes .btn { margin-top: 18px; }
 .separateur { height: 1px; background: var(--bordure); margin: 22px 0 6px; }
 .etiquette-section { font-family: var(--f-titre); font-weight: 800; font-size: 17px; margin-top: 18px; }
+.story-zone { display: flex; justify-content: center; margin-top: 8px; }
+.story-apercu { width: min(270px, 60vw); height: auto; border-radius: 16px; border: 1px solid var(--bordure); box-shadow: var(--ombre); }
+.introuvable-probleme { grid-column: 1 / -1; }
+
+/* Very small screens: keep logo + camp badge + menu on one line */
+@media (max-width: 419px) {
+  .logo img { height: 34px; }
+  .entete-interieur { gap: 8px; }
+  .pastille-camp { padding-right: 10px; }
+  .pastille-camp .pseudo { max-width: 84px; }
+}

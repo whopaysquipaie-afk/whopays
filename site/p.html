@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com https://cloudflareinsights.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <title>Un problème — Qui paie ?</title>
+  <meta name="description" content="Un problème qui attend son milliardaire. Réagis, commente, partage. Projet test, aucune collecte d'argent.">
+  <meta name="theme-color" content="#0B0B0B">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:site_name" content="Qui paie ?">
+  <meta property="og:title" content="Qui paie ? — Ce problème attend son milliardaire">
+  <meta property="og:description" content="Réagis, commente, partage-le pour qu'un milliardaire tombe dessus. Projet test, aucune collecte d'argent.">
+  <meta property="og:image" content="https://whopaysquipaie-afk.github.io/whopays/assets/img/og-image.png">
+  <meta property="og:url" content="https://whopaysquipaie-afk.github.io/whopays/p.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script type="module" src="assets/js/pages/probleme.js"></script>
+</head>
+<body>
+  <main id="contenu" class="container page-probleme">
+    <nav class="fil-ariane" aria-label="Fil d'Ariane"><a href="index.html#mur"><i data-icon="arrow-left"></i> Les problèmes</a></nav>
+    <div id="probleme" aria-live="polite" aria-busy="true">
+      <div class="probleme-grille">
+        <div class="probleme-carte-wrap" id="zone-carte"></div>
+        <div class="probleme-cote" id="zone-cote"></div>
+        <div id="zone-commentaires"></div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
