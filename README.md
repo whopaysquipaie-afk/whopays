@@ -43,6 +43,7 @@ And then… nothing happens. **0 € funded.** That's the joke, the social exper
 | 😂 **Reactions & comments** | "Mort de rire", "Courage", "Si j'étais riche, je paierais" — with instant toggles |
 | 📱 **Story card** | One tap → a 1080×1920 PNG ready for Instagram/TikTok/WhatsApp, shared natively on mobile |
 | 🔒 **Camp clubs** | One group chat per camp. The Poor can't read the Rich club, and vice versa (enforced in SQL) |
+| 🏆 **Le palmarès** | The Poor ranked by the total of their published problems, with a podium. The winner gets nothing, except bragging rights |
 | 📊 **Les chiffres** | "X € of problems waiting for a billionaire. **0 € funded.**" |
 | 🎲 **Random problem** | Because scrolling is for people with time |
 | 🚩 **Self-moderation** | 3 reports auto-hide any content; blocked members can read but not write |
@@ -53,6 +54,7 @@ And then… nothing happens. **0 € funded.** That's the joke, the social exper
 <img src="docs/img/probleme.png" alt="Problem page with reactions, story card and share buttons" width="49%">
 <img src="docs/img/mobile.png" alt="Mobile home page" width="24%">
 <img src="docs/img/club.png" alt="Club des pauvres on mobile" width="24%">
+<img src="docs/img/palmares.png" alt="Le palmarès des pauvres: podium of the Poor ranked by the total of their problems" width="860">
 </div>
 
 ## How it works

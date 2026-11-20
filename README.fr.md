@@ -42,6 +42,7 @@ Et ensuite… rien. **0 € financé.** C'est la blague, l'expérience sociale, 
 | 😂 **Réactions et commentaires** | « Mort de rire », « Courage », « Si j'étais riche, je paierais » |
 | 📱 **Carte story** | Un clic → une image 1080×1920 prête pour Instagram, TikTok ou WhatsApp |
 | 🔒 **Clubs par camp** | Un salon par camp. Les pauvres ne lisent pas le club des riches, et inversement (garanti en SQL) |
+| 🏆 **Le palmarès** | Les pauvres classés par le total de leurs problèmes publiés, avec un podium. Le premier ne gagne rien, à part le droit d'en parler |
 | 📊 **Les chiffres** | « X € de problèmes en attente d'un milliardaire. **0 € financé.** » |
 | 🎲 **Problème au hasard** | Parce que faire défiler, c'est pour ceux qui ont le temps |
 | 🚩 **Auto-modération** | 3 signalements masquent un contenu ; un membre bloqué peut lire mais plus écrire |
@@ -52,6 +53,7 @@ Et ensuite… rien. **0 € financé.** C'est la blague, l'expérience sociale, 
 <img src="docs/img/probleme.png" alt="Page problème avec réactions, carte story et partage" width="49%">
 <img src="docs/img/mobile.png" alt="Accueil sur mobile" width="24%">
 <img src="docs/img/club.png" alt="Club des pauvres sur mobile" width="24%">
+<img src="docs/img/palmares.png" alt="Le palmarès des pauvres : podium des pauvres classés par le total de leurs problèmes" width="860">
 </div>
 
 ## Comment ça marche
