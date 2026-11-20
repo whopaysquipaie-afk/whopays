@@ -9,35 +9,40 @@
   font-style: italic;
   font-weight: 900;
   font-display: swap;
-  src: local("Montserrat Black Italic"), local("Montserrat-BlackItalic");
+  src: local("Montserrat Black Italic"), local("Montserrat-BlackItalic"),
+       url("../fonts/Montserrat-BlackItalic.woff2") format("woff2");
 }
 @font-face {
   font-family: "Montserrat";
   font-style: normal;
   font-weight: 800;
   font-display: swap;
-  src: local("Montserrat ExtraBold"), local("Montserrat-ExtraBold");
+  src: local("Montserrat ExtraBold"), local("Montserrat-ExtraBold"),
+       url("../fonts/Montserrat-ExtraBold.woff2") format("woff2");
 }
 @font-face {
   font-family: "Montserrat";
   font-style: italic;
   font-weight: 700;
   font-display: swap;
-  src: local("Montserrat Bold Italic"), local("Montserrat-BoldItalic");
+  src: local("Montserrat Bold Italic"), local("Montserrat-BoldItalic"),
+       url("../fonts/Montserrat-BoldItalic.woff2") format("woff2");
 }
 @font-face {
   font-family: "Inter";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: local("Inter Regular"), local("Inter-Regular");
+  src: local("Inter Regular"), local("Inter-Regular"),
+       url("../fonts/Inter-Regular.woff2") format("woff2");
 }
 @font-face {
   font-family: "Inter";
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: local("Inter SemiBold"), local("Inter-SemiBold");
+  src: local("Inter SemiBold"), local("Inter-SemiBold"),
+       url("../fonts/Inter-SemiBold.woff2") format("woff2");
 }
 
 /* ---------- Tokens ---------- */
@@ -212,9 +217,10 @@ ul, ol { margin: 0; padding: 0; }
   -webkit-backdrop-filter: saturate(140%) blur(12px);
   backdrop-filter: saturate(140%) blur(12px);
   border-bottom: 1px solid transparent;
-  transition: border-color var(--t-moyen) var(--ease);
+  transition: border-color var(--t-moyen) var(--ease), background-color var(--t-moyen) var(--ease);
 }
-.entete.a-defile { border-bottom-color: var(--bordure); }
+/* Once scrolled, the header is fully opaque: content must never show through it. */
+.entete.a-defile { background: var(--noir); border-bottom-color: var(--bordure); }
 .entete-interieur {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   height: var(--header-h);
@@ -426,6 +432,8 @@ a.carte:focus-visible { outline-offset: 4px; border-radius: var(--r-carte); }
   box-shadow: var(--ombre), 0 0 0 3px var(--citron);
 }
 .carte-exemple-hero .carte-tuile { width: 96px; height: 96px; background: #222; }
+/* The punchline is at the end of the title: never truncate it in the hero card. */
+.carte-exemple-hero .carte-titre { font-size: 18px; -webkit-line-clamp: unset; line-clamp: none; display: block; overflow: visible; }
 .carte-ligne-bas {
   display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
   margin-top: 14px; font-weight: 600; font-size: 14px;
@@ -877,6 +885,7 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
   .match-pauvre p { margin-left: auto; }
   .etapes { grid-template-columns: repeat(3, 1fr); }
   .carte-titre { font-size: 22px; }
+  .carte-exemple-hero .carte-titre { font-size: 20px; }
   .carte-large .carte-titre { font-size: 32px; }
   .btn { font-size: 16px; }
   .entete-actions .btn-rejoindre { display: inline-flex; }

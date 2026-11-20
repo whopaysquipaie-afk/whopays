@@ -69,7 +69,7 @@ supabase/
 tools/
 ├── test.mjs     contract suite in Node (in-memory localStorage)
 ├── verif.mjs    static checks: syntax, unsafe DOM, absolute links, CSP, secrets (files + git history), assets, JS budget
-├── images.mjs   regenerates every brand SVG (letters drawn as paths)
+├── images.mjs   regenerates the brand SVGs (icons, masters); the logo is a source file it embeds
 ├── sync-url.mjs writes CONFIG.SITE_URL into the Open Graph tags
 └── polices.mjs  wires the woff2 fonts once they are added
 ```

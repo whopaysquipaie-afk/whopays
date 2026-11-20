@@ -21,6 +21,26 @@ function loadImage(src) {
   });
 }
 
+// Logo A (Montserrat Black Italic glyphs): viewBox only, width / height ratio 3.958.
+const LOGO_RATIO = 7468 / 1887;
+
+/**
+ * Loads an SVG that has a viewBox but no width / height (the logo) with an explicit
+ * intrinsic size, so that every browser can draw it on a canvas (Firefox refuses otherwise).
+ */
+async function loadSvgSized(src, width, height) {
+  try {
+    const res = await fetch(src);
+    if (!res.ok) throw new Error(String(res.status));
+    const text = (await res.text()).replace(/<svg\b(?![^>]*\swidth=)/, `<svg width="${width}" height="${height}"`);
+    const url = URL.createObjectURL(new Blob([text], { type: 'image/svg+xml' }));
+    const img = await loadImage(url);
+    URL.revokeObjectURL(url);
+    if (img) return img;
+  } catch { /* fall back to a plain load */ }
+  return loadImage(src);
+}
+
 /** Splits text into lines that fit `maxWidth`. */
 function wrap(ctx, text, maxWidth) {
   const words = String(text).split(/\s+/).filter(Boolean);
@@ -77,7 +97,9 @@ function motCle(titre) {
 /** Draws the story card. Returns the canvas. */
 export async function dessinerStory(p) {
   try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch { /* ignore */ }
-  const [logo, couronne] = await Promise.all([loadImage('assets/img/logo.svg'), loadImage('assets/img/couronne.svg')]);
+  const LOGO_W = 430;
+  const LOGO_H = Math.round(LOGO_W / LOGO_RATIO);
+  const [logo, couronne] = await Promise.all([loadSvgSized('assets/img/logo.svg', LOGO_W, LOGO_H), loadImage('assets/img/couronne.svg')]);
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -100,10 +122,8 @@ export async function dessinerStory(p) {
   // Logo A
   let y = 120;
   if (logo) {
-    const lw = 430;
-    const lh = (logo.height / logo.width) * lw || 130;
-    ctx.drawImage(logo, M - 10, y, lw, lh);
-    y += lh;
+    ctx.drawImage(logo, M - 10, y, LOGO_W, LOGO_H);
+    y += LOGO_H;
   }
   if (couronne) {
     ctx.save();

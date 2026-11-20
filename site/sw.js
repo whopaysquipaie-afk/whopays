@@ -2,7 +2,7 @@
    Never caches Supabase, Turnstile or analytics responses (cross-origin requests are not touched).
    Bump VERSION to refresh every cached file after a deploy. */
 
-const VERSION = 'whopays-v1';
+const VERSION = 'whopays-v2';
 const STATIC = [
   './', 'index.html', 'p.html', 'chiffres.html', 'club.html', 'espace.html', 'aide.html', '404.html',
   'manifest.webmanifest',
@@ -17,7 +17,9 @@ const STATIC = [
   'assets/js/pages/espace.js', 'assets/js/pages/aide.js',
   'assets/img/logo.svg', 'assets/img/favicon.svg', 'assets/img/couronne.svg', 'assets/img/couronne-noire.svg',
   'assets/img/tirelire.svg', 'assets/img/tirelire-violette.svg', 'assets/img/pinceau.svg', 'assets/img/mascotte.svg',
-  'assets/img/question.svg', 'assets/img/icone-192.png', 'assets/img/icone-512.png'
+  'assets/img/question.svg', 'assets/img/icone-192.png', 'assets/img/icone-512.png',
+  'assets/fonts/Montserrat-BlackItalic.woff2', 'assets/fonts/Montserrat-ExtraBold.woff2', 'assets/fonts/Montserrat-BoldItalic.woff2',
+  'assets/fonts/Inter-Regular.woff2', 'assets/fonts/Inter-SemiBold.woff2'
 ];
 const STATIC_EXT = /\.(?:html|css|js|mjs|svg|png|webp|jpg|jpeg|woff2|webmanifest)$/;
 

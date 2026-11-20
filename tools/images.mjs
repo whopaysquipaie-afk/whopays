@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// Generates every SVG asset of the brand (no font needed: letters are drawn as paths).
+// Generates the SVG assets of the brand (icons, decorations, PNG masters, social images).
+// The logo itself (logo.svg, logo-clair.svg) is a delivered source file, embedded as-is.
 // Usage: node tools/images.mjs
 // Outputs: site/assets/img/*.svg, site/assets/img/src/*.svg (PNG masters), docs/social-preview.svg
 
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -13,42 +14,11 @@ const SRC = join(IMG, 'src');
 
 const C = { noir: '#0B0B0B', blanc: '#FFFFFF', citron: '#C6F432', lavande: '#DCD3FF', lavandeTexte: '#3B2A8C', anthracite: '#161616', creme: '#F4F4F0', gris: '#A3A3A3' };
 
-/* ------------------------------------------------------------------
-   A tiny stroke "font": capital letters, cap height 100, stroke 24.
-   Each glyph: { w: advance width, d: centerline path (box 0..w × 0..100) }
------------------------------------------------------------------- */
-const GLYPHS = {
-  W: { w: 100, d: 'M12 12 L30 88 L50 36 L70 88 L88 12' },
-  H: { w: 74, d: 'M12 12 V88 M62 12 V88 M12 50 H62' },
-  O: { w: 80, d: 'M40 12 C58 12 68 26 68 50 C68 74 58 88 40 88 C22 88 12 74 12 50 C12 26 22 12 40 12 Z' },
-  P: { w: 70, d: 'M12 88 V12 H38 C52 12 60 20 60 32 C60 44 52 52 38 52 H12' },
-  A: { w: 84, d: 'M12 88 L42 12 L72 88 M24 64 H60' },
-  Y: { w: 80, d: 'M12 12 L40 52 L68 12 M40 52 V88' },
-  S: { w: 70, d: 'M58 24 C53 16 45 12 35 12 C21 12 13 20 13 30 C13 42 24 46 36 50 C48 54 58 58 58 70 C58 82 48 88 35 88 C23 88 15 83 10 75' },
-  Q: { w: 84, d: 'M40 12 C58 12 68 26 68 50 C68 74 58 88 40 88 C22 88 12 74 12 50 C12 26 22 12 40 12 Z M46 66 L74 96' },
-  U: { w: 74, d: 'M12 12 V62 C12 78 22 88 37 88 C52 88 62 78 62 62 V12' },
-  I: { w: 24, d: 'M12 12 V88' },
-  E: { w: 66, d: 'M58 12 H12 V88 H58 M12 50 H50' },
-  ' ': { w: 26, d: '' }
-};
-const TRACKING = 8;
-const STROKE = 24;
-const SKEW = -12; // degrees → italic
+// Italic skew shared by the "?" icons (same slant as the logo).
+const SKEW = -12; // degrees
 const SKEW_K = Math.tan((SKEW * Math.PI) / 180);
 
-function wordPaths(text, x0, y0) {
-  let x = x0;
-  const parts = [];
-  for (const ch of text) {
-    const g = GLYPHS[ch];
-    if (!g) throw new Error(`No glyph for ${ch}`);
-    if (g.d) parts.push(`<path transform="translate(${x} ${y0})" d="${g.d}"/>`);
-    x += g.w + TRACKING;
-  }
-  return { svg: parts.join(''), width: x - x0 - TRACKING };
-}
-
-// Big question mark covering both lines (height 222), centerline drawn in a 0..120 × 0..222 box.
+// Question mark of the icons (favicon, app icons), centerline drawn in a 0..120 × 0..222 box.
 const Q_STROKE = 40;
 function questionMark(x, y, color, scale = 1) {
   return `<g transform="translate(${x} ${y}) scale(${scale})" fill="none" stroke="${color}" stroke-width="${Q_STROKE}" stroke-linecap="butt" stroke-linejoin="round">
@@ -57,33 +27,33 @@ function questionMark(x, y, color, scale = 1) {
   </g>`;
 }
 
-/** Logo A: two lines WHO PAYS / QUI PAIE + one big lemon "?". Returns { svg, w, h }. */
-function logo({ text = C.blanc, accent = C.citron, background = null } = {}) {
-  const pad = 14;
-  const l1 = wordPaths('WHO PAYS', 0, 0);
-  const l2 = wordPaths('QUI PAIE', 0, 122);
-  const textW = Math.max(l1.width, l2.width);
-  const skewShift = Math.abs(SKEW_K) * 222;
-  const qx = textW + 22;
-  const totalW = Math.ceil(qx + 130 + skewShift + pad * 2);
-  const totalH = 222 + pad * 2 + 10;
-  const bg = background ? `<rect width="100%" height="100%" fill="${background}"/>` : '';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" role="img" aria-label="Who pays ? Qui paie ?">
-  <title>Who pays ? Qui paie ?</title>${bg}
-  <g transform="translate(${pad + skewShift} ${pad}) skewX(${SKEW})">
-    <g fill="none" stroke="${text}" stroke-width="${STROKE}" stroke-linejoin="miter" stroke-miterlimit="2.2" stroke-linecap="butt">${l1.svg}${l2.svg}</g>
-    ${questionMark(qx, 0, accent)}
-  </g>
-</svg>`;
-  return { svg, w: totalW, h: totalH, inner: { l1, l2, qx, skewShift, pad } };
+/*
+ * The official logo (logo.svg / logo-clair.svg) is drawn from the real glyphs of
+ * Montserrat Black Italic and delivered as a file: it is a SOURCE, never regenerated here.
+ * The compositions below embed it as a nested <svg> (same viewBox, metadata stripped).
+ */
+function readLogo(file) {
+  const raw = readFileSync(join(IMG, file), 'utf8');
+  const viewBox = (raw.match(/<svg\b[^>]*\sviewBox="([^"]+)"/) || [])[1];
+  if (!viewBox) throw new Error(`${file}: no viewBox`);
+  const [, , vw, vh] = viewBox.trim().split(/[\s,]+/).map(Number);
+  const inner = raw
+    .replace(/^[\s\S]*?<svg\b[^>]*>/, '')
+    .replace(/<\/svg>\s*$/, '')
+    .replace(/<title>[\s\S]*?<\/title>/g, '')
+    .replace(/<metadata>[\s\S]*?<\/metadata>/g, '')
+    .trim();
+  return { viewBox, ratio: vw / vh, inner };
 }
 
-/** Logo as a group to embed in bigger compositions (width target). */
-function logoGroup(x, y, targetW, opts = {}) {
-  const { svg, w, h } = logo(opts);
-  const scale = targetW / w;
-  const inner = svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '').replace(/<title>.*?<\/title>/, '');
-  return { g: `<g transform="translate(${x} ${y}) scale(${scale.toFixed(4)})">${inner}</g>`, h: h * scale };
+/** Logo as a nested <svg> to embed in bigger compositions (width target). */
+function logoGroup(x, y, targetW, { clair = false } = {}) {
+  const L = readLogo(clair ? 'logo-clair.svg' : 'logo.svg');
+  const hgt = targetW / L.ratio;
+  return {
+    g: `<svg x="${x}" y="${y}" width="${targetW}" height="${hgt.toFixed(2)}" viewBox="${L.viewBox}">${L.inner}</svg>`,
+    h: hgt
+  };
 }
 
 /** "?" alone on black — favicon, app icon. `safe` shrinks it for maskable icons. */
@@ -180,7 +150,7 @@ function textBlock(lines, { x, y, size, weight = 900, italic = true, color = C.b
 
 function ogImage() {
   const w = 1200, hgt = 630;
-  const L = logoGroup(70, 60, 330);
+  const L = logoGroup(70, 70, 440);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${hgt}" width="${w}" height="${hgt}">
   <rect width="${w}" height="${hgt}" fill="${C.noir}"/>
   <circle cx="1080" cy="120" r="260" fill="${C.citron}" opacity=".06"/>
@@ -194,7 +164,7 @@ function ogImage() {
 
 function socialPreview() {
   const w = 1280, hgt = 640;
-  const L = logoGroup(80, 70, 360);
+  const L = logoGroup(80, 80, 460);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${hgt}" width="${w}" height="${hgt}">
   <rect width="${w}" height="${hgt}" fill="${C.noir}"/>
   <circle cx="1120" cy="560" r="300" fill="${C.lavande}" opacity=".07"/>
@@ -232,8 +202,11 @@ function out(path, content) {
 }
 
 console.log('Generating SVG assets…');
-out(join(IMG, 'logo.svg'), logo().svg);
-out(join(IMG, 'logo-clair.svg'), logo({ text: C.noir }).svg);
+// logo.svg and logo-clair.svg are sources (real Montserrat glyphs): not regenerated.
+for (const f of ['logo.svg', 'logo-clair.svg']) {
+  if (!existsSync(join(IMG, f))) throw new Error(`Missing source ${f}`);
+  console.log('  = site/assets/img/' + f + ' (source, ratio ' + readLogo(f).ratio.toFixed(3) + ')');
+}
 out(join(IMG, 'favicon.svg'), iconQ({ size: 64, radius: 12 }));
 out(join(IMG, 'couronne.svg'), CROWN);
 out(join(IMG, 'tirelire.svg'), PIGGY);

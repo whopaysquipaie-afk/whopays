@@ -42,10 +42,13 @@ export function initLayout({ page = '', session = null, mobileCta = true } = {})
 
   if (mobileCta) {
     body.classList.add('avec-cta-mobile');
-    body.appendChild(h('button', {
+    const cta = h('button', {
       type: 'button', class: 'btn btn-primaire cta-mobile',
       onclick: () => intent('publier')
-    }, 'Publier un problème', icon('arrow-right', { className: 'fleche' })));
+    }, 'Publier un problème', icon('arrow-right', { className: 'fleche' }));
+    body.appendChild(cta);
+    hideCtaWhileVisible(cta, [...document.querySelectorAll('.hero-actions')]
+      .filter((el) => el.querySelector('[data-action="publier"]')));
   }
 
   hydrateIcons(document);
@@ -53,6 +56,29 @@ export function initLayout({ page = '', session = null, mobileCta = true } = {})
   onScroll();
   setupInstall();
   updateHeaderSession(session);
+}
+
+/**
+ * Hides the sticky mobile "Publier" button while an identical button is on screen
+ * (hero of the home page), so that two identical buttons are never stacked.
+ */
+function hideCtaWhileVisible(cta, targets) {
+  if (!targets.length || !('IntersectionObserver' in window)) return;
+  const visible = new Set();
+  const setHidden = (hide) => {
+    cta.classList.toggle('cache', hide);
+    if (hide) cta.setAttribute('aria-hidden', 'true'); else cta.removeAttribute('aria-hidden');
+    cta.tabIndex = hide ? -1 : 0;
+  };
+  // Hidden from the start (the hero is at the top of the page); the observer fires at once.
+  setHidden(true);
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) visible.add(entry.target); else visible.delete(entry.target);
+    }
+    setHidden(visible.size > 0);
+  });
+  targets.forEach((t) => observer.observe(t));
 }
 
 function demoBanner() {
@@ -78,7 +104,7 @@ function buildHeader() {
   const header = h('header', { class: 'entete' },
     h('div', { class: 'container entete-interieur' },
       h('a', { class: 'logo', href: 'index.html', 'aria-label': 'Qui paie ? — accueil' },
-        h('img', { src: 'assets/img/logo.svg', alt: 'Who pays ? Qui paie ?', width: '150', height: '40' })),
+        h('img', { src: 'assets/img/logo.svg', alt: 'Who pays ? Qui paie ?', width: '158', height: '40' })),
       navEl,
       headerActions,
     )
@@ -173,7 +199,7 @@ function buildFooter() {
     h('div', { class: 'container pied-interieur' },
       h('div', {},
         h('a', { class: 'pied-logo', href: 'index.html', 'aria-label': 'Qui paie ? — accueil' },
-          h('img', { src: 'assets/img/logo.svg', alt: 'Who pays ? Qui paie ?', width: '128', height: '34', loading: 'lazy' })),
+          h('img', { src: 'assets/img/logo.svg', alt: 'Who pays ? Qui paie ?', width: '135', height: '34', loading: 'lazy' })),
         h('p', { class: 'mt-16' }, 'Site édité par Hassen Bamri · Hébergé par GitHub · Projet test sans collecte d\'argent')
       ),
       h('div', { class: 'pied-liens' },
