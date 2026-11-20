@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 150" width="220" height="150" role="img" aria-label="Couronne">
+  <g fill="none" stroke="#0B0B0B" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M28 118 C24 92 18 64 14 38 C34 56 52 70 66 78 C80 58 96 34 110 12 C123 34 138 58 152 79 C168 68 186 54 206 36 C200 64 194 92 190 119"/>
+    <path d="M24 132 C80 124 140 124 196 132"/>
+  </g>
+  <g fill="#0B0B0B">
+    <circle cx="14" cy="34" r="10"/><circle cx="110" cy="10" r="10"/><circle cx="207" cy="32" r="10"/>
+    <path d="M102 96 l8 -12 l8 12 l-8 12z"/>
+  </g>
+</svg>

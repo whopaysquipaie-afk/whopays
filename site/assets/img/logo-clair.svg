@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 868 260" width="868" height="260" role="img" aria-label="Who pays ? Qui paie ?">
+  <title>Who pays ? Qui paie ?</title>
+  <g transform="translate(61.187556690744906 14) skewX(-12)">
+    <g fill="none" stroke="#0B0B0B" stroke-width="24" stroke-linejoin="miter" stroke-miterlimit="2.2" stroke-linecap="butt"><path transform="translate(0 0)" d="M12 12 L30 88 L50 36 L70 88 L88 12"/><path transform="translate(108 0)" d="M12 12 V88 M62 12 V88 M12 50 H62"/><path transform="translate(190 0)" d="M40 12 C58 12 68 26 68 50 C68 74 58 88 40 88 C22 88 12 74 12 50 C12 26 22 12 40 12 Z"/><path transform="translate(312 0)" d="M12 88 V12 H38 C52 12 60 20 60 32 C60 44 52 52 38 52 H12"/><path transform="translate(390 0)" d="M12 88 L42 12 L72 88 M24 64 H60"/><path transform="translate(482 0)" d="M12 12 L40 52 L68 12 M40 52 V88"/><path transform="translate(570 0)" d="M58 24 C53 16 45 12 35 12 C21 12 13 20 13 30 C13 42 24 46 36 50 C48 54 58 58 58 70 C58 82 48 88 35 88 C23 88 15 83 10 75"/><path transform="translate(0 122)" d="M40 12 C58 12 68 26 68 50 C68 74 58 88 40 88 C22 88 12 74 12 50 C12 26 22 12 40 12 Z M46 66 L74 96"/><path transform="translate(92 122)" d="M12 12 V62 C12 78 22 88 37 88 C52 88 62 78 62 62 V12"/><path transform="translate(174 122)" d="M12 12 V88"/><path transform="translate(240 122)" d="M12 88 V12 H38 C52 12 60 20 60 32 C60 44 52 52 38 52 H12"/><path transform="translate(318 122)" d="M12 88 L42 12 L72 88 M24 64 H60"/><path transform="translate(410 122)" d="M12 12 V88"/><path transform="translate(442 122)" d="M58 12 H12 V88 H58 M12 50 H50"/></g>
+    <g transform="translate(662 0) scale(1)" fill="none" stroke="#C6F432" stroke-width="40" stroke-linecap="butt" stroke-linejoin="round">
+    <path d="M22 72 C22 38 42 20 66 20 C92 20 110 38 110 62 C110 86 92 96 78 106 C68 113 64 122 64 136 V150"/>
+    <rect x="44" y="176" width="40" height="40" rx="6" fill="#C6F432" stroke="none"/>
+  </g>
+  </g>
+</svg>

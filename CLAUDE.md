@@ -1,0 +1,39 @@
+# CLAUDE.md — whopays
+
+Project conventions for AI coding assistants working on this repository.
+
+## What this is
+
+**Qui paie ? / Who pays?** — a humorous public platform where people post their problems, hoping a billionaire will stumble upon them. Two communities, the Rich and the Poor, react, comment and chat in their own club. **No money is ever collected or transferred.**
+
+## Stack
+
+- Plain HTML, CSS and JavaScript (ES modules). **No framework, no build step, no npm dependencies.**
+- Supabase (Postgres + Auth) as the backend, accessed **only through RPC functions**.
+- Hosted on GitHub Pages from the `site/` folder.
+- A full **demo mode** (`CONFIG.MODE = 'demo'`) simulates the backend in `localStorage`.
+
+## Layout
+
+- `site/` — the only published folder (pages, `assets/css`, `assets/js`, `assets/img`, `assets/fonts`, `assets/vendor`).
+- `site/assets/js/api.js` — the single data interface used by every page; delegates to `api-supabase.js` or `api-demo.js`.
+- `supabase/migrations/` — schema, security, functions, moderation (SQL).
+- `supabase/tests/verif_securite.sql` — security tests to run in the Supabase SQL editor.
+- `tools/test.mjs` — API contract tests in Node (demo mode).
+- `tools/verif.mjs` — static checks (syntax, unsafe DOM writes, absolute links, CSP, secrets).
+- `docs/` — architecture, configuration, moderation, roadmap.
+
+## Rules
+
+1. **Never** insert user or database content with `innerHTML`; use `textContent` or DOM APIs.
+2. **Never** commit secrets. Only the Supabase public (publishable/anon) key and the Turnstile site key may appear in `config.js`.
+3. Tables have RLS enabled and **no direct grants** to `anon` or `authenticated`. All reads and writes go through `SECURITY DEFINER` functions with `SET search_path = ''` and fully qualified names.
+4. Every write function validates input, applies the shared content filters (banned words, phone numbers, IBANs, emails, links), enforces rate limits and rejects blocked members.
+5. All links and asset paths are **relative** (the site lives under `/whopays/`). The site URL comes from `CONFIG.SITE_URL` only.
+6. UI copy is in French; code identifiers and commit messages are in English.
+7. Respect `prefers-reduced-motion`; keep WCAG AA contrast and full keyboard navigation.
+8. Before committing: `node tools/test.mjs` and `node tools/verif.mjs` must pass.
+
+## Commit style
+
+`feat: …`, `fix: …`, `docs: …`, `test: …`, `chore: …`, `security: …`

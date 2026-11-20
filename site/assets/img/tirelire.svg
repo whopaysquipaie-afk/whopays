@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 170" width="220" height="170" role="img" aria-label="Tirelire">
+  <g fill="none" stroke="#DCD3FF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M58 52 C78 38 112 34 138 40 C150 26 164 22 172 24 C170 36 168 46 172 54 C186 64 194 76 196 88 L208 90 C212 104 210 116 204 122 L192 124 C186 136 176 146 164 150 L162 164 L140 164 L136 154 C118 158 98 158 80 154 L76 164 L54 164 L52 148 C34 136 24 118 24 98 C24 78 36 62 58 52 Z"/>
+    <path d="M96 58 C108 54 124 54 136 58"/>
+    <path d="M30 96 C18 96 12 88 14 80"/>
+  </g>
+  <circle cx="160" cy="88" r="7" fill="#DCD3FF"/>
+  <rect x="94" y="30" width="48" height="12" rx="6" fill="#DCD3FF" transform="rotate(-6 118 36)"/>
+</svg>
