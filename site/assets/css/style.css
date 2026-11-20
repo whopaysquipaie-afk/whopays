@@ -351,13 +351,13 @@ body.avec-cta-mobile { --cta-mobile-h: 68px; }
 .hero h1 .accent { display: block; color: var(--citron); margin-top: 8px; }
 .hero-sous { color: var(--gris); font-size: 17px; margin-top: 20px; max-width: 540px; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-.hero-visuel { position: relative; display: flex; justify-content: center; padding: 64px 8px 24px; }
+.hero-visuel { position: relative; display: flex; justify-content: center; padding: 64px 8px 52px; }
 .hero-couronne {
   position: absolute; top: 4px; left: 50%; width: 110px; transform: translateX(-50%) rotate(-8deg);
   z-index: 2; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .5));
 }
 .badge-flottant {
-  position: absolute; z-index: 3; right: -4px; top: 92px;
+  position: absolute; z-index: 3; right: 6%; bottom: 0;
   display: inline-flex; align-items: center; gap: 8px;
   background: var(--anthracite); border: 1px solid var(--bordure); color: var(--blanc);
   padding: 10px 14px; border-radius: 14px; font-weight: 600; font-size: 14px;
