@@ -221,6 +221,34 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
   check('Orthographe : « problème » (jamais « probléme » ni « probleme »)', problems);
 }
 
+/* 7b. Service worker & manifest: every referenced file exists */
+{
+  const problems = [];
+  const sw = join(SITE, 'sw.js');
+  if (existsSync(sw)) {
+    const list = (read(sw).match(/const STATIC = \[([\s\S]*?)\];/) || [])[1] || '';
+    for (const m of list.matchAll(/'([^']+)'/g)) {
+      if (m[1] === './') continue;
+      if (!existsSync(join(SITE, m[1]))) problems.push(`sw.js : fichier absent ${m[1]}`);
+    }
+    if (/supabase\.co|challenges\.cloudflare/.test(read(sw).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''))) problems.push('sw.js ne doit jamais référencer Supabase ou Cloudflare');
+  }
+  const manifest = join(SITE, 'manifest.webmanifest');
+  if (existsSync(manifest)) {
+    try {
+      const m = JSON.parse(read(manifest));
+      for (const i of m.icons || []) if (!existsSync(join(SITE, i.src))) problems.push(`manifest : icône absente ${i.src}`);
+      if (m.start_url !== './' || m.scope !== './') problems.push('manifest : start_url et scope doivent valoir "./" (= /whopays/)');
+    } catch (e) { problems.push(`manifest invalide : ${e.message}`); }
+  }
+  for (const f of siteHtml) {
+    for (const m of read(f).matchAll(/\b(?:href|src)="(assets\/[^"?#]+)"/g)) {
+      if (!existsSync(join(SITE, m[1])) && !/assets\/fonts\//.test(m[1])) problems.push(`${rel(f)} : ressource absente ${m[1]}`);
+    }
+  }
+  check('Service worker, manifeste et ressources des pages présents', problems);
+}
+
 /* 8. JS budget */
 {
   // Budget = JavaScript shipped to visitors of the real site: vendor/ excluded, and also the test

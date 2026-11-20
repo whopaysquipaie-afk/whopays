@@ -75,6 +75,9 @@ export async function initPage(page, { mobileCta = true } = {}) {
   }
   for (const el of $$('[data-filigrane]')) el.textContent = siteLabel();
 
+  // Manifest shortcut "Publier un problème" (index.html?publier=1)
+  if (new URLSearchParams(location.search).get('publier') === '1') setTimeout(() => intent('publier'), 300);
+
   initReveal();
   registerServiceWorker();
   loadAnalytics();

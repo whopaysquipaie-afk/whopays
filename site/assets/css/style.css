@@ -830,7 +830,7 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
 .zone-danger { border-color: rgba(255, 107, 107, .35); }
 
 /* ---------- Help, 404, tests ---------- */
-.page-texte { padding: 40px 0; }
+.page-texte { padding-top: 40px; padding-bottom: 40px; }
 .page-texte h1 { font-weight: 900; font-style: italic; font-size: 34px; }
 .page-texte h2 { font-weight: 800; font-size: 22px; margin-top: 32px; }
 .page-texte p, .page-texte li { color: #D4D4D4; margin-top: 10px; }
