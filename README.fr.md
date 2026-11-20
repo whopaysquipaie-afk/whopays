@@ -9,11 +9,12 @@
 **La première plateforme où les milliardaires trouvent enfin des problèmes à leur mesure. C'est une blague. Enfin, presque.**
 
 [![Licence : AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-C6F432?style=flat-square&labelColor=0B0B0B)](LICENSE)
-[![Démo en ligne](https://img.shields.io/badge/d%C3%A9mo-en_ligne-C6F432?style=flat-square&labelColor=0B0B0B)](https://whopaysquipaie-afk.github.io/whopays/)
+[![Site en ligne](https://img.shields.io/badge/site-en_ligne-C6F432?style=flat-square&labelColor=0B0B0B)](https://whopaysquipaie-afk.github.io/whopays/)
+[![Démo en ligne](https://img.shields.io/badge/d%C3%A9mo-en_ligne-C6F432?style=flat-square&labelColor=0B0B0B)](https://whopaysquipaie-afk.github.io/whopays/?demo=1)
 [![Contributions bienvenues](https://img.shields.io/badge/PR-bienvenues-DCD3FF?style=flat-square&labelColor=0B0B0B)](CONTRIBUTING.md)
 [![Argent collecté](https://img.shields.io/badge/argent_collect%C3%A9-0_€-FFFFFF?style=flat-square&labelColor=0B0B0B)](#-aucun-argent-jamais)
 
-**[👉 Ouvrir la démo](https://whopaysquipaie-afk.github.io/whopays/)** · [English version](README.md)
+**[👉 Ouvrir le site](https://whopaysquipaie-afk.github.io/whopays/)** · **[Démo](https://whopaysquipaie-afk.github.io/whopays/?demo=1)** (données fictives, rien n'est enregistré sur un serveur) · [English version](README.md)
 
 <img src="docs/img/accueil.png" alt="Accueil : « Vous avez trop d'argent ? Nous avons beaucoup trop de problèmes à vous proposer. »" width="860">
 
@@ -45,7 +46,7 @@ Et ensuite… rien. **0 € financé.** C'est la blague, l'expérience sociale, 
 | 🎲 **Problème au hasard** | Parce que faire défiler, c'est pour ceux qui ont le temps |
 | 🚩 **Auto-modération** | 3 signalements masquent un contenu ; un membre bloqué peut lire mais plus écrire |
 | 📲 **Application installable** | Manifeste + service worker (fichiers statiques uniquement) |
-| 🧪 **Mode démo** | Tout le site tourne dans le navigateur avec 60 membres fictifs, sans serveur |
+| 🧪 **Mode démo** | Tout le site tourne dans le navigateur avec 60 membres fictifs, sans serveur. Sur le site en ligne : ajouter `?demo=1` à l'adresse (ou « Essayer la démo » en pied de page) |
 
 <div align="center">
 <img src="docs/img/probleme.png" alt="Page problème avec réactions, carte story et partage" width="49%">
@@ -87,7 +88,7 @@ flowchart LR
 git clone https://github.com/whopaysquipaie-afk/whopays.git && cd whopays && python -m http.server 8080 --directory site
 ```
 
-Ouvrir http://localhost:8080/. Tout fonctionne avec des données fictives stockées dans le navigateur. Pour se connecter comme un membre fictif : *Déjà membre ?* → `membre1@exemple.invalid`. Tests : http://localhost:8080/tests.html.
+Ouvrir http://localhost:8080/?demo=1. Tout fonctionne avec des données fictives stockées dans le navigateur (sans `?demo=1`, le site parle au projet Supabase indiqué dans `config.js`). Pour se connecter comme un membre fictif : *Déjà membre ?* → `membre1@exemple.invalid`. Tests : http://localhost:8080/tests.html?demo=1.
 
 ## Déployer ta propre version en 10 minutes
 

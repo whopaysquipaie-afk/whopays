@@ -36,6 +36,10 @@ async function rpc(name, params = {}) {
 
 const nn = (v) => (v === undefined ? null : v);
 
+// Adds a Turnstile token only when a site key is configured (otherwise none is requested nor sent).
+const avecCaptcha = async (options, getToken) =>
+  (CONFIG.TURNSTILE_SITE_KEY ? { ...options, captchaToken: await getToken() } : options);
+
 export function createSupabaseApi() {
   let profilCache = null;
 
@@ -99,8 +103,12 @@ export function createSupabaseApi() {
       // 1. Anonymous session (instant)
       let session = (await sb.auth.getSession()).data.session;
       if (!session) {
-        const { data, error } = await sb.auth.signInAnonymously({ options: { captchaToken: await getCaptchaToken() } });
-        if (error) throw new ApiError('Impossible de créer ta session. Réessaie dans un instant.', 'auth');
+        const options = await avecCaptcha({}, getCaptchaToken);
+        const { data, error } = await sb.auth.signInAnonymously(Object.keys(options).length ? { options } : undefined);
+        if (error) {
+          if (error.status === 429) throw new ApiError('Trop de demandes. Attends une minute avant de réessayer.', 'limite');
+          throw new ApiError('Impossible de créer ta session. Réessaie dans un instant.', 'auth');
+        }
         session = data.session;
       }
 
@@ -110,10 +118,12 @@ export function createSupabaseApi() {
         // E-mail already used by a confirmed account: remove the fresh anonymous user and send a magic link.
         try { await rpc('supprimer_utilisateur_anonyme'); } catch { /* best effort */ }
         await sb.auth.signOut({ scope: 'local' }).catch(() => {});
-        await sb.auth.signInWithOtp({
-          email: em,
-          options: { shouldCreateUser: false, emailRedirectTo: siteUrl('espace.html'), captchaToken: await getCaptchaToken() }
-        }).catch(() => {});
+        try {
+          await sb.auth.signInWithOtp({
+            email: em,
+            options: await avecCaptcha({ shouldCreateUser: false, emailRedirectTo: siteUrl('espace.html') }, getCaptchaToken)
+          });
+        } catch { /* the magic link is best effort here */ }
         profilCache = null;
         return { statut: 'deja_membre' };
       }
@@ -130,7 +140,7 @@ export function createSupabaseApi() {
       const sb = await getClient();
       const { error } = await sb.auth.signInWithOtp({
         email: String(email || '').trim().toLowerCase(),
-        options: { shouldCreateUser: false, emailRedirectTo: siteUrl('espace.html'), captchaToken: await getCaptchaToken() }
+        options: await avecCaptcha({ shouldCreateUser: false, emailRedirectTo: siteUrl('espace.html') }, getCaptchaToken)
       });
       if (error) {
         if (/signups not allowed|not found|user not found/i.test(error.message || '') || error.code === 'otp_disabled') {

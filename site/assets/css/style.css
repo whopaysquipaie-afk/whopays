@@ -208,7 +208,8 @@ ul, ol { margin: 0; padding: 0; }
   padding: 6px 12px;
 }
 .bandeau-demo strong { color: var(--citron); font-weight: 600; }
-.bandeau-demo button { margin-left: 8px; font-size: 13px; }
+.bandeau-demo button, .bandeau-demo a { margin-left: 8px; font-size: 13px; }
+.pied-liens a.lien-demo { color: var(--gris); font-weight: 400; }
 
 /* ---------- Header ---------- */
 .entete {

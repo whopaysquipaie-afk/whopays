@@ -2,12 +2,12 @@
    Never caches Supabase, Turnstile or analytics responses (cross-origin requests are not touched).
    Bump VERSION to refresh every cached file after a deploy. */
 
-const VERSION = 'whopays-v2';
+const VERSION = 'whopays-v3';
 const STATIC = [
   './', 'index.html', 'p.html', 'chiffres.html', 'club.html', 'espace.html', 'aide.html', '404.html',
   'manifest.webmanifest',
   'assets/css/style.css',
-  'assets/js/config.js', 'assets/js/api.js', 'assets/js/api-demo.js', 'assets/js/demo-data.js', 'assets/js/api-supabase.js',
+  'assets/js/config.js', 'assets/js/api.js', 'assets/js/api-demo.js', 'assets/js/demo-data.js', 'assets/js/demo-ui.js', 'assets/js/api-supabase.js',
   'assets/js/supabase.js', 'assets/js/layout.js', 'assets/js/page.js', 'assets/js/ui.js', 'assets/js/dom-safe.js', 'assets/js/icons.js',
   'assets/js/categories.js', 'assets/js/filtres.js', 'assets/js/animations.js', 'assets/js/carte.js', 'assets/js/mur.js',
   'assets/js/auth.js', 'assets/js/champs.js', 'assets/js/publier.js', 'assets/js/turnstile.js', 'assets/js/parrainage.js',

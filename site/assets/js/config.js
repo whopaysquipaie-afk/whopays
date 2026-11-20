@@ -4,8 +4,8 @@
 
 export const CONFIG = {
   // 'demo'     → fake data stored in the browser (localStorage), no backend needed
-  // 'supabase' → real backend (fill the three values below first, see docs/CONFIGURATION.md)
-  MODE: 'demo',
+  // 'supabase' → real backend (see docs/CONFIGURATION.md); visitors can still add ?demo=1
+  MODE: 'supabase',
 
   // Public URL of the site (used for share links, watermark, story card, manifest checks).
   SITE_URL: 'https://whopaysquipaie-afk.github.io/whopays/',
@@ -25,6 +25,26 @@ export const CONFIG = {
   // Cloudflare Web Analytics token (public, cookieless). Empty = no analytics.
   CF_ANALYTICS_TOKEN: ''
 };
+
+// Demo on demand: ?demo=1 switches THIS tab to demo mode (no call to Supabase) until ?demo=0 or
+// "Quitter la démo" (demo-ui.js). Flag kept in sessionStorage; demo-ui.js propagates demo=1 in links.
+export const DEMO_FLAG = 'whopays_demo_a_la_demande';
+export const MODE_CONFIGURE = CONFIG.MODE;
+
+function lireDemo() {
+  if (CONFIG.MODE === 'demo' || typeof location === 'undefined') return false;
+  const param = new URLSearchParams(location.search).get('demo');
+  try {
+    if (param === '1') sessionStorage.setItem(DEMO_FLAG, '1');
+    if (param === '0') sessionStorage.removeItem(DEMO_FLAG);
+    return sessionStorage.getItem(DEMO_FLAG) === '1';
+  } catch {
+    return param === '1';
+  }
+}
+
+export const demoALaDemande = lireDemo();
+if (demoALaDemande) CONFIG.MODE = 'demo';
 
 /** Host + path shown in the watermark, e.g. "whopaysquipaie-afk.github.io/whopays". */
 export function siteLabel() {

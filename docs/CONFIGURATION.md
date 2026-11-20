@@ -119,6 +119,10 @@ Si `SITE_URL` a changé : `node tools/sync-url.mjs` (met à jour les balises de 
 
 Puis : `node tools/test.mjs && node tools/verif.mjs`, ouvrir `tests.html` (en mode Supabase, contrôles en lecture seule sur les vraies fonctions), commit, push.
 
+Test de bout en bout contre la vraie base : `node tools/e2e-supabase.mjs` (rejoindre riche et pauvre, publier, réagir, commenter, signaler, club, Mon espace, changer de camp, supprimer le compte). Les comptes de test (`test-…`) sont supprimés à la fin ; rien ne reste dans la base. Nécessite la connexion anonyme activée et, tant que `TURNSTILE_SITE_KEY` est vide, le captcha désactivé côté Supabase.
+
+**Démo à la demande.** En mode Supabase, ajouter `?demo=1` à n'importe quelle adresse du site bascule **cet onglet** en mode démo (données fictives, aucun appel à Supabase), avec un bandeau « Mode démo » et un lien « Quitter la démo » ; `demo=1` est conservé dans les liens internes. `?demo=0` ou « Quitter la démo » revient au vrai site. Lien « Essayer la démo » dans le pied de page.
+
 ---
 
 ## 6. GitHub Pages

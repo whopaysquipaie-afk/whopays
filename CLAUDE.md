@@ -21,6 +21,8 @@ Project conventions for AI coding assistants working on this repository.
 - `supabase/tests/verif_securite.sql` — security tests to run in the Supabase SQL editor.
 - `tools/test.mjs` — API contract tests in Node (demo mode).
 - `tools/verif.mjs` — static checks (syntax, unsafe DOM writes, absolute links, CSP, secrets).
+- `tools/e2e-supabase.mjs` — end-to-end test against the real Supabase project (test accounts `test-…`, all deleted at the end).
+- Demo on demand: `?demo=1` forces demo mode in the current tab (`config.js` + `demo-ui.js`).
 - `docs/` — architecture, configuration, moderation, roadmap.
 
 ## Rules

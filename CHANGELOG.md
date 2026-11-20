@@ -5,6 +5,13 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Versions fol
 
 ## [Unreleased]
 
+### Changed
+- The live site now runs on the real Supabase backend (`MODE: 'supabase'`). Without a Turnstile site key, anonymous sign-in and magic links are called without a captcha token.
+
+### Added
+- Demo on demand: `?demo=1` switches the current tab to demo mode (no call to Supabase), with a "Quitter la démo" link and `demo=1` kept in internal links; "Essayer la démo" link in the footer.
+- `tools/e2e-supabase.mjs`: end-to-end test against the real Supabase project (join rich/poor, publish, react, comment, report, club isolation, my space, camp switch, account deletion), every test account deleted at the end.
+
 ## [0.1.0] — 2026-11-20
 
 First public prototype.

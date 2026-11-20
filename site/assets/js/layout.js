@@ -2,7 +2,7 @@
 // mobile "Publier" button, "Règles du jeu" dialog, install link.
 // Pages call initLayout() once; auth.js calls updateHeaderSession() when the session changes.
 
-import { CONFIG } from './config.js';
+import { CONFIG, MODE_CONFIGURE } from './config.js';
 import { h, $, openDialog, clear } from './ui.js';
 import { icon, hydrateIcons } from './icons.js';
 import { CAMPS } from './categories.js';
@@ -28,13 +28,13 @@ export function initLayout({ page = '', session = null, mobileCta = true } = {})
   state = { page, session };
   const body = document.body;
 
-  if (CONFIG.MODE === 'demo') body.prepend(demoBanner());
   const skip = h('a', { class: 'skip-link', href: '#contenu' }, 'Aller au contenu');
   body.prepend(skip);
 
   const header = buildHeader();
   skip.after(header);
-  if (CONFIG.MODE === 'demo') header.before($('.bandeau-demo'));
+  // Demo banner (+ ?demo=1 link propagation): separate module, never loaded on the real site
+  if (CONFIG.MODE === 'demo') import('./demo-ui.js').then((m) => m.initDemoUi(header));
 
   body.appendChild(buildFooter());
   body.appendChild(h('div', { class: 'bandeau-transparence', role: 'note' },
@@ -79,19 +79,6 @@ function hideCtaWhileVisible(cta, targets) {
     setHidden(visible.size > 0);
   });
   targets.forEach((t) => observer.observe(t));
-}
-
-function demoBanner() {
-  return h('div', { class: 'bandeau-demo', role: 'note' },
-    h('strong', {}, 'Mode démo'), ' : données fictives, stockées dans ce navigateur.',
-    h('button', {
-      type: 'button', class: 'lien-discret',
-      onclick: () => {
-        try { localStorage.removeItem('whopays_demo_v1'); } catch { /* ignore */ }
-        location.reload();
-      }
-    }, 'Réinitialiser')
-  );
 }
 
 function buildHeader() {
@@ -206,7 +193,11 @@ function buildFooter() {
         h('button', { type: 'button', onclick: () => openRules() }, 'Règles du jeu'),
         h('a', { href: 'aide.html' }, 'Besoin d\'une vraie aide ?'),
         installBtn,
-        h('a', { href: CONFIG.REPO_URL, rel: 'noopener', target: '_blank' }, 'Code source')
+        h('a', { href: CONFIG.REPO_URL, rel: 'noopener', target: '_blank' }, 'Code source'),
+        // Demo on demand (?demo=1): only on the real site, hidden once the demo is on
+        MODE_CONFIGURE !== 'demo' && CONFIG.MODE !== 'demo'
+          ? h('a', { href: 'index.html?demo=1', class: 'lien-demo' }, 'Essayer la démo')
+          : null
       )
     )
   );

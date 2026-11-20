@@ -9,12 +9,13 @@
 **It's a joke. Mostly.**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-C6F432?style=flat-square&labelColor=0B0B0B)](LICENSE)
-[![Live demo](https://img.shields.io/badge/demo-live-C6F432?style=flat-square&labelColor=0B0B0B)](https://whopaysquipaie-afk.github.io/whopays/)
+[![Live site](https://img.shields.io/badge/site-live-C6F432?style=flat-square&labelColor=0B0B0B)](https://whopaysquipaie-afk.github.io/whopays/)
+[![Live demo](https://img.shields.io/badge/demo-live-C6F432?style=flat-square&labelColor=0B0B0B)](https://whopaysquipaie-afk.github.io/whopays/?demo=1)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-DCD3FF?style=flat-square&labelColor=0B0B0B)](CONTRIBUTING.md)
 [![No build step](https://img.shields.io/badge/build_step-none-DCD3FF?style=flat-square&labelColor=0B0B0B)](#stack)
 [![Money collected](https://img.shields.io/badge/money_collected-0_€-FFFFFF?style=flat-square&labelColor=0B0B0B)](#-no-money-ever)
 
-**[👉 Open the live demo](https://whopaysquipaie-afk.github.io/whopays/)** · [Version française](README.fr.md)
+**[👉 Open the site](https://whopaysquipaie-afk.github.io/whopays/)** · **[Live demo](https://whopaysquipaie-afk.github.io/whopays/?demo=1)** (fictional data, nothing is saved on a server) · [Version française](README.fr.md)
 
 <img src="docs/img/accueil.png" alt="Home page: “Vous avez trop d'argent ? Nous avons beaucoup trop de problèmes à vous proposer.”" width="860">
 
@@ -46,7 +47,7 @@ And then… nothing happens. **0 € funded.** That's the joke, the social exper
 | 🎲 **Random problem** | Because scrolling is for people with time |
 | 🚩 **Self-moderation** | 3 reports auto-hide any content; blocked members can read but not write |
 | 📲 **Installable** | Manifest + service worker (static files only) |
-| 🧪 **Demo mode** | The whole site runs in your browser with 60 fictional members — no backend needed |
+| 🧪 **Demo mode** | The whole site runs in your browser with 60 fictional members — no backend needed. On the live site, add `?demo=1` to any URL (or click *Essayer la démo* in the footer) |
 
 <div align="center">
 <img src="docs/img/probleme.png" alt="Problem page with reactions, story card and share buttons" width="49%">
@@ -106,7 +107,7 @@ More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 git clone https://github.com/whopaysquipaie-afk/whopays.git && cd whopays && python -m http.server 8080 --directory site
 ```
 
-Open http://localhost:8080/. Everything works with fictional data stored in your browser. Sign in as an existing fictional member with *Déjà membre ?* → `membre1@exemple.invalid`. Run the test suite at http://localhost:8080/tests.html.
+Open http://localhost:8080/?demo=1. Everything works with fictional data stored in your browser (without `?demo=1`, the site talks to the Supabase project set in `config.js`). Sign in as an existing fictional member with *Déjà membre ?* → `membre1@exemple.invalid`. Run the test suite at http://localhost:8080/tests.html?demo=1.
 
 ## Deploy your own in 10 minutes
 
