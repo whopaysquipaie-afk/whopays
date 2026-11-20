@@ -2,20 +2,30 @@
 // Rule: user or database content is ALWAYS set with textContent (never innerHTML).
 
 import { icon } from './icons.js';
+import { checkAttribute } from './dom-safe.js';
 
 /**
  * h('div', { class: 'x', onclick: fn, dataset: {...} }, child1, 'text', [children…])
  * Strings become text nodes (safe). Attributes are set with setAttribute.
  */
 export function h(tag, attrs = {}, ...children) {
+  if (!/^[a-z][a-z0-9-]*$/i.test(tag) || /^(script|iframe|object|embed|base|meta|link|style)$/i.test(tag)) {
+    throw new Error(`h(): balise refusée (${tag})`);
+  }
   const el = document.createElement(tag);
   for (const [key, value] of Object.entries(attrs || {})) {
     if (value === null || value === undefined || value === false) continue;
-    if (key === 'class') el.className = value;
-    else if (key === 'text') el.textContent = value;
-    else if (key === 'dataset') Object.assign(el.dataset, value);
-    else if (key.startsWith('on') && typeof value === 'function') el.addEventListener(key.slice(2), value);
-    else if (key === 'style' && typeof value === 'object') Object.assign(el.style, value);
+    if (key === 'class') { el.className = value; continue; }
+    if (key === 'text') { el.textContent = value; continue; }
+    if (key === 'dataset') { Object.assign(el.dataset, value); continue; }
+    if (key === 'style' && typeof value === 'object') { Object.assign(el.style, value); continue; }
+    // R-004: on* only accepts functions; URL attributes only accept relative, http(s) or mailto.
+    const verdict = checkAttribute(key, value);
+    if (!verdict.ok) {
+      console.warn(`h(): ${verdict.reason}`);
+      continue;
+    }
+    if (key.toLowerCase().startsWith('on')) el.addEventListener(key.slice(2).toLowerCase(), value);
     else if (value === true) el.setAttribute(key, '');
     else el.setAttribute(key, String(value));
   }

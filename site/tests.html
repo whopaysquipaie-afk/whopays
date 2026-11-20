@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com https://cloudflareinsights.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="robots" content="noindex">
+  <title>Tests du contrat d'API — Qui paie ?</title>
+  <meta name="theme-color" content="#0B0B0B">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script type="module" src="assets/js/pages/tests.js"></script>
+</head>
+<body>
+  <main id="contenu" class="container container-etroit page-texte">
+    <h1>Tests du contrat d'API</h1>
+    <p>Cette page exécute la suite de tests du contrat (filtres, limites, cloisonnement des camps, masquage, blocage, aucune donnée privée exposée, parcours B à I).</p>
+    <p class="gris petit" id="tests-mode"></p>
+    <div class="bloc mt-24">
+      <p id="tests-resume" aria-live="polite">Tests en cours…</p>
+      <ul class="tests-resultats" id="tests-liste"></ul>
+    </div>
+  </main>
+</body>
+</html>

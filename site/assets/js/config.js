@@ -13,11 +13,11 @@ export const CONFIG = {
   // Source code repository (footer link "Code source").
   REPO_URL: 'https://github.com/whopaysquipaie-afk/whopays',
 
-  // Supabase project URL, e.g. 'https://abcdefghijklmnop.supabase.co'
-  SUPABASE_URL: '',
+  // Supabase project URL
+  SUPABASE_URL: 'https://jitjbwlxwyeiqyruezkz.supabase.co',
 
   // Supabase PUBLIC key ("publishable" or "anon"). Public by design: security relies on RLS + RPC.
-  SUPABASE_PUBLIC_KEY: '',
+  SUPABASE_PUBLIC_KEY: 'sb_publishable_LEP6wln2QlpHwK5xn1ZbXg_LXu0uVvG',
 
   // Cloudflare Turnstile SITE key (public). The secret key goes into the Supabase dashboard only.
   TURNSTILE_SITE_KEY: ''

@@ -213,7 +213,7 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
       const cleaned = strings.replace(/[\w-]*probleme[\w-]*\.(html|js)/gi, '').replace(/\b[a-z_]*probleme[a-z_]*\b(?=\s*[(:])/gi, '');
       for (const m of cleaned.matchAll(/[A-Za-zÀ-ÿ'_-]*probl[eéê]m+e[A-Za-zÀ-ÿ_-]*/gi)) {
         const w = m[0];
-        if (/_|-/.test(w) || /^[a-z]+[A-Z]/.test(w)) continue; // identifiers: get_probleme, probleme-x, getProbleme
+        if (/_|-/.test(w) || /[a-z][A-Z]/.test(w)) continue; // identifiers: get_probleme, probleme-x, getProbleme
         if (bad.test(w)) problems.push(`${rel(f)}:${i + 1}: « ${w} »`);
       }
     });
