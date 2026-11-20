@@ -469,7 +469,8 @@ begin
     insert into public.reglages (cle, valeur) values ('publication_auto', 'true'::jsonb);
     v_res := v_res || pg_temp.wp_ligne(v_ok and public.wp_publication_auto(),
       'réglage publication_auto absent = pré-modération ; présent à true = publication immédiate');
-    -- No function a member can call takes a status / mask / block / example / verified argument
+    -- No function a member can call takes a status / mask / block / example / verified argument,
+    -- except the moderators' mod_* functions (006), which refuse non-moderators (section 16)
     select string_agg(p.proname, ', ') into v_txt
     from pg_catalog.pg_proc p
     join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -477,9 +478,22 @@ begin
       and (has_function_privilege('authenticated', p.oid, 'execute')
            or has_function_privilege('anon', p.oid, 'execute'))
       and p.proargnames && array['p_statut', 'p_masque', 'p_masque_par', 'p_bloque',
-                                 'p_est_exemple', 'p_verifie', 'p_valeur', 'p_user_id']::text[];
+                                 'p_est_exemple', 'p_verifie', 'p_valeur', 'p_user_id']::text[]
+      and p.proname not in ('mod_moderer_probleme', 'mod_masquer', 'mod_bloquer');
     v_res := v_res || pg_temp.wp_ligne(v_txt is null,
-      'aucune fonction accessible aux membres ne change un statut, un masquage, un blocage ou une vérification', v_txt);
+      'aucune fonction accessible aux membres ne change un statut, un masquage, un blocage ou une vérification (hors mod_*, réservées aux modérateurs)', v_txt);
+    -- The mod_* functions are executable by authenticated only, never by anon
+    select string_agg(p.proname, ', ') into v_txt
+    from pg_catalog.pg_proc p
+    join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname like 'mod\_%'
+      and (has_function_privilege('anon', p.oid, 'execute')
+           or not has_function_privilege('authenticated', p.oid, 'execute')
+           or not p.prosecdef);
+    v_res := v_res || pg_temp.wp_ligne(v_txt is null
+      and (select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and p.proname like 'mod\_%') = 8,
+      'les 8 fonctions mod_* sont SECURITY DEFINER, exécutables par authenticated seulement', v_txt);
     -- Every function a member can call is SECURITY DEFINER with an empty search_path
     select string_agg(p.proname, ', ') into v_txt
     from pg_catalog.pg_proc p
@@ -958,18 +972,22 @@ begin
       'mod_recents(48) liste les problèmes publiés récents seulement');
 
     v_j := public.mod_moderer_probleme(v_pb_m_recu, 'publie');
+    perform pg_temp.wp_jouer(null);  -- table checks as postgres
     v_res := v_res || pg_temp.wp_ligne(
       v_j ->> 'statut' = 'publie'
       and exists (select 1 from public.problems p
                   where p.id = v_pb_m_recu and p.statut = 'publie' and p.modere_le is not null)
       and public.get_probleme_public(v_pb_m_recu) is not null,
       'mod_moderer_probleme publie un problème en attente (visible sur le site)');
+    perform pg_temp.wp_jouer('authenticated', v_modo);
     perform public.mod_moderer_probleme(v_pb_m_recu, 'reoriente');
     perform public.mod_moderer_probleme(v_pb_m_recu, 'refuse');
+    perform pg_temp.wp_jouer(null);  -- table checks as postgres
     v_res := v_res || pg_temp.wp_ligne(
       (select p.statut from public.problems p where p.id = v_pb_m_recu) = 'refuse'
       and public.get_probleme_public(v_pb_m_recu) is null,
       'mod_moderer_probleme réoriente puis refuse (retiré du site)');
+    perform pg_temp.wp_jouer('authenticated', v_modo);
     begin
       perform public.mod_moderer_probleme(v_pb_m_recu, 'supprime');
       v_hint := 'exécuté';
@@ -987,28 +1005,40 @@ begin
       'mod_signalements_24h liste le contenu signalé et son auteur');
 
     v_j := public.mod_masquer('probleme', v_pb_m_pub, true);
-    v_ok := (select p.masque from public.problems p where p.id = v_pb_m_pub)
-            and public.get_probleme_public(v_pb_m_pub) is null
-            and exists (select 1 from jsonb_array_elements(public.mod_masques()) e
-                        where e ->> 'cible_id' = v_pb_m_pub::text and e ->> 'cible_type' = 'probleme');
+    v_ok := exists (select 1 from jsonb_array_elements(public.mod_masques()) e
+                    where e ->> 'cible_id' = v_pb_m_pub::text and e ->> 'cible_type' = 'probleme');
+    perform pg_temp.wp_jouer(null);  -- table checks as postgres
+    v_ok := v_ok and (select p.masque from public.problems p where p.id = v_pb_m_pub)
+            and public.get_probleme_public(v_pb_m_pub) is null;
+    perform pg_temp.wp_jouer('authenticated', v_modo);
     perform public.mod_masquer('problem', v_pb_m_pub, false);
+    perform pg_temp.wp_jouer(null);  -- table checks as postgres
     v_res := v_res || pg_temp.wp_ligne(
       v_ok and not (select p.masque from public.problems p where p.id = v_pb_m_pub)
       and public.get_probleme_public(v_pb_m_pub) is not null,
       'mod_masquer masque un problème (listé dans mod_masques) puis le rétablit (alias problem)');
 
+    perform pg_temp.wp_jouer('authenticated', v_modo);
     perform public.mod_masquer('commentaire', v_com_m, true);
+    perform pg_temp.wp_jouer(null);  -- table checks as postgres
     v_ok := exists (select 1 from public.comments c where c.id = v_com_m and c.masque and c.masque_par = 'admin');
+    perform pg_temp.wp_jouer('authenticated', v_modo);
     perform public.mod_masquer('comment', v_com_m, false);
+    perform pg_temp.wp_jouer(null);  -- table checks as postgres
     v_res := v_res || pg_temp.wp_ligne(
       v_ok and exists (select 1 from public.comments c where c.id = v_com_m and not c.masque and c.masque_par is null),
       'mod_masquer masque puis rétablit un commentaire');
+    perform pg_temp.wp_jouer('authenticated', v_modo);
     perform public.mod_masquer('message', v_msg_cible, true);
+    perform pg_temp.wp_jouer(null);  -- table checks as postgres
     v_ok := exists (select 1 from public.club_messages m where m.id = v_msg_cible and m.masque);
+    perform pg_temp.wp_jouer('authenticated', v_modo);
     perform public.mod_masquer('club_message', v_msg_cible, false);
+    perform pg_temp.wp_jouer(null);  -- table checks as postgres
     v_res := v_res || pg_temp.wp_ligne(
       v_ok and exists (select 1 from public.club_messages m where m.id = v_msg_cible and not m.masque),
       'mod_masquer masque puis rétablit un message de club');
+    perform pg_temp.wp_jouer('authenticated', v_modo);
     begin
       perform public.mod_masquer('profil', v_pb_m_pub, true);
       v_hint := 'exécuté';
@@ -1028,9 +1058,11 @@ begin
     perform pg_temp.wp_jouer('authenticated', v_modo);
     v_txt := v_hint;
     perform public.mod_bloquer(v_auteur, false);
+    perform pg_temp.wp_jouer(null);  -- table checks as postgres
     v_res := v_res || pg_temp.wp_ligne(
       v_txt = 'bloque' and not (select pr.bloque from public.profiles pr where pr.id = v_auteur),
       'mod_bloquer bloque un auteur (plus d''écriture) puis le débloque', v_txt);
+    perform pg_temp.wp_jouer('authenticated', v_modo);
     begin
       perform public.mod_bloquer(v_modo, true);
       v_hint := 'exécuté';
