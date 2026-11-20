@@ -1,6 +1,7 @@
 // Problem card (brief visuel §7.2). Never: progress bar, "collectés", "contributeurs", percentage.
 
 import { h, formatEuros, formatNumber } from './ui.js';
+import { enRiens, phraseRiens } from './riens.js';
 import { icon } from './icons.js';
 import { category, CAMPS } from './categories.js';
 import { siteLabel } from './config.js';
@@ -42,7 +43,9 @@ export function carteProbleme(p, { large = false, lien = !large, titreNiveau = l
     ),
     h(titreNiveau, { class: 'carte-titre' }, p.titre),
     h('p', { class: 'carte-texte' }, p.texte),
-    p.montant ? h('p', { class: 'carte-montant' }, formatEuros(p.montant), ' ', h('small', {}, 'recherchés')) : null,
+    p.montant ? h('p', { class: 'carte-montant' }, formatEuros(p.montant), ' ', h('small', {}, 'recherchés'),
+      large ? null : h('span', { class: 'riens' }, ` · ${enRiens(p.montant)}`)) : null,
+    p.montant && large ? h('p', { class: 'carte-riens' }, phraseRiens(p.montant)) : null,
     h('div', { class: 'carte-meta' },
       h('span', { class: 'carte-auteur' }, h('span', { class: 'nom' }, p.pseudo), p.camp ? badgeCamp(p.camp) : null),
       large ? h('span', {}, 'Milliardaires intéressés : 0') : null

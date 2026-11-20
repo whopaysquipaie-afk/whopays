@@ -411,6 +411,8 @@ a.carte:focus-visible { outline-offset: 4px; border-radius: var(--r-carte); }
   margin-top: 12px; font-family: var(--f-titre); font-weight: 800; font-size: 18px; color: var(--noir-doux);
 }
 .carte-montant small { font-family: var(--f-texte); font-weight: 600; font-size: 14px; color: var(--gris-carte); }
+.carte-montant .riens { font-family: var(--f-texte); font-weight: 600; font-size: 14px; color: var(--lavande-texte); white-space: nowrap; }
+.carte-riens { margin-top: 4px; font-weight: 600; font-size: 15px; color: var(--lavande-texte); }
 .carte-meta {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
   margin-top: 14px; font-size: 14px; color: var(--gris-carte);
@@ -754,6 +756,9 @@ dialog.fenetre::backdrop { background: rgba(0, 0, 0, .72); -webkit-backdrop-filt
   display: block; font-family: var(--f-titre); font-weight: 900; font-style: italic;
   font-size: clamp(48px, 13vw, 128px); line-height: .95; letter-spacing: -.04em; font-variant-numeric: tabular-nums;
 }
+.riens-direct { margin-top: 6px; font-weight: 600; font-size: 14px; color: var(--lavande); }
+.riens-direct:empty { display: none; }
+.choc .riens-total { display: block; margin-top: 10px; font-family: var(--f-titre); font-weight: 800; font-style: italic; font-size: clamp(20px, 3.4vw, 30px); color: var(--lavande); }
 .choc .phrase { display: block; font-family: var(--f-titre); font-weight: 800; font-size: clamp(22px, 4vw, 36px); margin-top: 14px; max-width: 800px; }
 .choc .zero { display: block; margin-top: 26px; font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: clamp(40px, 9vw, 88px); color: var(--citron); line-height: 1; }
 .choc .zero small { font-size: .45em; color: var(--blanc); font-style: normal; font-weight: 800; }

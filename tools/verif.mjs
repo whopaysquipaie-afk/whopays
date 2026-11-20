@@ -7,7 +7,7 @@
 //  5. a Content-Security-Policy <meta> on every page, no inline script, no inline handler
 //  6. no secret pattern in the working tree AND in the whole Git history
 //  7. visible texts: "problème" never misspelled "probléme"
-//  8. site JavaScript budget < 150 KB (vendor/ excluded)
+//  8. JavaScript budget: < 150 KB reachable from each page (vendor/ excluded)
 //  (+ 7b service worker / assets, 7c sensitive words JS = SQL, 7d private moderation page)
 
 import { readFileSync, readdirSync, statSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
@@ -313,15 +313,37 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
 
 /* 8. JS budget */
 {
-  // Budget = JavaScript shipped to visitors of the real site: vendor/ excluded, and also the test
-  // suite (tests.html only) and the demo simulation + demo UI (loaded only in demo mode or with ?demo=1).
-  // Also excluded: sw.js (runs in a worker, registered after the load event, never executed by
-  // pages) and the private moderation page (moderators only, never loaded by visitors). DC-017.
+  // Budget = JavaScript a visitor of the real site can load on ONE page: the page's entry module plus
+  // everything reachable from it (static AND dynamic imports, so dialogs opened on demand count too).
+  // Excluded: vendor/, the test suite, the demo simulation + demo UI (demo mode or ?demo=1 only),
+  // sw.js (worker) and the private moderation page (moderators only). DC-017, DC-023.
   const horsBudget = (f) => /site\/(sw\.js$|assets\/js\/(tests\/|api-demo\.js$|demo-data\.js$|demo-ui\.js$|mots-sensibles\.js$|pages\/tests\.js$|moderation\.js$|pages\/moderation\.js$))/.test(rel(f));
-  const total = siteJs.filter((f) => !horsBudget(f)).reduce((s, f) => s + statSync(f).size, 0);
-  const demo = siteJs.filter(horsBudget).reduce((s, f) => s + statSync(f).size, 0);
-  const kb = Math.round(total / 1024);
-  check(`Poids du JavaScript du site : ${kb} Ko (limite 150 Ko ; hors vendor, tests, simulation démo, sw.js et modération : +${Math.round(demo / 1024)} Ko)`, total > 150 * 1024 ? [`${kb} Ko > 150 Ko`] : []);
+  const RE_IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s+)(['"])(\.{1,2}\/[^'"]+)\1/gm;
+  const atteignables = (entree) => {
+    const vus = new Set();
+    const pile = [entree];
+    while (pile.length) {
+      const f = pile.pop();
+      if (vus.has(f) || !existsSync(f)) continue;
+      vus.add(f);
+      for (const m of read(f).matchAll(RE_IMPORT)) pile.push(join(dirname(f), m[2]));
+    }
+    return [...vus];
+  };
+  const problems = [];
+  let pire = { kb: 0, page: '' };
+  for (const page of siteHtml) {
+    for (const m of read(page).matchAll(/<script[^>]*type="module"[^>]*src="([^"]+)"/g)) {
+      const entree = join(dirname(page), m[1]);
+      if (horsBudget(entree)) continue;
+      const total = atteignables(entree).filter((f) => !horsBudget(f) && !isVendor(f)).reduce((s, f) => s + statSync(f).size, 0);
+      const kb = Math.round(total / 1024);
+      if (kb >= pire.kb) pire = { kb, page: rel(page) };
+      if (total > 150 * 1024) problems.push(`${rel(page)} : ${kb} Ko > 150 Ko`);
+    }
+  }
+  const tout = siteJs.filter((f) => !horsBudget(f)).reduce((s, f) => s + statSync(f).size, 0);
+  check(`Poids du JavaScript par page : ${pire.kb} Ko au plus (${pire.page} ; limite 150 Ko, imports dynamiques compris ; tout le site hors démo, tests, sw.js et modération : ${Math.round(tout / 1024)} Ko)`, problems);
 }
 
 /* Report */

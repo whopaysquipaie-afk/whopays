@@ -8,7 +8,7 @@ const STATIC = [
   'assets/css/style.css',
   'assets/js/config.js', 'assets/js/api.js', 'assets/js/api-demo.js', 'assets/js/demo-data.js', 'assets/js/demo-ui.js', 'assets/js/mots-sensibles.js', 'assets/js/api-supabase.js',
   'assets/js/supabase.js', 'assets/js/layout.js', 'assets/js/page.js', 'assets/js/ui.js', 'assets/js/dom-safe.js', 'assets/js/icons.js',
-  'assets/js/categories.js', 'assets/js/filtres.js', 'assets/js/animations.js', 'assets/js/carte.js', 'assets/js/mur.js',
+  'assets/js/categories.js', 'assets/js/filtres.js', 'assets/js/animations.js', 'assets/js/carte.js', 'assets/js/riens.js', 'assets/js/mur.js',
   'assets/js/auth.js', 'assets/js/champs.js', 'assets/js/publier.js', 'assets/js/turnstile.js', 'assets/js/parrainage.js',
   'assets/js/partage.js', 'assets/js/reactions.js', 'assets/js/commentaires.js', 'assets/js/signalement.js', 'assets/js/story.js',
   'assets/js/club.js', 'assets/js/espace.js',

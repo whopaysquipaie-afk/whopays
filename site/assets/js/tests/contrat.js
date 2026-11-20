@@ -8,6 +8,7 @@ import { raisonFiltre, MESSAGE_FILTRE } from '../filtres.js';
 import { isSafeUrl, checkAttribute } from '../dom-safe.js';
 import { EXEMPLES, PROBLEMES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES, MEMBRES } from '../demo-data.js';
 import { CATEGORY_IDS } from '../categories.js';
+import { enRiens, phraseRiens } from '../riens.js';
 
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
@@ -65,6 +66,32 @@ function assertNoPrivateData(payload, where) {
   assert(!/@/.test(json), `${where} : contient une adresse e-mail`);
   assert(!/"(email|user_id|invite_par|bloque|newsletter|code_partage)"/.test(json), `${where} : expose un champ privé`);
 }
+
+/* ================= Unité « rien / Rien » (R-026) ================= */
+
+const CAS_RIENS = [
+  [100, '1x rien'], [350, '3,5x rien'], [50, '0,5x rien'], [1, '0,01x rien'], [999, '9,99x rien'],
+  [1000, '1x Rien'], [4000, '4x Rien'], [4500, '4,5x Rien'], [4250, '4,25x Rien'], [1234, '1,23x Rien'],
+  [10000, '10x Rien'], [1000000, '1 000x Rien'], ['4 500', '4,5x Rien'], ['350', '3,5x rien']
+];
+for (const [montant, attendu] of CAS_RIENS) {
+  test('Unité rien / Rien', `${JSON.stringify(montant)} € → « ${attendu} »`, () => {
+    eq(enRiens(montant).replace(/[  ]/g, ' '), attendu);
+  });
+}
+test('Unité rien / Rien', '0, vide, négatif ou invalide → rien affiché', () => {
+  for (const v of [0, '', null, undefined, -5, 'abc', NaN, Infinity, 0.4]) eq(enRiens(v), '', String(v));
+});
+test('Unité rien / Rien', 'jamais de « ,0 » ni plus de 2 décimales', () => {
+  for (let m = 1; m <= 20000; m += 7) {
+    const r = enRiens(m);
+    assert(/^\d[\d  ]*(,\d{1,2})?x (rien|Rien)$/.test(r) && !/,0x|,\d0x/.test(r), `${m} → ${r}`);
+  }
+});
+test('Unité rien / Rien', 'phrase de la page problème', () => {
+  eq(phraseRiens(4000), 'Pour un riche, ça vaut 4x Rien');
+  eq(phraseRiens(null), '');
+});
 
 /* ================= Filters ================= */
 

@@ -7,6 +7,7 @@ import { category } from '../categories.js';
 import { countUp, countUpWhenVisible } from '../animations.js';
 import { siteUrl } from '../config.js';
 import { partageNatif, copierLien } from '../partage.js';
+import { enRiens } from '../riens.js';
 
 await initPage('chiffres');
 
@@ -21,6 +22,10 @@ async function charger() {
   }
   const c = chiffres;
   countUp($('#montant-total'), c.montant_total, { duration: 1600, format: formatEuros });
+  const riens = enRiens(c.montant_total);
+  const elRiens = $('#riens-total');
+  elRiens.textContent = riens ? `soit ${riens}` : '';
+  elRiens.hidden = !riens;
   for (const el of $$('[data-compteur]')) countUpWhenVisible(el, c[el.dataset.compteur]);
   for (const el of $$('[data-chiffre]')) countUpWhenVisible(el, c[el.dataset.chiffre]);
 
@@ -54,7 +59,7 @@ async function charger() {
 
 $('#partager-chiffres').addEventListener('click', async () => {
   const url = siteUrl('chiffres.html');
-  const montant = chiffres ? formatEuros(chiffres.montant_total) : 'Des milliers d’euros';
+  const montant = chiffres ? formatEuros(chiffres.montant_total) + (enRiens(chiffres.montant_total) ? ` (${enRiens(chiffres.montant_total)})` : '') : 'Des milliers d’euros';
   const texte = `${montant} de problèmes en attente d'un milliardaire. 0 € financé. — Qui paie ? ${url}`;
   const ok = await partageNatif({ title: 'Les chiffres — Qui paie ?', text: texte, url });
   if (!ok) await copierLien(texte);

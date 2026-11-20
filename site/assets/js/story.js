@@ -2,6 +2,7 @@
 
 import { siteLabel } from './config.js';
 import { h, openDialog, toast, toastError, formatEuros } from './ui.js';
+import { phraseRiens } from './riens.js';
 import { icon } from './icons.js';
 import { category, CAMPS } from './categories.js';
 import { partageNatif } from './partage.js';
@@ -180,7 +181,10 @@ export async function dessinerStory(p) {
   y += 70;
   ctx.font = `400 42px ${TEXTE}`;
   ctx.fillStyle = '#D4D4D4';
-  for (const l of ellipsize(ctx, wrap(ctx, p.texte, largeur), 5, largeur)) {
+  // Keep the author line (amount + Riens + "Milliardaires…" below) above the footer (H - 220).
+  const finExtrait = H - 280 - 220 - (p.montant ? 146 : 0);
+  const maxLignes = Math.max(1, Math.min(5, Math.floor((finExtrait - y) / 62)));
+  for (const l of ellipsize(ctx, wrap(ctx, p.texte, largeur), maxLignes, largeur)) {
     y += 62;
     ctx.fillText(l, M, y);
   }
@@ -196,6 +200,10 @@ export async function dessinerStory(p) {
     ctx.font = `600 40px ${TEXTE}`;
     ctx.fillStyle = C.gris;
     ctx.fillText(' recherchés', M + mw + 8, y);
+    y += 66;
+    ctx.font = `600 40px ${TEXTE}`;
+    ctx.fillStyle = C.lavande;
+    ctx.fillText(phraseRiens(p.montant), M, y);
     y += 80;
   }
   ctx.font = `600 44px ${TEXTE}`;

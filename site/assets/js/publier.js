@@ -5,6 +5,7 @@ import { h, openDialog, toastError } from './ui.js';
 import { icon } from './icons.js';
 import { CATEGORIES, isCategory } from './categories.js';
 import { champ, boiteErreur, chargement } from './champs.js';
+import { phraseRiens } from './riens.js';
 import { champsRejoindre, executerRejoindre, INFO_DONNEES } from './auth.js';
 import { creerTurnstile } from './turnstile.js';
 import { session } from './page.js';
@@ -69,6 +70,14 @@ export async function ouvrirPublier({ categorie = null } = {}) {
   const titre = champ({ name: 'titre', label: 'Ton problème en une phrase', min: 3, max: 80, libelle: 'Le titre', placeholder: 'Ex. : Mon frigo fait de l’écho.' });
   const texte = champ({ name: 'texte', label: 'Raconte', min: 10, max: 600, multiline: true, rows: 5, libelle: 'Le texte', placeholder: 'Avec humour si tu peux. Sans vrai nom, sans adresse.' });
   const montant = champ({ name: 'montant', label: 'Montant recherché (€)', required: false, check: 'montant', inputmode: 'numeric', maxValue: 1000000, help: 'Indicatif. Personne ne paiera ici : c’est un projet test, sans aucune collecte.' });
+
+  // Live conversion in "rien / Rien" (R-026)
+  const enDirect = h('p', { class: 'riens-direct', 'aria-live': 'polite' });
+  const majRiens = () => {
+    enDirect.textContent = /^[\d\s]+$/.test(montant.value()) ? phraseRiens(montant.value()) : '';
+  };
+  montant.input.insertAdjacentElement('afterend', enDirect);
+  montant.input.addEventListener('input', majRiens);
 
   const erreur = boiteErreur();
   const submit = h('button', { type: 'submit', class: 'btn btn-primaire btn-bloc mt-24' }, membre ? 'Envoyer mon problème' : 'Rejoindre et envoyer', icon('arrow-right', { className: 'fleche' }));
