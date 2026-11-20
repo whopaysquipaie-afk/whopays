@@ -1135,6 +1135,61 @@ begin
       not exists (select 1 from public.problems p where p.est_exemple and p.montant > 10000),
       'aucun exemple ne dépasse 10 000 €');
 
+    -- =================================================================
+    -- 18. R-028 (009): leaderboard of the poor
+    -- =================================================================
+    perform pg_temp.wp_jouer('anon');
+    v_j := public.get_palmares(100);
+    v_res := v_res || pg_temp.wp_ligne(
+      public.get_mon_rang() is null and jsonb_typeof(v_j -> 'lignes') = 'array'
+        and jsonb_array_length(v_j -> 'lignes') <= 100 and (v_j ->> 'classes')::integer >= 0,
+      'anon lit le palmarès ; get_mon_rang renvoie null pour un visiteur', left(v_j::text, 200));
+    v_res := v_res || pg_temp.wp_ligne(
+      jsonb_array_length(public.get_palmares(1000) -> 'lignes') <= 100
+        and jsonb_array_length(public.get_palmares(0) -> 'lignes') <= 1,
+      'get_palmares borne p_limite entre 1 et 100');
+    v_res := v_res || pg_temp.wp_ligne(
+      not exists (select 1 from jsonb_array_elements(v_j -> 'lignes') l
+                  where (select array_agg(k order by k) from jsonb_object_keys(l) k)
+                        <> array['camp', 'nb', 'pseudo', 'rang', 'total']
+                     or l ->> 'camp' <> 'pauvre')
+        and position(v_suffixe in v_j::text) = 0,
+      'le palmarès n''expose que rang, pseudo, camp, nb, total (pauvres seulement, ni id ni e-mail)');
+    perform pg_temp.wp_jouer('authenticated', v_pauvre);
+    v_j := public.get_mon_rang();
+    perform pg_temp.wp_jouer(null);
+    select count(*), coalesce(sum(p.montant), 0) into v_i, v_k
+    from public.problems p where p.user_id = v_pauvre and p.statut = 'publie' and not p.masque;
+    v_res := v_res || pg_temp.wp_ligne(
+      (v_j ->> 'nb')::integer = v_i and (v_j ->> 'total')::integer = v_k and v_k > 0
+        and (v_j ->> 'total')::integer < (select sum(coalesce(p.montant, 0)) from public.problems p where p.user_id = v_pauvre)
+        and (v_j ->> 'rang')::integer between 1 and (v_j ->> 'sur')::integer
+        and (select array_agg(k order by k) from jsonb_object_keys(v_j) k) = array['camp', 'nb', 'pseudo', 'rang', 'sur', 'total'],
+      'get_mon_rang : total et nombre des seuls problèmes publiés non masqués, rang dans le classement', v_j::text);
+    v_res := v_res || pg_temp.wp_ligne(
+      not exists (
+        select 1 from public.wp_classement_pauvres() a
+        join public.wp_classement_pauvres() b on b.rang = a.rang + 1
+        where b.total > a.total or (b.total = a.total and b.nb > a.nb)),
+      'classement trié par total, puis nombre de problèmes');
+    perform pg_temp.wp_jouer('authenticated', v_riche);
+    v_res := v_res || pg_temp.wp_ligne(public.get_mon_rang() is null, 'get_mon_rang renvoie null pour un riche');
+    perform pg_temp.wp_jouer(null);
+    perform public.bloquer_membre(v_pauvre3, true);
+    v_res := v_res || pg_temp.wp_ligne(
+      not exists (select 1 from public.wp_classement_pauvres() c where c.user_id in (v_pauvre3, v_riche)),
+      'ni les membres bloqués ni les riches ne sont classés');
+    perform public.bloquer_membre(v_pauvre3, false);
+    perform pg_temp.wp_jouer('authenticated', v_pauvre);
+    begin
+      perform public.wp_classement_pauvres();
+      v_hint := 'exécuté';
+    exception when insufficient_privilege then v_hint := null;
+              when others then v_hint := 'erreur ' || sqlstate;
+    end;
+    v_res := v_res || pg_temp.wp_ligne(v_hint is null, 'un membre ne peut pas exécuter wp_classement_pauvres (avec les id)', v_hint);
+    perform pg_temp.wp_jouer(null);
+
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';
   exception

@@ -249,6 +249,22 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
   }
   const sortDate = (p) => p.modere_le || p.cree_le;
 
+  /** Ranked poor (not blocked, ≥ 1 published non-masked problem): total desc, nb desc, oldest member. */
+  function classementPauvres(st) {
+    const parId = new Map();
+    for (const pb of st.problems) {
+      if (!visibleProblem(pb) || pb.est_exemple || !pb.user_id) continue;
+      const l = parId.get(pb.user_id) || { nb: 0, total: 0 };
+      l.nb++; l.total += pb.montant || 0;
+      parId.set(pb.user_id, l);
+    }
+    return st.profiles
+      .filter((p) => p.camp === 'pauvre' && !p.bloque && parId.has(p.id))
+      .map((p) => ({ user_id: p.id, pseudo: p.pseudo, camp: p.camp, cree_le: p.cree_le, ...parId.get(p.id) }))
+      .sort((a, b) => b.total - a.total || b.nb - a.nb || a.cree_le.localeCompare(b.cree_le) || a.user_id.localeCompare(b.user_id))
+      .map(({ cree_le, ...l }, i) => ({ rang: i + 1, ...l }));
+  }
+
   const api = {
     mode: 'demo',
 
@@ -331,6 +347,23 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
             cree_le: c.cree_le, est_auteur_probleme: !!p.user_id && c.user_id === p.user_id, est_moi: !!myId && c.user_id === myId
           };
         });
+    },
+
+    /* ===== Leaderboard of the poor (= 009_palmares.sql, R-028) ===== */
+
+    async getPalmares({ limite = 100 } = {}) {
+      const lim = Math.max(1, Math.min(100, Number.isInteger(limite) ? limite : 100));
+      const c = classementPauvres(load());
+      return { classes: c.length, lignes: c.slice(0, lim).map(({ user_id, ...l }) => l) };
+    },
+
+    async getMonRang() {
+      const st = load();
+      const p = me(st);
+      if (!p || p.camp !== 'pauvre') return null;
+      const c = classementPauvres(st);
+      const l = c.find((x) => x.user_id === p.id);
+      return { rang: l ? l.rang : null, sur: c.length, pseudo: p.pseudo, camp: p.camp, nb: l ? l.nb : 0, total: l ? l.total : 0 };
     },
 
     /* ================= Members ================= */

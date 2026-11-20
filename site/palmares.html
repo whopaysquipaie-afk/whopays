@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com https://cloudflareinsights.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <title>Le palmarès des pauvres — Qui paie ?</title>
+  <meta name="description" content="Le top 100 des pauvres de Qui paie ? : qui a le plus gros tas de problèmes, en euros et en Riens. Aucun argent ne circule, seulement de la gloire.">
+  <meta name="theme-color" content="#0B0B0B">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:site_name" content="Qui paie ?">
+  <meta property="og:title" content="Le palmarès des pauvres — Qui paie ?">
+  <meta property="og:description" content="Qui a le plus gros tas de problèmes ? Le top 100 des pauvres, en Riens.">
+  <meta property="og:image" content="https://whopaysquipaie-afk.github.io/whopays/assets/img/og-image.png">
+  <meta property="og:url" content="https://whopaysquipaie-afk.github.io/whopays/palmares.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Qui paie ?">
+  <link rel="preload" href="assets/fonts/Montserrat-BlackItalic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script type="module" src="assets/js/pages/palmares.js"></script>
+</head>
+<body>
+  <main id="contenu" aria-busy="true">
+    <section class="section palmares-entete" aria-labelledby="titre-palmares">
+      <div class="container container-etroit">
+        <h1 class="section-titre" id="titre-palmares">Le palmarès des pauvres</h1>
+        <p class="gris mt-8">Classés par le total de leurs problèmes publiés. Le premier n'a rien gagné, à part le droit d'en parler.</p>
+        <p class="gris mt-8" id="palmares-classes"></p>
+        <div class="hero-actions">
+          <button type="button" class="btn btn-primaire" id="partager-rang" hidden><i data-icon="share"></i> Partager mon rang</button>
+          <button type="button" class="btn btn-secondaire" data-action="publier">Publier un problème <i data-icon="arrow-right" class="fleche"></i></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section palmares-podium-zone" aria-labelledby="titre-podium">
+      <div class="container container-etroit">
+        <h2 class="visually-hidden" id="titre-podium">Le podium</h2>
+        <ol class="podium" id="podium"></ol>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="titre-classement">
+      <div class="container container-etroit">
+        <h2 class="section-titre" id="titre-classement">Le top 100</h2>
+        <div class="palmares-table-zone">
+          <table class="palmares-table">
+            <caption class="visually-hidden">Classement des pauvres : rang, pseudo, nombre de problèmes, total en Riens</caption>
+            <thead><tr><th scope="col">Rang</th><th scope="col">Pseudo</th><th scope="col">Problèmes</th><th scope="col">Total</th></tr></thead>
+            <tbody id="palmares-lignes"></tbody>
+          </table>
+        </div>
+        <p class="gris petit mt-24">Seuls les problèmes publiés et visibles comptent. Égalité : celui qui a le plus de problèmes passe devant, puis le plus ancien membre. Les riches ne sont pas classés : ils ont déjà assez de trophées. Aucun argent n'est collecté ni versé sur ce site.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

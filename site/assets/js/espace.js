@@ -10,6 +10,8 @@ import { lienParrainage } from './parrainage.js';
 import { barrePartage, urlProbleme, texteProbleme, partageNatif, copierLien } from './partage.js';
 import { intent } from './layout.js';
 import { CLUBS } from './club.js';
+import { phraseRang, partagerRang } from './palmares.js';
+import { enRiens } from './riens.js';
 
 const STATUTS = {
   recu: { label: 'En relecture', classe: '' },
@@ -49,6 +51,9 @@ export async function monterEspace(zone) {
     e.bloque ? h('p', { class: 'erreur-form' }, 'Ton compte est bloqué : tu peux lire le site, mais plus publier, réagir ni écrire.') : null,
     !e.email_confirme ? confirmation(e) : null
   ));
+
+  /* ---------- Poor: my total and my rank (R-028) ---------- */
+  if (e.camp === 'pauvre') grille.appendChild(blocRang(e));
 
   /* ---------- Referral ---------- */
   const lien = lienParrainage(e.code_partage);
@@ -97,6 +102,28 @@ export async function monterEspace(zone) {
       h('button', { type: 'button', class: 'btn btn-fantome', onclick: deconnexion }, icon('logout'), 'Se déconnecter'),
       h('button', { type: 'button', class: 'btn btn-danger', onclick: () => supprimer(e) }, icon('trash'), 'Supprimer mon compte'))));
   zone.closest('main').setAttribute('aria-busy', 'false');
+}
+
+/** "Mon total : 3 problèmes · 4,25x Rien" + "Ton rang : 42ᵉ sur 312 pauvres" (R-028). */
+function blocRang(e) {
+  const total = h('p', { class: 'total-pauvre' }, '…');
+  const rang = h('p', { class: 'gris mt-8' });
+  const partager = h('button', { type: 'button', class: 'btn btn-secondaire btn-petit', hidden: true }, icon('share'), 'Partager mon rang');
+  const bloc = h('section', { class: 'bloc mon-rang', 'aria-labelledby': 'titre-rang' },
+    h('h2', { id: 'titre-rang' }, 'Mon palmarès'),
+    total, rang,
+    h('div', { class: 'hero-actions' },
+      h('a', { class: 'btn btn-lavande btn-petit', href: 'palmares.html' }, 'Voir le palmarès', icon('arrow-right', { className: 'fleche' })),
+      partager));
+  api.getMonRang().then((mon) => {
+    if (!mon) { bloc.hidden = true; return; }
+    const riens = enRiens(mon.total);
+    total.textContent = `Mon total : ${formatNumber(mon.nb)} problème${mon.nb > 1 ? 's' : ''}${riens ? ` · ${riens}` : ''}`;
+    rang.textContent = phraseRang(mon);
+    partager.hidden = !mon.rang;
+    partager.onclick = () => partagerRang(mon, e.code_partage);
+  }, () => { bloc.hidden = true; });
+  return bloc;
 }
 
 function invitation(zone) {

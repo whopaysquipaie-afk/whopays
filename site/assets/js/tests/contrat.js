@@ -462,6 +462,63 @@ test('D. Publier', 'plafond (R-027) : exemples et données de démo des pauvres 
   }
 });
 
+/* ================= Palmarès des pauvres (= 009_palmares.sql, R-028) ================= */
+
+test('Palmarès', 'public : seulement rang, pseudo, camp, nb, total ; pauvres triés ; démo cohérente', async () => {
+  const { api } = fresh();
+  eq(await api.getMonRang(), null, 'visiteur :');
+  const p = await api.getPalmares();
+  assert(p.lignes.length > 10 && p.lignes.length <= 100, `${p.lignes.length} lignes`);
+  eq(p.classes, new Set(PROBLEMES.filter((x) => x[5] === 'publie').map((x) => x[4])).size, 'pauvres classés :');
+  for (const [i, l] of p.lignes.entries()) {
+    eq(Object.keys(l).sort().join(','), 'camp,nb,pseudo,rang,total');
+    eq(l.camp, 'pauvre');
+    eq(l.rang, i + 1);
+    if (i) assert(l.total < p.lignes[i - 1].total || (l.total === p.lignes[i - 1].total && l.nb <= p.lignes[i - 1].nb), `ordre au rang ${l.rang}`);
+  }
+  assertNoPrivateData(p, 'get_palmares');
+  eq((await api.getPalmares({ limite: 3 })).lignes.length, 3);
+  eq((await api.getPalmares({ limite: 5000 })).lignes.length, Math.min(100, p.classes));
+});
+test('Palmarès', 'mon rang : problèmes publiés non masqués seulement ; riche → null', async () => {
+  const { api, join, admin } = fresh();
+  const avant = (await api.getPalmares()).classes;
+  await join('pauvre', 'Roi de la Dèche');
+  let r = await api.getMonRang();
+  eq(r.rang, null); eq(r.nb, 0); eq(r.total, 0); eq(r.sur, avant); eq(r.pseudo, 'Roi de la Dèche');
+  const ok = { categorie: 'reve', texte: 'Un texte de plus de dix caractères.' };
+  const a = await api.soumettreProbleme({ ...ok, titre: 'Premier gros rêve', montant: 10000 });
+  await api.soumettreProbleme({ ...ok, titre: 'Second gros rêve', montant: 10000 });
+  await api.soumettreProbleme({ ...ok, titre: 'Je suis à la rue', montant: 10000 }); // sensitive → in review, not counted
+  r = await api.getMonRang();
+  eq(r.rang, 1); eq(r.nb, 2); eq(r.total, 20000); eq(r.sur, avant + 1);
+  eq((await api.getPalmares()).lignes[0].pseudo, 'Roi de la Dèche');
+  await admin.masquer('probleme', a.id);
+  r = await api.getMonRang();
+  eq(r.nb, 1); eq(r.total, 10000);
+  await join('riche');
+  eq(await api.getMonRang(), null, 'riche :');
+});
+test('Palmarès', 'départage : nombre de problèmes, puis ancienneté ; membres bloqués exclus', async () => {
+  const { api, join, admin, advance } = fresh();
+  const ok = { categorie: 'defi', texte: 'Un texte de plus de dix caractères.' };
+  const ancien = await join('pauvre', 'Ancien Fauché');
+  await api.soumettreProbleme({ ...ok, titre: 'Défi unique', montant: 10000 });
+  advance(HOUR);
+  const recent = await join('pauvre', 'Nouveau Fauché');
+  await api.soumettreProbleme({ ...ok, titre: 'Défi unique bis', montant: 10000 });
+  advance(HOUR);
+  await join('pauvre', 'Fauché en Deux');
+  await api.soumettreProbleme({ ...ok, titre: 'Défi moitié un', montant: 5000 });
+  await api.soumettreProbleme({ ...ok, titre: 'Défi moitié deux', montant: 5000 });
+  const top = (await api.getPalmares({ limite: 3 })).lignes.map((l) => l.pseudo);
+  eq(top.join(' > '), 'Fauché en Deux > Ancien Fauché > Nouveau Fauché');
+  await admin.bloquer(ancien.userId);
+  assert(!(await api.getPalmares()).lignes.some((l) => l.pseudo === 'Ancien Fauché'), 'bloqué exclu');
+  await api.demoAdmin.connecterEnTantQue(recent.userId);
+  eq((await api.getMonRang()).rang, 2);
+});
+
 /* ================= E. React, comment, report ================= */
 
 test('E. Réactions', 'ajoute puis retire une réaction, compteurs à jour', async () => {

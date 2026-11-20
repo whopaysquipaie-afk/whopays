@@ -1016,3 +1016,43 @@ body.page-club .club-fil { padding-bottom: 24px; }
   .modo-onglets { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .modo-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* ---------- Palmarès des pauvres (R-028) ---------- */
+.palmares-entete { padding-bottom: 16px; }
+.palmares-podium-zone { padding: 8px 0 16px; }
+.podium { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.marche { position: relative; padding: 18px 18px 16px 64px; border-radius: var(--r-carte); background: var(--anthracite); border: 1px solid var(--bordure); min-width: 0; }
+.marche-icone { position: absolute; left: 18px; top: 20px; width: 30px; height: 30px; }
+.marche.or { background: var(--citron); color: var(--noir); border-color: var(--citron); }
+.marche.argent { background: var(--lavande); color: var(--lavande-texte); border-color: var(--lavande); }
+.marche.bronze { background: var(--anthracite-2); }
+.marche.moi { outline: 3px solid var(--blanc); outline-offset: 2px; }
+.marche-rang { position: absolute; right: 16px; top: 8px; font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: 40px; opacity: .25; }
+.marche-titre { font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: 20px; line-height: 1.15; padding-right: 36px; }
+.marche-pseudo { margin-top: 6px; font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
+.marche-total { margin-top: 2px; font-weight: 600; }
+.marche-sous { margin-top: 6px; font-size: 14px; opacity: .8; }
+.palmares-table-zone { margin-top: 16px; overflow-x: auto; }
+.palmares-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.palmares-table th { text-align: left; font-size: 13px; color: var(--gris); font-weight: 600; padding: 8px 6px; border-bottom: 1px solid var(--bordure); }
+.palmares-table td { padding: 12px 6px; border-bottom: 1px solid var(--bordure); vertical-align: top; }
+.palmares-table td.rang { font-weight: 800; white-space: nowrap; }
+.palmares-table td.pseudo { overflow-wrap: anywhere; font-weight: 600; }
+.palmares-table td.pseudo .badge { margin-left: 6px; }
+.palmares-table td.total { white-space: nowrap; }
+.palmares-table tr.moi td { background: rgba(220, 211, 255, .12); }
+.palmares-table tr.ellipse td { text-align: center; color: var(--gris); padding: 4px; }
+.mon-rang .total-pauvre { font-family: var(--f-titre); font-weight: 900; font-style: italic; font-size: 24px; margin-top: 8px; color: var(--lavande); }
+@media (max-width: 420px) {
+  .palmares-table th:nth-child(3), .palmares-table td:nth-child(3) { display: none; }
+  .palmares-table td.total { white-space: normal; }
+}
+@media (min-width: 768px) {
+  .podium { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; }
+  .marche { padding: 64px 18px 18px; text-align: center; }
+  .marche-icone { left: 50%; transform: translateX(-50%); top: 20px; }
+  .marche.or { order: 2; padding-top: 88px; }
+  .marche.argent { order: 1; }
+  .marche.bronze { order: 3; }
+  .marche-titre { padding-right: 0; }
+}

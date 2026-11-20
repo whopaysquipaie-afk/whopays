@@ -64,7 +64,7 @@ site/
         ├── pages/         one entry module per page
         └── tests/contrat.js  API contract suite (Node + browser)
 supabase/
-├── migrations/001_schema.sql · 002_securite.sql · 003_fonctions.sql · 004_moderation.sql · 005_publication_auto.sql · 006_moderateurs.sql · 007_mots_sensibles_v2.sql · 008_plafond_pauvres.sql
+├── migrations/001_schema.sql · 002_securite.sql · 003_fonctions.sql · 004_moderation.sql · 005_publication_auto.sql · 006_moderateurs.sql · 007_mots_sensibles_v2.sql · 008_plafond_pauvres.sql · 009_palmares.sql
 ├── seed/exemples.sql · seed/mots_interdits.sql
 └── tests/verif_securite.sql
 tools/

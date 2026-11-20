@@ -51,8 +51,9 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 6. `supabase/migrations/006_moderateurs.sql` (modérateurs et page de modération mobile)
 7. `supabase/migrations/007_mots_sensibles_v2.sql` (liste des mots sensibles ajustée : moins de faux positifs)
 8. `supabase/migrations/008_plafond_pauvres.sql` (montant obligatoire de 1 à 10 000 € pour un pauvre, 10 problèmes par 24 h)
-9. `supabase/seed/mots_interdits.sql`
-10. `supabase/seed/exemples.sql`
+9. `supabase/migrations/009_palmares.sql` (palmarès des pauvres : `get_palmares`, `get_mon_rang`)
+10. `supabase/seed/mots_interdits.sql`
+11. `supabase/seed/exemples.sql`
 
 Pour modérer depuis un téléphone, inscrire son propre compte de membre dans `public.moderateurs` (voir `docs/MODERATION.md`, « Page de modération »).
 

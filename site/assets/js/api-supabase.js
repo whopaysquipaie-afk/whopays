@@ -52,6 +52,8 @@ export function createSupabaseApi() {
     getProblemePublic: (id) => rpc('get_probleme_public', { p_id: id }),
     getProblemeHasard: () => rpc('get_probleme_hasard'),
     getCommentaires: (problemId, avant = null) => rpc('get_commentaires', { p_problem_id: problemId, p_avant: avant }).then((d) => d || []),
+    getPalmares: ({ limite = 100 } = {}) => rpc('get_palmares', { p_limite: limite }),
+    getMonRang: () => rpc('get_mon_rang'),
 
     /* ================= Members ================= */
     creerProfil: ({ camp, pseudo, email, newsletter = false, codeRef = null } = {}) =>
