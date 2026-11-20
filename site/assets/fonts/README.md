@@ -12,5 +12,7 @@ Expected files (woff2, Latin subset is enough):
 | `Inter-Regular.woff2` | Inter | 400 — body text |
 | `Inter-SemiBold.woff2` | Inter | 600 — buttons, labels |
 
-Until they are added, the site falls back to system fonts (`Segoe UI Black`, `Arial Black`, `system-ui`).
+Until they are added, the site falls back to system fonts (`Segoe UI Black`, `Arial Black`, `system-ui`) and the CSS only references `local()` fonts, so the console stays clean.
+
+**After adding the files, run `node tools/polices.mjs`**: it adds the `url()` sources to `style.css` and the `<link rel="preload">` tags to every page.
 Sources: Montserrat (github.com/JulietaUla/Montserrat), Inter (github.com/rsms/inter).
