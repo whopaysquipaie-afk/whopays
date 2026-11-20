@@ -11,7 +11,7 @@ const PAGE = 12;
 
 const VIDES = [
   ['Aucun problème ici. C’est louche.', 'Personne n’a encore osé. Ça pourrait être toi.'],
-  ['Catégorie vide. Comme mon frigo.', 'Publie le premier problème de la catégorie, on le relit vite.'],
+  ['Catégorie vide. Comme mon frigo.', 'Publie le premier problème de la catégorie, il sera en ligne tout de suite.'],
   ['Ici, tout va bien. Trop bien.', 'Impossible. Il doit bien y avoir un problème quelque part.']
 ];
 

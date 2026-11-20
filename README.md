@@ -39,7 +39,7 @@ And then… nothing happens. **0 € funded.** That's the joke, the social exper
 |---|---|
 | 🏠 **Live home** | Counters that roll in, the Rich vs Poor match with a real tug-of-war bar, 10 categories, an infinite wall of problems |
 | ⚡ **Join in 10 seconds** | Pick a camp, a pseudo, an e-mail. No password. Confetti in your camp's color |
-| 📝 **Moderated posting** | Every problem is reviewed before going live; serious distress is redirected to a real-help page |
+| 📝 **Instant posting** | A problem that passes the filters is live within the second, ready to share. Sensitive ones (distress, violence, illness…) wait for a human, who can redirect to a real-help page |
 | 😂 **Reactions & comments** | "Mort de rire", "Courage", "Si j'étais riche, je paierais" — with instant toggles |
 | 📱 **Story card** | One tap → a 1080×1920 PNG ready for Instagram/TikTok/WhatsApp, shared natively on mobile |
 | 🔒 **Camp clubs** | One group chat per camp. The Poor can't read the Rich club, and vice versa (enforced in SQL) |
@@ -71,8 +71,9 @@ sequenceDiagram
   DB-->>S: referral code
   S-->>V: 🎉 "Bienvenue chez les pauvres !"
   V->>S: posts a problem
-  S->>DB: rpc soumettre_probleme(…) → status "recu"
-  Note over DB: moderator publishes it in Supabase Studio
+  S->>DB: rpc soumettre_probleme(…) → status "publie"
+  Note over DB: filters passed, no sensitive word: live at once<br/>(sensitive → "recu", reviewed by a human)
+  S-->>V: "C'est en ligne !"
   V->>S: shares the story card
 ```
 

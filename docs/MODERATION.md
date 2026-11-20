@@ -4,12 +4,37 @@ Tout se fait dans **Supabase Studio** (Table Editor et SQL Editor), connecté av
 
 Durée : 5 à 15 minutes par jour selon le volume.
 
+## 0. Publication immédiate (depuis `005_publication_auto.sql`)
+
+Un problème qui passe les filtres (numéro, IBAN, e-mail, lien, mot interdit) est **publié tout de suite** : l'auteur peut le partager dans la seconde. Seuls les problèmes qui contiennent une **expression sensible** (table `mots_sensibles` : suicide, en finir, viol, harcèlement, cancer, chimio, à la rue, expulsé, drogue, dépression…) partent en relecture (`statut = 'recu'`). La file « à relire » ne contient donc plus que des **cas sensibles** : les traiter en priorité, et réorienter au moindre doute.
+
+La routine devient :
+1. relire `moderation_a_relire` (cas sensibles) ;
+2. parcourir les problèmes publiés récemment et **retirer vite** ce qui n'aurait pas dû passer :
+   ```sql
+   select id, cree_le, titre, texte from public.problems
+   where statut = 'publie' and not est_exemple and cree_le > now() - interval '48 hours'
+   order by cree_le desc;
+   select public.moderer_probleme('<id>', 'refuse');      -- ou 'reoriente', ou masquer_contenu('probleme', '<id>')
+   ```
+3. signalements et contenus masqués (sections 2 et 3).
+
+**Repasser en pré-modération** (tout problème attend une relecture, comme au lancement) :
+
+```sql
+update public.reglages set valeur = 'false' where cle = 'publication_auto';
+-- revenir à la publication immédiate :
+update public.reglages set valeur = 'true' where cle = 'publication_auto';
+```
+
+**Ajouter une expression sensible** : Table Editor → `mots_sensibles`, en minuscules et sans accents (la comparaison ignore accents et majuscules, et porte sur des mots entiers : « viol » ne touche pas « violon »). L'ajouter aussi à `MOTS_SENSIBLES_DEFAUT` dans `site/assets/js/mots-sensibles.js` et dans le `insert` de `005_publication_auto.sql` (`tools/verif.mjs` vérifie que les deux listes sont identiques).
+
 ## 1. Problèmes à relire
 
 SQL Editor :
 
 ```sql
-select * from public.moderation_a_relire;  -- statut = 'recu', le plus ancien en premier
+select * from public.moderation_a_relire;  -- statut = 'recu' (cas sensibles), le plus ancien en premier
 ```
 
 Pour chaque problème :

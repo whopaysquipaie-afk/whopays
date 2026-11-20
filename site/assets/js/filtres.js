@@ -1,5 +1,5 @@
 // Shared content filters (brief dev §5.5). Pure functions: browser + Node, no DOM.
-// The SAME patterns are reproduced in SQL (supabase/migrations/002_securite.sql → public.wp_filtre_contenu).
+// The SAME patterns are reproduced in SQL (supabase/migrations/002_securite.sql → public.wp_raison_filtre).
 // Keep both in sync when you change one.
 
 /** Starter list of banned words (normalized: lowercase, no accents). Mirrors supabase/seed/mots_interdits.sql. */
@@ -66,6 +66,12 @@ export function raisonFiltre(texte, motsInterdits = MOTS_INTERDITS_DEFAUT) {
   if (RE_TEL_FR.test(norm) || RE_TEL_INTL.test(norm) || RE_CHIFFRES_LONGS.test(norm.replace(/(\d)[.-](?=\d)/g, '$1'))) return 'telephone';
   if (contientMotInterdit(norm, motsInterdits)) return 'mot_interdit';
   return null;
+}
+
+/** True when the text contains one of the expressions (normalized, whole words), e.g. sensitive words. */
+export function contientExpression(texte, expressions) {
+  const norm = normaliser(texte);
+  return !!norm.trim() && contientMotInterdit(norm, expressions);
 }
 
 /** True when the text passes every filter. */

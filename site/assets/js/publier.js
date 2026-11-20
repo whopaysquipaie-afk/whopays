@@ -8,6 +8,42 @@ import { champ, boiteErreur, chargement } from './champs.js';
 import { champsRejoindre, executerRejoindre, INFO_DONNEES } from './auth.js';
 import { creerTurnstile } from './turnstile.js';
 import { session } from './page.js';
+import { barrePartage, urlProbleme, texteProbleme } from './partage.js';
+
+/** Success screen when the problem is published at once (R-017): view it, share it, story card. */
+async function ecranEnLigne(id, titreSaisi) {
+  let s = null;
+  try { s = await api.getSession(); } catch { /* no referral code then */ }
+  const url = urlProbleme(id, s && s.profil ? s.profil.code_partage : null);
+  let p = null;
+  try { p = await api.getProblemePublic(id); } catch { /* the story button is hidden then */ }
+  const titre = p ? p.titre : titreSaisi;
+  const story = h('button', { type: 'button', class: 'btn btn-secondaire' }, icon('download'), 'Télécharger la carte story');
+  story.addEventListener('click', async () => {
+    story.setAttribute('aria-busy', 'true');
+    try {
+      const { ouvrirStory } = await import('./story.js');
+      await ouvrirStory(p, { url });
+    } catch (e) { toastError(e); } finally { story.removeAttribute('aria-busy'); }
+  });
+  return h('div', { class: 'succes' },
+    h('p', { class: 'grand' }, 'C’est en ligne !'),
+    h('p', {}, 'Ton problème attend son milliardaire. Partage-le maintenant : plus il circule, plus il a de chances de tomber sur la bonne personne.'),
+    h('div', { class: 'actions-probleme' },
+      h('a', { class: 'btn btn-primaire', href: `p.html?id=${encodeURIComponent(id)}` }, 'Voir mon problème', icon('arrow-right', { className: 'fleche' })),
+      p ? story : null),
+    barrePartage({ texte: texteProbleme(titre, url), url, titre }));
+}
+
+/** Success screen when the problem waits for a human review (sensitive words or pre-moderation). */
+function ecranRecu() {
+  return h('div', { class: 'succes' },
+    h('p', { class: 'grand' }, 'Reçu !'),
+    h('p', {}, 'On le relit avant de le mettre en ligne. Suis son statut dans Mon espace.'),
+    h('a', { class: 'btn btn-primaire', href: 'espace.html' }, 'Mon espace', icon('arrow-right', { className: 'fleche' })),
+    h('p', { class: 'gris petit mt-16' }, 'Si tu traverses un moment difficile, ',
+      h('a', { href: 'aide.html' }, 'des personnes peuvent t’aider, gratuitement'), '.'));
+}
 
 export async function ouvrirPublier({ categorie = null } = {}) {
   let s = session();
@@ -41,7 +77,7 @@ export async function ouvrirPublier({ categorie = null } = {}) {
     ...(rejoindre ? [h('p', { class: 'etiquette-section' }, '1. Choisis ton camp'), ...rejoindre.nodes, h('div', { class: 'separateur' }), h('p', { class: 'etiquette-section' }, '2. Ton problème')] : []),
     champCat, titre.wrap, texte.wrap, montant.wrap,
     h('div', { class: 'avertissement' }, icon('alert-triangle'),
-      h('span', {}, 'Ni vrai nom, ni adresse, ni informations de santé. Chaque problème est relu avant publication. Besoin d’une aide réelle ? ',
+      h('span', {}, 'Ni vrai nom, ni adresse, ni informations de santé. Ton problème est filtré puis mis en ligne tout de suite. Besoin d’une aide réelle ? ',
         h('a', { href: 'aide.html' }, 'On t’oriente ici.'))),
     zoneTs, erreur.el, submit,
     rejoindre ? h('p', { class: 'mentions' }, INFO_DONNEES) : null
@@ -82,12 +118,9 @@ export async function ouvrirPublier({ categorie = null } = {}) {
         }
       }
       const m = montant.value().replace(/\s/g, '');
-      await api.soumettreProbleme({ categorie: select.value, titre: titre.value(), texte: texte.value(), montant: m === '' ? null : Number(m) });
+      const r = await api.soumettreProbleme({ categorie: select.value, titre: titre.value(), texte: texte.value(), montant: m === '' ? null : Number(m) });
       document.dispatchEvent(new CustomEvent('wp:probleme-soumis'));
-      body.replaceChildren(h('div', { class: 'succes' },
-        h('p', { class: 'grand' }, 'Reçu !'),
-        h('p', {}, 'On le relit et on le publie vite. Suis son statut dans Mon espace.'),
-        h('a', { class: 'btn btn-primaire', href: 'espace.html' }, 'Mon espace', icon('arrow-right', { className: 'fleche' }))));
+      body.replaceChildren(r && r.statut === 'publie' ? await ecranEnLigne(r.id, titre.value()) : ecranRecu());
     } catch (err) {
       erreur.show(err.message || 'Oups, quelque chose a coincé. Réessaie.');
     } finally {

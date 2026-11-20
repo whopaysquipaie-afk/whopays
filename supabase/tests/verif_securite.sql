@@ -1,7 +1,7 @@
 -- =====================================================================
 -- Qui paie ? / Who pays? — security tests (brief dev §5.7)
 --
--- Run in the Supabase SQL editor (as postgres) AFTER the 4 migrations (seeds optional).
+-- Run in the Supabase SQL editor (as postgres) AFTER all the migrations (001 to 005; seeds optional).
 -- Prints one line per test: "OK - ..." or "ÉCHEC - ...", as NOTICE messages and as the result
 -- grid of the final SELECT.
 --
@@ -95,9 +95,12 @@ declare
   v_msg_cible   uuid;
   -- direct table access
   v_tables   text[] := array['profiles', 'problems', 'reactions', 'comments', 'club_messages',
-                             'reports', 'verifications', 'mots_interdits'];
+                             'reports', 'verifications', 'mots_interdits', 'reglages', 'mots_sensibles'];
   v_colonnes text[] := array['pseudo', 'titre', 'type', 'texte', 'texte',
-                             'cible_type', 'verifie_le', 'mot'];
+                             'cible_type', 'verifie_le', 'mot', 'valeur', 'mot'];
+  v_pb_auto     uuid;
+  v_pb_sensible uuid;
+  v_pb_premod   uuid;
 begin
   begin  -- sub-transaction: rolled back on purpose at the end (P0999)
 
@@ -127,6 +130,12 @@ begin
     insert into public.mots_interdits (mot)
     values ('connard'), ('encule'), ('ta gueule'), ('pd')
     on conflict (mot) do nothing;
+    -- Sensitive words used below, and automatic publication on (005; restored by the final rollback)
+    insert into public.mots_sensibles (mot)
+    values ('chimio'), ('a la rue'), ('harcelement'), ('viol')
+    on conflict (mot) do nothing;
+    insert into public.reglages (cle, valeur) values ('publication_auto', 'true'::jsonb)
+    on conflict (cle) do update set valeur = excluded.valeur;
 
     -- Profiles, created through creer_profil (as each member)
     perform pg_temp.wp_jouer('authenticated', v_riche);
@@ -150,12 +159,12 @@ begin
     v_res := v_res || pg_temp.wp_ligne(v_code_p ~ '^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$',
       'creer_profil renvoie un code de partage de 8 caractères', v_code_p);
 
-    -- Problems: P submits 3, R submits 1 (all 'recu')
+    -- Problems: P submits 3, R submits 1 (published at once, except v_pb_recu: sensitive word -> 'recu')
     perform pg_temp.wp_jouer('authenticated', v_pauvre);
     v_pb_publie := (public.soumettre_probleme('factures', 'Ma facture de test',
                     'Un texte de test, assez long pour passer.', 120) ->> 'id')::uuid;
     v_pb_recu   := (public.soumettre_probleme('reve', 'Mon rêve non publié',
-                    'Ce problème attend encore la modération.', null) ->> 'id')::uuid;
+                    'Ma mère commence sa chimio : ce problème attend la modération.', null) ->> 'id')::uuid;
     v_pb_masque := (public.soumettre_probleme('patron', 'Mon patron masqué',
                     'Ce problème est publié puis masqué.', 300) ->> 'id')::uuid;
     perform pg_temp.wp_jouer('authenticated', v_riche);
@@ -386,17 +395,70 @@ begin
     perform pg_temp.wp_jouer(null);
 
     -- =================================================================
-    -- 7. A member cannot publish a problem
+    -- 7. Publication (005): immediate unless sensitive or pre-moderation;
+    --    a member can never choose the status
     -- =================================================================
+    -- 7a. Clean problem, automatic publication on -> 'publie', visible at once
+    perform pg_temp.wp_jouer('authenticated', v_pauvre2);
+    v_j := public.soumettre_probleme('quotidien', 'Mon grille-pain me juge',
+                                     'Il brûle tout, sauf mes factures.', 50);
+    v_pb_auto := (v_j ->> 'id')::uuid;
+    v_ok := v_j ->> 'statut' = 'publie' and public.get_probleme_public(v_pb_auto) ->> 'titre' = 'Mon grille-pain me juge';
+    perform pg_temp.wp_jouer('anon');
+    v_ok := v_ok and position(v_pb_auto::text in public.get_problemes_publics(null, 48, null)::text) > 0;
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      v_ok and exists (select 1 from public.problems p where p.id = v_pb_auto and p.statut = 'publie' and not p.est_exemple),
+      'publication immédiate : un problème sans mot sensible est publié et visible tout de suite', v_j::text);
+
+    -- 7b. Sensitive word (accents and case ignored, whole words) -> 'recu', invisible
+    perform pg_temp.wp_jouer('authenticated', v_pauvre2);
+    v_j := public.soumettre_probleme('quotidien', 'Je dors À LA RUE depuis lundi',
+                                     'Ce problème doit attendre la modération.', null);
+    v_pb_sensible := (v_j ->> 'id')::uuid;
+    v_ok := v_j ->> 'statut' = 'recu' and public.get_probleme_public(v_pb_sensible) is null;
+    perform pg_temp.wp_jouer(null);
+    v_res := v_res || pg_temp.wp_ligne(
+      v_ok and exists (select 1 from public.problems p where p.id = v_pb_sensible and p.statut = 'recu'),
+      'un mot sensible dans le titre ou le texte envoie le problème en relecture (« recu », invisible)', v_j::text);
+
+    -- 7c. Automatic publication switched off -> everything waits ('recu')
+    update public.reglages set valeur = 'false'::jsonb where cle = 'publication_auto';
     perform pg_temp.wp_jouer('authenticated', v_pauvre2);
     v_j := public.soumettre_probleme('quotidien', 'Je veux publier tout seul',
                                      'Ce problème doit rester en attente de modération.', 50);
-    v_pb_test := (v_j ->> 'id')::uuid;
-    v_ok := v_j ->> 'statut' = 'recu' and public.get_probleme_public(v_pb_test) is null;
+    v_pb_premod := (v_j ->> 'id')::uuid;
+    v_ok := v_j ->> 'statut' = 'recu' and public.get_probleme_public(v_pb_premod) is null;
     perform pg_temp.wp_jouer(null);
+    update public.reglages set valeur = 'true'::jsonb where cle = 'publication_auto';
     v_res := v_res || pg_temp.wp_ligne(
-      v_ok and exists (select 1 from public.problems p where p.id = v_pb_test and p.statut = 'recu' and not p.est_exemple),
-      'un problème soumis par un membre reste « recu » (non publié)');
+      v_ok and exists (select 1 from public.problems p where p.id = v_pb_premod and p.statut = 'recu'),
+      'publication_auto = false : un problème propre reste « recu » (pré-modération)', v_j::text);
+
+    -- 7d. wp_contient_mot_sensible: normalization and whole words (as postgres)
+    for v_t, v_ok in
+      select f.texte, f.attendu from (values
+        ('Ma mère commence sa CHIMIO lundi',   true),
+        ('Je suis à la rue',                    true),
+        ('Harcèlement au bureau',               true),
+        ('Mon chat est très expressif',         false),
+        ('J''ai subi un viol',                  true),
+        ('Un violon pour mon chat',             false),
+        ('Mon chat dort dans la rue du four',   false),
+        ('Bonjour à tous, on y croit !',        false)
+      ) as f(texte, attendu)
+    loop
+      v_res := v_res || pg_temp.wp_ligne(public.wp_contient_mot_sensible(v_t) = v_ok,
+        format('mot sensible : « %s » → %s', v_t, case when v_ok then 'relecture' else 'publication' end),
+        public.wp_contient_mot_sensible(v_t)::text);
+    end loop;
+
+    -- 7e. Missing setting = pre-moderation (safe default)
+    delete from public.reglages where cle = 'publication_auto';
+    v_ok := not public.wp_publication_auto();
+    insert into public.reglages (cle, valeur) values ('publication_auto', 'true'::jsonb);
+    v_res := v_res || pg_temp.wp_ligne(v_ok and public.wp_publication_auto(),
+      'réglage publication_auto absent = pré-modération ; présent à true = publication immédiate');
     -- No function a member can call takes a status / mask / block / example / verified argument
     select string_agg(p.proname, ', ') into v_txt
     from pg_catalog.pg_proc p

@@ -38,7 +38,7 @@ Et ensuite… rien. **0 € financé.** C'est la blague, l'expérience sociale, 
 |---|---|
 | 🏠 **Accueil en direct** | Compteurs qui défilent, match Riches vs Pauvres avec la vraie barre de rapport de force, 10 catégories, le mur des problèmes |
 | ⚡ **Rejoindre en 10 secondes** | Un camp, un pseudo, un e-mail. Pas de mot de passe. Confettis aux couleurs du camp |
-| 📝 **Publication relue** | Chaque problème est relu avant d'être mis en ligne ; une vraie détresse est réorientée vers une page d'aide réelle |
+| 📝 **Publication immédiate** | Un problème qui passe les filtres est en ligne dans la seconde, prêt à partager. Les cas sensibles (détresse, violence, maladie…) attendent une relecture humaine, qui peut réorienter vers une page d'aide réelle |
 | 😂 **Réactions et commentaires** | « Mort de rire », « Courage », « Si j'étais riche, je paierais » |
 | 📱 **Carte story** | Un clic → une image 1080×1920 prête pour Instagram, TikTok ou WhatsApp |
 | 🔒 **Clubs par camp** | Un salon par camp. Les pauvres ne lisent pas le club des riches, et inversement (garanti en SQL) |
@@ -57,7 +57,7 @@ Et ensuite… rien. **0 € financé.** C'est la blague, l'expérience sociale, 
 ## Comment ça marche
 
 1. **Choisis ton camp en 10 secondes.** Riche ou pauvre, un pseudo, un e-mail. Pas de mot de passe.
-2. **Publie ton problème.** On le relit avant de le mettre en ligne.
+2. **Publie ton problème.** Il passe nos filtres et il est en ligne dans la seconde.
 3. **Partage-le.** Plus il circule, plus un milliardaire a de chances de tomber dessus.
 
 Côté technique : connexion anonyme instantanée (Supabase Auth + Turnstile), e-mail de confirmation non bloquant, puis toutes les lectures et écritures passent par des fonctions SQL. Détails dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

@@ -12,7 +12,7 @@ Include the page or SQL function concerned, the steps to reproduce and the impac
 ## What is in scope
 
 - Reading data you should not see (e-mails, unpublished problems, the other camp's club, masked content)
-- Writing data you should not write (publishing without moderation, bypassing filters or rate limits, acting as a blocked member)
+- Writing data you should not write (choosing a problem's status, skipping the review of sensitive problems, bypassing filters or rate limits, acting as a blocked member)
 - Script injection (XSS) on any page
 - A secret committed to the repository or its history
 

@@ -47,8 +47,9 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 2. `supabase/migrations/002_securite.sql`
 3. `supabase/migrations/003_fonctions.sql`
 4. `supabase/migrations/004_moderation.sql`
-5. `supabase/seed/mots_interdits.sql`
-6. `supabase/seed/exemples.sql`
+5. `supabase/migrations/005_publication_auto.sql` (publication immédiate, mots sensibles)
+6. `supabase/seed/mots_interdits.sql`
+7. `supabase/seed/exemples.sql`
 
 Puis vérifier la sécurité : exécuter `supabase/tests/verif_securite.sql`. Chaque ligne doit afficher **OK** (le script s'annule à la fin : il ne laisse aucune donnée). Si l'éditeur n'affiche que le résultat de la dernière instruction, lire les messages `NOTICE`, ou exécuter le script sans sa dernière ligne `rollback;`.
 

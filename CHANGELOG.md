@@ -6,6 +6,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Versions fol
 ## [Unreleased]
 
 ### Changed
+- Immediate publication (`005_publication_auto.sql`): a problem that passes the filters is published at once, so its author can share it within the second (« C'est en ligne ! » screen with share buttons and the story card). Problems containing a sensitive expression (distress, violence, serious illness, precariousness — table `mots_sensibles`) still wait for a human review. `reglages.publication_auto = false` switches back to full pre-moderation.
 - Service worker: pages, JavaScript, CSS and the manifest are now network first (cache only offline); fonts and images stay stale-while-revalidate. The cache version is stamped with the commit SHA at deploy time, and an open page reloads once when a new version takes over: no more stale `config.js` after a deploy.
 - The live site now runs on the real Supabase backend (`MODE: 'supabase'`). Without a Turnstile site key, anonymous sign-in and magic links are called without a captcha token.
 
@@ -20,7 +21,7 @@ First public prototype.
 ### Added
 - Home: live counters, Rich vs Poor match with tug-of-war bar, category tiles, wall of problems with filters and pagination.
 - Join a camp in 10 seconds (anonymous session + non-blocking e-mail confirmation), magic-link reconnect, referral links.
-- Publish a problem (moderated before publication), with instant client-side filter feedback.
+- Publish a problem, with instant client-side filter feedback.
 - Problem page: reactions, comments (delete / hide / report), reports with auto-masking at 3, share buttons, 1080×1920 story card, watermark.
 - One club per camp (group chat refreshed every 4 s, camp isolation enforced in SQL).
 - "Les chiffres" page, random problem, my space (camp switch, my problems, referral, rich wishes, newsletter, account deletion).

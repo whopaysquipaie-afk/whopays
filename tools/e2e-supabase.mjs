@@ -108,14 +108,23 @@ for (const camp of ['riche', 'pauvre']) {
     });
     if (!join.ok) continue;
 
-    await step(`[${camp}] Publier un problème (statut « reçu »)`, async () => {
+    // 005 (R-017): a clean problem is published at once; a sensitive one waits for review.
+    // The published test problem is visible on the real wall for a few seconds only (deleted with the account).
+    await step(`[${camp}] Publier un problème : publication immédiate (statut « publié », visible)`, async () => {
       const r = await api.soumettreProbleme({ categorie: 'quotidien', titre: `Test automatique ${suffixe}`, texte: 'Problème de test créé par tools/e2e-supabase.mjs, supprimé à la fin du test.' });
-      monProbleme = r && (r.id || r.problem_id);
+      monProbleme = r && r.id;
+      assert(r && r.statut === 'publie', `statut renvoyé « ${r && r.statut} » au lieu de « publie » (005 appliquée ?)`);
       const e = await api.getMonEspace();
-      const p = e.problemes.find((x) => x.titre === `Test automatique ${suffixe}`);
-      assert(p && p.statut === 'recu', 'problème absent de Mon espace');
-      monProbleme = p.id;
-      assert(await api.getProblemePublic(p.id) === null, 'un problème non publié ne doit pas être public');
+      const p = e.problemes.find((x) => x.id === r.id);
+      assert(p && p.statut === 'publie', 'problème absent de Mon espace ou non publié');
+      const pub = await api.getProblemePublic(r.id);
+      assert(pub && pub.titre === `Test automatique ${suffixe}` && pub.est_mon_probleme === true, 'le problème publié doit être public');
+    });
+
+    await step(`[${camp}] Publier un problème avec un mot sensible (statut « reçu », invisible)`, async () => {
+      const r = await api.soumettreProbleme({ categorie: 'famille', titre: `Test sensible ${suffixe}`, texte: 'Ma mère commence sa chimio lundi. Problème de test, supprimé à la fin.' });
+      assert(r && r.statut === 'recu', `statut renvoyé « ${r && r.statut} » au lieu de « recu »`);
+      assert(await api.getProblemePublic(r.id) === null, 'un problème non publié ne doit pas être public');
     });
 
     await step(`[${camp}] Filtre : un numéro de téléphone est refusé`, () =>

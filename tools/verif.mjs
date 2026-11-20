@@ -255,13 +255,34 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
   check('Service worker, manifeste et ressources des pages présents', problems);
 }
 
+/* 7c. Sensitive words: the demo list (mots-sensibles.js) and the SQL seed (005) are identical (R-017) */
+{
+  const problems = [];
+  const js = join(SITE, 'assets/js/mots-sensibles.js');
+  const sql = join(ROOT, 'supabase/migrations/005_publication_auto.sql');
+  if (!existsSync(js) || !existsSync(sql)) problems.push('mots-sensibles.js ou 005_publication_auto.sql absent');
+  else {
+    const listeJs = [...((read(js).match(/MOTS_SENSIBLES_DEFAUT = \[([\s\S]*?)\];/) || [])[1] || '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    const bloc = (read(sql).match(/insert into public\.mots_sensibles \(mot\) values([\s\S]*?)on conflict/) || [])[1] || '';
+    const listeSql = [...bloc.matchAll(/\('((?:[^']|'')+)'\)/g)].map((m) => m[1].replace(/''/g, "'"));
+    const a = [...listeJs].sort().join('|');
+    const b = [...listeSql].sort().join('|');
+    if (!listeJs.length) problems.push('mots-sensibles.js : liste vide');
+    if (a !== b) {
+      for (const m of listeJs) if (!listeSql.includes(m)) problems.push(`absent du SQL : ${m}`);
+      for (const m of listeSql) if (!listeJs.includes(m)) problems.push(`absent du JS : ${m}`);
+    }
+  }
+  check('Mots sensibles identiques en JS (démo) et en SQL (005)', problems);
+}
+
 /* 8. JS budget */
 {
   // Budget = JavaScript shipped to visitors of the real site: vendor/ excluded, and also the test
   // suite (tests.html only) and the demo simulation + demo UI (loaded only in demo mode or with ?demo=1).
   // Also excluded: sw.js (runs in a worker, registered after the load event, never executed by
   // pages) and the private moderation page (moderators only, never loaded by visitors). DC-017.
-  const horsBudget = (f) => /site\/(sw\.js$|assets\/js\/(tests\/|api-demo\.js$|demo-data\.js$|demo-ui\.js$|pages\/tests\.js$|moderation\.js$|pages\/moderation\.js$))/.test(rel(f));
+  const horsBudget = (f) => /site\/(sw\.js$|assets\/js\/(tests\/|api-demo\.js$|demo-data\.js$|demo-ui\.js$|mots-sensibles\.js$|pages\/tests\.js$|moderation\.js$|pages\/moderation\.js$))/.test(rel(f));
   const total = siteJs.filter((f) => !horsBudget(f)).reduce((s, f) => s + statSync(f).size, 0);
   const demo = siteJs.filter(horsBudget).reduce((s, f) => s + statSync(f).size, 0);
   const kb = Math.round(total / 1024);

@@ -279,23 +279,54 @@ test('C. Se reconnecter', 'compte non confirmé : pas de connexion par lien', as
 
 /* ================= D. Publish ================= */
 
-test('D. Publier', 'un problème soumis reste en relecture et invisible', async () => {
+test('D. Publier', 'un problème sans mot sensible est publié tout de suite', async () => {
   const { api, join } = fresh();
   await join('pauvre');
   const r = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon grille-pain me juge', texte: 'Il brûle tout, sauf mes factures.', montant: 40 });
-  eq(r.statut, 'recu');
-  eq(await api.getProblemePublic(r.id), null);
+  eq(r.statut, 'publie');
+  assert(/^[0-9a-f-]{36}$/.test(r.id), 'id renvoyé');
+  const p = await api.getProblemePublic(r.id);
+  eq(p.titre, 'Mon grille-pain me juge');
+  eq(p.est_mon_probleme, true);
   const e = await api.getMonEspace();
-  eq(e.problemes[0].statut, 'recu');
+  eq(e.problemes[0].statut, 'publie');
 });
-test('D. Publier', 'un membre ne peut pas publier lui-même (seule la modération publie)', async () => {
+test('D. Publier', 'un mot sensible (titre ou texte, accents ignorés) envoie en relecture, invisible', async () => {
+  const { api, join } = fresh();
+  await join('pauvre');
+  const r1 = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Je suis à la rue', texte: 'Depuis lundi, avec mon sac et mon chat.' });
+  eq(r1.statut, 'recu');
+  eq(await api.getProblemePublic(r1.id), null);
+  const r2 = await api.soumettreProbleme({ categorie: 'famille', titre: 'Une semaine compliquée', texte: 'Ma mère commence sa CHIMIO lundi, on cherche un taxi.' });
+  eq(r2.statut, 'recu');
+  const e = await api.getMonEspace();
+  assert(e.problemes.every((x) => x.statut === 'recu'), 'les deux en relecture');
+});
+test('D. Publier', 'mots sensibles : mots entiers seulement (« violon », « abusé » passent)', async () => {
+  const { api, join } = fresh();
+  await join('riche');
+  const r = await api.soumettreProbleme({ categorie: 'plaisir', titre: 'Un violon pour mon chat', texte: 'Le prix est abusé, mais il chante faux sans.' });
+  eq(r.statut, 'publie');
+});
+test('D. Publier', 'publication automatique coupée : tout part en relecture', async () => {
   const { api, join, admin } = fresh();
   await join('pauvre');
+  await admin.setPublicationAuto(false);
   const r = await api.soumettreProbleme({ categorie: 'reve', titre: 'Voir la mer', texte: 'Une fois, en vrai, pas en photo.', montant: null });
+  eq(r.statut, 'recu');
+  eq(await api.getProblemePublic(r.id), null);
+  await admin.setPublicationAuto(true);
+  eq((await api.soumettreProbleme({ categorie: 'reve', titre: 'Voir la montagne', texte: 'Et redescendre en luge.' })).statut, 'publie');
+});
+test('D. Publier', 'un membre ne peut pas publier lui-même un problème en relecture (seule la modération publie)', async () => {
+  const { api, join, admin } = fresh();
+  await join('pauvre');
+  const r = await api.soumettreProbleme({ categorie: 'reve', titre: 'Sortir de la dépression', texte: 'Une fois, en vrai, pas en photo.', montant: null });
+  eq(r.statut, 'recu');
   assert(!('statut' in await api.majProfil({ pseudo: 'Tricheur' })), 'maj_profil ne touche pas aux problèmes');
   eq(await api.getProblemePublic(r.id), null);
   await admin.publier(r.id);
-  eq((await api.getProblemePublic(r.id)).titre, 'Voir la mer');
+  eq((await api.getProblemePublic(r.id)).titre, 'Sortir de la dépression');
 });
 test('D. Publier', 'validation : catégorie, longueurs, montant, filtres', async () => {
   const { api, join } = fresh();
@@ -319,7 +350,7 @@ test('D. Publier', 'limite : 3 problèmes par 24 h', async () => {
   await p(1); await p(2); await p(3);
   await rejects(p(4), 'limite');
   advance(DAY + 1000);
-  eq((await p(5)).statut, 'recu');
+  eq((await p(5)).statut, 'publie');
 });
 
 /* ================= E. React, comment, report ================= */

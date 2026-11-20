@@ -6,7 +6,7 @@ const STATIC = [
   './', 'index.html', 'p.html', 'chiffres.html', 'club.html', 'espace.html', 'aide.html', '404.html',
   'manifest.webmanifest',
   'assets/css/style.css',
-  'assets/js/config.js', 'assets/js/api.js', 'assets/js/api-demo.js', 'assets/js/demo-data.js', 'assets/js/demo-ui.js', 'assets/js/api-supabase.js',
+  'assets/js/config.js', 'assets/js/api.js', 'assets/js/api-demo.js', 'assets/js/demo-data.js', 'assets/js/demo-ui.js', 'assets/js/mots-sensibles.js', 'assets/js/api-supabase.js',
   'assets/js/supabase.js', 'assets/js/layout.js', 'assets/js/page.js', 'assets/js/ui.js', 'assets/js/dom-safe.js', 'assets/js/icons.js',
   'assets/js/categories.js', 'assets/js/filtres.js', 'assets/js/animations.js', 'assets/js/carte.js', 'assets/js/mur.js',
   'assets/js/auth.js', 'assets/js/champs.js', 'assets/js/publier.js', 'assets/js/turnstile.js', 'assets/js/parrainage.js',

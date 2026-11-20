@@ -7,6 +7,7 @@ import { CATEGORY_IDS, TEAM_PSEUDO } from './categories.js';
 import {
   raisonFiltre, nettoyer, verifierLongueur, LIMITES, RE_EMAIL_VALIDE, MESSAGE_FILTRE, MOTS_INTERDITS_DEFAUT
 } from './filtres.js';
+import { MOTS_SENSIBLES_DEFAUT, contientMotSensible } from './mots-sensibles.js';
 import { MEMBRES, EXEMPLES, PROBLEMES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES } from './demo-data.js';
 
 export const DEMO_KEY = 'whopays_demo_v1';
@@ -104,7 +105,9 @@ function buildSeed(now) {
   const st = {
     version: 1, seededAt: iso(now), session: null,
     users: [], profiles: [], problems: [], reactions: [], comments: [], club_messages: [], reports: [], verifications: [],
-    mots_interdits: [...MOTS_INTERDITS_DEFAUT]
+    mots_interdits: [...MOTS_INTERDITS_DEFAUT],
+    mots_sensibles: [...MOTS_SENSIBLES_DEFAUT],
+    reglages: { publication_auto: true }
   };
   const codes = new Set();
   // Members, registered over the last 30 days
@@ -371,10 +374,15 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         const ti = texteValide(titre, LIMITES.titre, 'Le titre', { mots: st.mots_interdits });
         const tx2 = texteValide(texte, LIMITES.texte, 'Le texte', { multiligne: true, mots: st.mots_interdits });
         const mt = entierValide(montant, LIMITES.montant, 'Le montant');
-        if (recent(st.problems, p.id, DAY) >= 3) throw ERR.limite('Tu as déjà envoyé 3 problèmes en 24 h. Reviens demain, on aura relu les premiers.');
-        const row = { id: uuid(rand), user_id: p.id, categorie, titre: ti, texte: tx2, montant: mt, statut: 'recu', est_exemple: false, masque: false, cree_le: iso(t()), modere_le: null };
+        if (recent(st.problems, p.id, DAY) >= 3) throw ERR.limite('Tu as déjà envoyé 3 problèmes en 24 h. Reviens demain !');
+        // Published at once when automatic publication is on and nothing sensitive is detected
+        // (same rule as soumettre_probleme in 005_publication_auto.sql); otherwise waits for a human review.
+        const auto = !(st.reglages && st.reglages.publication_auto === false);
+        const sensible = contientMotSensible(`${ti}\n${tx2}`, st.mots_sensibles || MOTS_SENSIBLES_DEFAUT);
+        const statut = auto && !sensible ? 'publie' : 'recu';
+        const row = { id: uuid(rand), user_id: p.id, categorie, titre: ti, texte: tx2, montant: mt, statut, est_exemple: false, masque: false, cree_le: iso(t()), modere_le: null };
         st.problems.push(row);
-        return { id: row.id, statut: 'recu' };
+        return { id: row.id, statut };
       });
     },
 
@@ -612,6 +620,10 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     publier: setStatut('publie'),
     refuser: setStatut('refuse'),
     reorienter: setStatut('reoriente'),
+    /** Automatic publication on/off (= public.reglages 'publication_auto'). */
+    async setPublicationAuto(valeur = true) {
+      return tx((st) => { st.reglages = { ...(st.reglages || {}), publication_auto: valeur !== false }; return true; });
+    },
     async bloquer(userId, valeur = true) {
       return tx((st) => { const p = st.profiles.find((x) => x.id === userId); if (!p) throw ERR.introuvable('Membre introuvable.'); p.bloque = valeur; return true; });
     },

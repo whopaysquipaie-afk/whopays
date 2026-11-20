@@ -63,7 +63,7 @@ site/
         ├── pages/         one entry module per page
         └── tests/contrat.js  API contract suite (Node + browser)
 supabase/
-├── migrations/001_schema.sql · 002_securite.sql · 003_fonctions.sql · 004_moderation.sql
+├── migrations/001_schema.sql · 002_securite.sql · 003_fonctions.sql · 004_moderation.sql · 005_publication_auto.sql
 ├── seed/exemples.sql · seed/mots_interdits.sql
 └── tests/verif_securite.sql
 tools/
@@ -86,6 +86,16 @@ tools/
 | `reports` | one per member and target; the 3rd report masks the target |
 | `verifications` | verified billionaires (filled from Studio only — currently: 0) |
 | `mots_interdits` | banned words, editable in Studio |
+| `mots_sensibles` | sensitive expressions (distress, violence, illness…): the problem waits for a human review instead of going live |
+| `reglages` | site settings, e.g. `publication_auto` (`true` = immediate publication, `false` = pre-moderation) |
+
+## Request flow: publishing a problem
+
+`public.soumettre_probleme` validates the fields, applies the filters and the rate limit (3 per 24 h), then:
+- **`publie`** at once when `reglages.publication_auto` is `true` and no sensitive expression appears in the title or the text — the author gets « C'est en ligne ! » with share buttons and the story card;
+- **`recu`** otherwise — a moderator publishes, refuses or redirects it (`docs/MODERATION.md`); the author sees « Reçu ! » and a link to the help page.
+
+A member can never choose the status. A missing setting means pre-moderation (safe default).
 
 ## Request flow: reacting to a problem
 
@@ -96,7 +106,7 @@ tools/
 
 ## Demo mode
 
-`api-demo.js` keeps a full fake database in `localStorage` (`whopays_demo_v1`): 60 fictional members, 7 examples, 44 problems, reactions, comments and club messages. It applies the same validation, filters, limits, camp isolation, auto-masking and blocking as the SQL functions. `window.demoAdmin` exposes moderation helpers (`publier`, `refuser`, `reorienter`, `bloquer`, `verifier`, `masquer`) for testers.
+`api-demo.js` keeps a full fake database in `localStorage` (`whopays_demo_v1`): 60 fictional members, 7 examples, 44 problems, reactions, comments and club messages. It applies the same validation, filters, limits, camp isolation, auto-masking and blocking as the SQL functions. `window.demoAdmin` exposes moderation helpers (`publier`, `refuser`, `reorienter`, `bloquer`, `verifier`, `masquer`, `setPublicationAuto`) for testers. The sensitive words of the demo live in `mots-sensibles.js` (loaded by the demo backend only; `tools/verif.mjs` checks the list is identical to the SQL seed).
 
 ## Service worker and deploys
 
