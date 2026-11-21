@@ -1,6 +1,6 @@
 // Problem card (brief visuel §7.2). Never: progress bar, "collectés", "contributeurs", percentage.
 
-import { h, formatNumber } from './ui.js';
+import { h, formatNumber, plural } from './ui.js';
 import { montantAffiche } from './riens.js';
 import { icon } from './icons.js';
 import { category, CAMPS } from './categories.js';
@@ -21,11 +21,11 @@ export function ligneCouronne(p) {
   const n = Number(p.couronnes) || 0;
   if (!n) return null;
   return h('p', { class: 'carte-couronne' }, h('span', { 'aria-hidden': 'true' }, '👑 '),
-    n === 1 && p.couronne_par ? ['Couronné par ', h('strong', {}, p.couronne_par)] : `Couronné par ${formatNumber(n)} riches`);
+    n === 1 && p.couronne_par ? ['Couronné par ', h('strong', {}, p.couronne_par)] : `Couronné par ${plural(n, 'riche', 'riches')}`);
 }
 
 function statsCompactes(p) {
-  return h('div', { class: 'carte-stats', 'aria-label': `${p.rire} morts de rire, ${p.courage} courage, ${p.paierais} paieraient, ${p.commentaires} commentaires` },
+  return h('div', { class: 'carte-stats', 'aria-label': `${plural(p.rire, 'mort de rire', 'morts de rire')}, ${formatNumber(p.courage || 0)} courage, ${plural(p.paierais, 'paierait', 'paieraient')}, ${plural(p.commentaires, 'commentaire', 'commentaires')}` },
     h('span', { title: 'Mort de rire', 'aria-hidden': 'true' }, '😂 ', formatNumber(p.rire)),
     h('span', { title: 'Courage', 'aria-hidden': 'true' }, '💪 ', formatNumber(p.courage)),
     h('span', { title: 'Si j\'étais riche, je paierais', 'aria-hidden': 'true' }, '💸 ', formatNumber(p.paierais)),

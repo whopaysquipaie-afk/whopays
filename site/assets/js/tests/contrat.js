@@ -1601,6 +1601,34 @@ test('Y. Les chiffres enrichis', '30 jours de Riens publiés, catégorie la plus
   assert(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(JSON.stringify(r)), 'aucun identifiant');
 });
 
+test('Z. Accords', 'compteurs accordés : singulier pour 0 et 1 (« 1 inscrit »), pluriel à partir de 2, dans le site et la modération', async () => {
+  const fs = await import('node:fs').catch(() => null);
+  if (!fs) return;  // browser: source files are not readable here
+  const lire = (f) => fs.readFileSync(new URL(`../../../${f}`, import.meta.url), 'utf8');
+  // The rule itself (ui.js touches the DOM on load: evaluate only the one-line helper)
+  const src = lire('assets/js/ui.js').match(/export const accord = (.+);\n/);
+  assert(src, 'accord() dans ui.js');
+  const { accord } = await import(`data:text/javascript,${encodeURIComponent(`export const accord = ${src[1]};`)}`);
+  eq(accord(0, 'inscrit', 'inscrits'), 'inscrit'); eq(accord(1, 'inscrit', 'inscrits'), 'inscrit');
+  eq(accord(2, 'inscrit', 'inscrits'), 'inscrits'); eq(accord(250, 'envoi', 'envois'), 'envois');
+  eq(accord(undefined, 'abonné', 'abonnés'), 'abonné'); eq(accord('3', 'duel', 'duels'), 'duels');
+  // No raw « ${n} inscrits » left in the site code
+  const fichiers = ['assets/js/pages/moderation.js', 'assets/js/carte.js', 'assets/js/pages/accueil.js', 'assets/js/pages/chiffres.js',
+    'assets/js/pages/palmares.js', 'assets/js/pages/profil.js', 'assets/js/pages/duel.js', 'assets/js/suivi.js', 'assets/js/espace.js', 'assets/js/club.js'];
+  const brut = /\$\{[^}]*\} (inscrits|riches|pauvres|commentaires|envois|disponibles|morts de rire|paieraient|abonnés|votes|problèmes|membres|réactions|e-mails)\b/;
+  for (const f of fichiers) assert(!brut.test(lire(f)), `nombre sans accord dans ${f} : ${(lire(f).match(brut) || [''])[0]}`);
+  // Static counters of the pages: the label follows the number (data-accord), singular until the number arrives
+  for (const [f, cles] of [['index.html', ['problemes', 'milliardaires_verifies']], ['chiffres.html', ['membres', 'problemes_publies', 'reactions', 'commentaires']]]) {
+    const html = lire(f);
+    for (const k of cles) {
+      const m = html.match(new RegExp(`data-accord="${k}" data-un="([^"]+)" data-plusieurs="([^"]+)">([^<]+)<`));
+      assert(m, `${f} : libellé accordé pour ${k}`);
+      eq(m[3], m[1], `${f} : ${k} au singulier avant le chargement`);
+    }
+    assert(!/<\/strong> problèmes<|<div class="libelle">(membres|problèmes publiés|réactions|commentaires)<\/div>/.test(html), `${f} : libellé figé au pluriel`);
+  }
+});
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {

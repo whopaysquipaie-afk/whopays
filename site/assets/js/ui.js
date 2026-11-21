@@ -80,8 +80,16 @@ export function formatHour(iso) {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** R-051: French agreement, singular for 0 and 1, plural from 2. */
+export const accord = (n, un, plusieurs) => (Math.abs(Number(n) || 0) > 1 ? plusieurs : un);
+
 export function plural(n, one, many) {
-  return `${formatNumber(n)} ${Math.abs(n) > 1 ? many : one}`;
+  return `${formatNumber(n || 0)} ${accord(n, one, many)}`;
+}
+
+/** A label carrying data-un / data-plusieurs follows the number n. */
+export function accorderLibelle(el, n) {
+  if (el && el.dataset.un && el.dataset.plusieurs) el.textContent = accord(n, el.dataset.un, el.dataset.plusieurs);
 }
 
 /* ---------------- Toasts ---------------- */

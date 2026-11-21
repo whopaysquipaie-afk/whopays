@@ -3,7 +3,7 @@
 // server-side (mod_* functions, 006_moderateurs.sql): this page only displays what they allow.
 import { initPage, session as sessionCourante } from '../page.js';
 import { intent } from '../layout.js';
-import { h, $, clear, toast, toastError, confirmDialog, copyText, formatDate, formatJour, plural } from '../ui.js';
+import { h, $, clear, toast, toastError, confirmDialog, copyText, formatDate, formatJour, formatNumber, plural } from '../ui.js';
 import { category, CAMPS } from '../categories.js';
 import { createModerationApi } from '../moderation.js';
 import { enRiens } from '../riens.js';
@@ -323,7 +323,7 @@ function carteGazette(g) {
   envoyer.addEventListener('click', async () => {
     const ok = await confirmDialog({
       title: 'Envoyer la gazette ?',
-      message: `Les membres qui ont coché la case (${g.destinataires}) recevront le numéro de la semaine. 250 e-mails par 24 h au plus, partagés avec les annonces (${g.restant_24h} disponibles maintenant) ; personne ne reçoit deux fois le même numéro.`,
+      message: `Les membres qui ont coché la case (${g.destinataires}) recevront le numéro de la semaine. 250 e-mails par 24 h au plus, partagés avec les annonces (${plural(g.restant_24h, 'disponible', 'disponibles')} maintenant) ; personne ne reçoit deux fois le même numéro.`,
       confirmLabel: 'Envoyer'
     });
     if (!ok) return;
@@ -339,7 +339,7 @@ function carteGazette(g) {
     h('div', { class: 'modo-badges' }, h('span', { class: 'badge badge-sombre' }, 'Gazette'),
       h('span', { class: `badge badge-statut ${g.figee ? 'publie' : ''}` }, g.figee ? 'Numéro de la semaine figé' : 'Pas encore envoyée')),
     h('h3', { class: 'modo-titre' }, '🗞️ La Gazette des pauvres'),
-    h('p', { class: 'modo-meta' }, `Cette semaine : ${g.envoyes} e-mail${g.envoyes > 1 ? 's' : ''} envoyé${g.envoyes > 1 ? 's' : ''} · ${g.destinataires} inscrits · ${g.restant_24h} envois disponibles sur 24 h`),
+    h('p', { class: 'modo-meta' }, `Cette semaine : ${plural(g.envoyes, 'e-mail envoyé', 'e-mails envoyés')} · ${plural(g.destinataires, 'inscrit', 'inscrits')} · ${plural(g.restant_24h, 'envoi disponible', 'envois disponibles')} sur 24 h`),
     h('div', { class: 'modo-actions' }, voir, envoyer),
     zoneApercu);
 }
@@ -370,7 +370,7 @@ function carteAnnonce(a) {
       h('span', { class: 'badge badge-sombre' }, 'Annonce'),
       h('span', { class: `badge badge-statut ${a.en_cours ? 'publie' : ''}` }, a.en_cours ? 'En cours' : 'Terminée')),
     h('h3', { class: 'modo-titre' }, `🚨 Un nouveau riche vient d’arriver : ${a.pseudo || 'membre parti'}`),
-    h('p', { class: 'modo-meta' }, `Affichée jusqu’au ${formatJour(a.expire_le)} · e-mails envoyés : ${a.envoyes} sur ${a.destinataires} pauvres inscrits`),
+    h('p', { class: 'modo-meta' }, `Affichée jusqu’au ${formatJour(a.expire_le)} · e-mails envoyés : ${formatNumber(a.envoyes || 0)} sur ${plural(a.destinataires, 'pauvre inscrit', 'pauvres inscrits')}`),
     a.en_cours ? h('div', { class: 'modo-actions' }, bouton, h('a', { class: 'btn btn-fantome', href: a.lien, target: '_blank', rel: 'noopener' }, 'Voir le lien')) : null
   );
 }

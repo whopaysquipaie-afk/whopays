@@ -1,7 +1,7 @@
 // Home page (index.html): live counters, Rich vs Poor match, category tiles, wall.
 import { api } from '../api.js';
 import { initPage } from '../page.js';
-import { $, $$, h, formatNumber } from '../ui.js';
+import { $, $$, h, formatNumber, plural, accorderLibelle } from '../ui.js';
 import { icon } from '../icons.js';
 import { CATEGORIES, HOME_TILES, category } from '../categories.js';
 import { countUp, countUpWhenVisible } from '../animations.js';
@@ -26,8 +26,8 @@ async function chargerCompteurs() {
       if (el.closest('.match')) countUpWhenVisible(el, v);
       else countUp(el, v);
     }
-    const lib = $('[data-libelle="milliardaires"]');
-    if (lib) lib.textContent = c.milliardaires_verifies > 1 ? 'milliardaires vérifiés' : 'milliardaire vérifié';
+    // R-051: « 1 problème », « 2 problèmes »… (singular for 0 and 1)
+    for (const lib of $$('[data-accord]')) accorderLibelle(lib, c[lib.dataset.accord]);
     const total = c.riches + c.pauvres;
     const partRiche = total ? Math.round((c.riches / total) * 1000) / 10 : 50;
     const barre = $('#rapport .part-riche');
@@ -40,7 +40,7 @@ async function chargerCompteurs() {
     if (lr) lr.textContent = `Riches ${formatNumber(partRiche)} %`;
     if (lp) lp.textContent = `Pauvres ${formatNumber(Math.round((100 - partRiche) * 10) / 10)} %`;
     const rapport = $('#rapport .rapport-barre');
-    if (rapport) rapport.setAttribute('aria-label', `Rapport de force : ${formatNumber(c.riches)} riches contre ${formatNumber(c.pauvres)} pauvres`);
+    if (rapport) rapport.setAttribute('aria-label', `Rapport de force : ${plural(c.riches, 'riche', 'riches')} contre ${plural(c.pauvres, 'pauvre', 'pauvres')}`);
   } catch {
     // Counters are decorative: the page stays usable.
   }

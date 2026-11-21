@@ -1,7 +1,7 @@
 // Les chiffres (chiffres.html) — fed by get_chiffres().
 import { api } from '../api.js';
 import { initPage } from '../page.js';
-import { $, $$, h, clear, formatNumber, formatEuros, toastError, reducedMotion } from '../ui.js';
+import { $, $$, h, clear, formatNumber, formatEuros, toastError, reducedMotion, plural, accorderLibelle } from '../ui.js';
 import { icon } from '../icons.js';
 import { category } from '../categories.js';
 import { countUp, countUpWhenVisible } from '../animations.js';
@@ -28,13 +28,14 @@ async function charger() {
   elEuros.hidden = false;
   for (const el of $$('[data-compteur]')) countUpWhenVisible(el, c[el.dataset.compteur]);
   for (const el of $$('[data-chiffre]')) countUpWhenVisible(el, c[el.dataset.chiffre]);
+  for (const el of $$('[data-accord]')) accorderLibelle(el, c[el.dataset.accord]);
 
   const total = c.riches + c.pauvres;
   const part = total ? Math.round((c.riches / total) * 1000) / 10 : 50;
   $('#rapport .part-riche').style.width = `${Math.max(2, Math.min(98, part))}%`;
   $('[data-part="riche"]').textContent = `Riches ${formatNumber(part)} %`;
   $('[data-part="pauvre"]').textContent = `Pauvres ${formatNumber(Math.round((100 - part) * 10) / 10)} %`;
-  $('#rapport .rapport-barre').setAttribute('aria-label', `Rapport de force : ${formatNumber(c.riches)} riches contre ${formatNumber(c.pauvres)} pauvres`);
+  $('#rapport .rapport-barre').setAttribute('aria-label', `Rapport de force : ${plural(c.riches, 'riche', 'riches')} contre ${plural(c.pauvres, 'pauvre', 'pauvres')}`);
 
   const ul = clear($('#barres-categories'));
   const max = Math.max(1, ...c.par_categorie.map((x) => x.nombre));
