@@ -14,6 +14,7 @@ import { phraseRang, partagerRang } from './palmares.js';
 import { LIBELLE_NEWSLETTER } from './auth-textes.js';
 import { FORMULES, richeEnAttente, ecranPrixRiche, ouvrirPrixRiche } from './riche-attente.js';
 import { montantAffiche } from './riens.js';
+import { blocNotifications } from './notifications.js';
 
 const STATUTS = {
   recu: { label: 'En relecture', classe: '' },
@@ -56,6 +57,11 @@ export async function monterEspace(zone) {
       : null,
     !e.email_confirme ? confirmation(e) : null
   ));
+
+  /* ---------- Notifications (R-037; hidden while 015 is not applied) ---------- */
+  const zoneNotifs = h('div', { class: 'pleine', hidden: true });
+  grille.appendChild(zoneNotifs);
+  blocNotifications().then((b) => { if (b) { zoneNotifs.replaceWith(b); } }).catch(() => {});
 
   /* ---------- Rich waiting for a moderator (R-029) ---------- */
   if (richeEnAttente(e)) {

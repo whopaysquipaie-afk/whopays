@@ -6,6 +6,7 @@ import { initLayout, updateHeaderSession, registerServiceWorker, intent } from '
 import { $$, toastError } from './ui.js';
 import { initReveal } from './animations.js';
 import { memoriserRef } from './parrainage.js';
+import { rafraichirBadge } from './notifications.js';
 
 let current = null;
 
@@ -55,6 +56,7 @@ export async function initPage(page, { mobileCta = true } = {}) {
   document.addEventListener('wp:session', async () => {
     await refresh();
     updateHeaderSession(current);
+    if (current.profil) rafraichirBadge();
     document.dispatchEvent(new CustomEvent('wp:session-maj', { detail: current }));
   });
   document.addEventListener('wp:rejoindre', (e) => {
@@ -85,6 +87,9 @@ export async function initPage(page, { mobileCta = true } = {}) {
   if (current.profil && current.profil.camp === 'riche' && current.profil.statut_riche === 'en_attente') {
     import('./riche-attente.js').then((m) => m.rappelPrixRiche(current)).catch(() => {});
   }
+
+  // R-037: unread notifications on the header avatar (nothing while 015 is not applied)
+  if (current.profil) rafraichirBadge();
 
   // R-024: attach the profile e-mail if it never reached the auth side (once per session)
   if (current.profil && !current.profil.email_confirme) api.rattraperEmail();

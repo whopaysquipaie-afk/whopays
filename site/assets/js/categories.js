@@ -37,4 +37,10 @@ export const REACTIONS = [
   { id: 'paierais', label: "Si j'étais riche, je paierais", emoji: '💸' }
 ];
 
+/** R-037: reactions reserved to active rich members (everyone sees the counters). */
+export const REACTIONS_RICHES = [
+  { id: 'yacht', label: 'Je regarde ça depuis mon yacht', emoji: '🛥️' },
+  { id: 'majordome', label: 'Mon majordome s’en occupe', emoji: '🎩' }
+];
+
 export const TEAM_PSEUDO = "L'équipe Qui paie ?";

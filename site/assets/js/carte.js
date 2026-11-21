@@ -16,11 +16,21 @@ export function filigrane() {
   return h('div', { class: 'filigrane' }, h('span', { class: 'q', 'aria-hidden': 'true' }, '?'), h('span', {}, siteLabel()));
 }
 
+/** R-037: « 👑 Couronné par Caviar Gauche » / « 👑 Couronné par 3 riches » (nothing before 015). */
+export function ligneCouronne(p) {
+  const n = Number(p.couronnes) || 0;
+  if (!n) return null;
+  return h('p', { class: 'carte-couronne' }, h('span', { 'aria-hidden': 'true' }, '👑 '),
+    n === 1 && p.couronne_par ? ['Couronné par ', h('strong', {}, p.couronne_par)] : `Couronné par ${formatNumber(n)} riches`);
+}
+
 function statsCompactes(p) {
   return h('div', { class: 'carte-stats', 'aria-label': `${p.rire} morts de rire, ${p.courage} courage, ${p.paierais} paieraient, ${p.commentaires} commentaires` },
     h('span', { title: 'Mort de rire', 'aria-hidden': 'true' }, '😂 ', formatNumber(p.rire)),
     h('span', { title: 'Courage', 'aria-hidden': 'true' }, '💪 ', formatNumber(p.courage)),
     h('span', { title: 'Si j\'étais riche, je paierais', 'aria-hidden': 'true' }, '💸 ', formatNumber(p.paierais)),
+    p.yacht ? h('span', { title: 'Je regarde ça depuis mon yacht', 'aria-hidden': 'true' }, '🛥️ ', formatNumber(p.yacht)) : null,
+    p.majordome ? h('span', { title: 'Mon majordome s’en occupe', 'aria-hidden': 'true' }, '🎩 ', formatNumber(p.majordome)) : null,
     h('span', { title: 'Commentaires', 'aria-hidden': 'true' }, icon('message'), formatNumber(p.commentaires))
   );
 }
@@ -59,6 +69,7 @@ export function carteProbleme(p, { large = false, lien = !large, titreNiveau = l
     p.titre ? h(titreNiveau, { class: 'carte-titre' }, p.titre) : h(titreNiveau, { class: 'visually-hidden' }, titreDe(p)),
     h('p', { class: `carte-texte${p.titre ? '' : ' carte-texte-seul'}` }, p.texte),
     blocMontant(p.montant, { large }),
+    ligneCouronne(p),
     h('div', { class: 'carte-meta' },
       h('span', { class: 'carte-auteur' }, h('span', { class: 'nom' }, p.pseudo), p.camp ? badgeCamp(p.camp) : null),
       large ? h('span', {}, 'Milliardaires intéressés : 0') : null

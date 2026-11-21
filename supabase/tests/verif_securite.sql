@@ -50,9 +50,29 @@ as $f$
               else 'ÉCHEC - ' || p_libelle || coalesce(' (obtenu : ' || p_obtenu || ')', '') end;
 $f$;
 
--- Default privileges (002) remove EXECUTE from PUBLIC: give these two test helpers back to everyone.
+-- Runs p_sql as the current role and expects an error whose hint (our error code) is p_code.
+create function pg_temp.wp_attendre_erreur(p_sql text, p_code text, p_libelle text)
+returns text
+language plpgsql
+as $f$
+declare
+  v_hint text;
+begin
+  begin
+    execute p_sql;
+    v_hint := 'aucune erreur';
+  exception when others then
+    get stacked diagnostics v_hint = pg_exception_hint;
+    v_hint := coalesce(nullif(v_hint, ''), 'erreur ' || sqlstate || ' ' || sqlerrm);
+  end;
+  return pg_temp.wp_ligne(v_hint = p_code, p_libelle, v_hint);
+end;
+$f$;
+
+-- Default privileges (002) remove EXECUTE from PUBLIC: give the test helpers back to everyone.
 grant execute on function pg_temp.wp_jouer(text, uuid) to public;
 grant execute on function pg_temp.wp_ligne(boolean, text, text) to public;
+grant execute on function pg_temp.wp_attendre_erreur(text, text, text) to public;
 
 do $test$
 declare
@@ -96,10 +116,10 @@ declare
   -- direct table access
   v_tables   text[] := array['profiles', 'problems', 'reactions', 'comments', 'club_messages',
                              'reports', 'verifications', 'mots_interdits', 'reglages', 'mots_sensibles',
-                             'moderateurs', 'annonces', 'annonce_envois', 'limites_ip'];
+                             'moderateurs', 'annonces', 'annonce_envois', 'limites_ip', 'couronnes', 'notifications'];
   v_colonnes text[] := array['pseudo', 'titre', 'type', 'texte', 'texte',
                              'cible_type', 'verifie_le', 'mot', 'valeur', 'mot',
-                             'user_id', 'user_id', 'user_id', 'action'];
+                             'user_id', 'user_id', 'user_id', 'action', 'riche_id', 'texte'];
   v_pb_auto     uuid;
   v_pb_sensible uuid;
   v_pb_premod   uuid;
@@ -1786,6 +1806,152 @@ begin
                where n.nspname = 'public' and p.proname in ('creer_profil', 'soumettre_probleme', 'publier_riche',
                                                             'commenter', 'envoyer_message_club', 'reagir')),
         '014 : les 6 fonctions d''écriture passent par wp_limite_ip ; leurs cœurs wp_coeur_* ne sont pas appelables', v_txt);
+    end;
+
+    -- =================================================================
+    -- 015. Powers of the rich: crowns, notifications, rich reactions (R-037)
+    -- =================================================================
+    declare
+      v_r1   uuid := gen_random_uuid();
+      v_r2   uuid := gen_random_uuid();
+      v_a1   uuid := gen_random_uuid();
+      v_p2   uuid := gen_random_uuid();
+      v_pbs  uuid[] := '{}';
+      v_pbr  uuid;
+      v_id   uuid;
+      v_n    integer;
+    begin
+      perform pg_temp.wp_jouer(null);
+      insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_anonymous)
+      select '00000000-0000-0000-0000-000000000000'::uuid, u.id, 'authenticated', 'authenticated',
+             u.nom || '-' || v_suffixe || '@exemple.invalid', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb, false
+      from (values (v_r1, 'r1'), (v_r2, 'r2'), (v_a1, 'a1'), (v_p2, 'p2')) as u(id, nom);
+      perform pg_temp.wp_jouer('authenticated', v_r1);
+      perform public.creer_profil('riche', 'Riche couronneur', 'r1-' || v_suffixe || '@exemple.invalid');
+      perform pg_temp.wp_jouer('authenticated', v_r2);
+      perform public.creer_profil('riche', 'Riche en attente', 'r2-' || v_suffixe || '@exemple.invalid');
+      perform pg_temp.wp_jouer('authenticated', v_a1);
+      perform public.creer_profil('pauvre', 'Pauvre couronnable', 'a1-' || v_suffixe || '@exemple.invalid');
+      perform pg_temp.wp_jouer('authenticated', v_p2);
+      perform public.creer_profil('pauvre', 'Pauvre jaloux', 'p2-' || v_suffixe || '@exemple.invalid');
+      perform pg_temp.wp_jouer(null);
+      update public.profiles pr set statut_riche = 'actif' where pr.id = v_r1;
+      for v_i in 1 .. 4 loop
+        insert into public.problems (user_id, type, categorie, titre, texte, montant, statut)
+        values (v_a1, 'pauvre', 'reve', 'Problème à couronner ' || v_i, 'Un texte assez long pour être couronné.', 100 * v_i, 'publie')
+        returning id into v_id;
+        v_pbs := v_pbs || v_id;
+      end loop;
+      insert into public.problems (user_id, type, titre, texte, montant, statut)
+      values (v_r1, 'riche', 'Mon yacht est trop petit', 'Un problème de riche, pas couronnable.', 5000, 'publie')
+      returning id into v_pbr;
+
+      -- refusals: poor, pending rich, visitor
+      perform pg_temp.wp_jouer('authenticated', v_p2);
+      v_res := v_res || pg_temp.wp_attendre_erreur('select public.couronner(''' || v_pbs[1] || ''')', 'interdit',
+        '015 : un pauvre ne couronne pas');
+      perform pg_temp.wp_jouer('authenticated', v_r2);
+      v_res := v_res || pg_temp.wp_attendre_erreur('select public.couronner(''' || v_pbs[1] || ''')', 'riche_en_attente',
+        '015 : un riche en attente ne couronne pas');
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne(
+        not has_function_privilege('anon', 'public.couronner(uuid)', 'execute')
+        and not has_function_privilege('anon', 'public.retirer_couronne(uuid)', 'execute')
+        and not has_function_privilege('anon', 'public.mes_notifications()', 'execute')
+        and not has_function_privilege('anon', 'public.marquer_notifications_lues()', 'execute')
+        and has_function_privilege('anon', 'public.get_riche_de_la_semaine()', 'execute'),
+        '015 : couronner / retirer / notifications réservés aux membres ; riche de la semaine public');
+
+      -- crowning: notification to the author, 3 per day
+      perform pg_temp.wp_jouer('authenticated', v_r1);
+      v_j := public.couronner(v_pbs[1]);
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'couronnes')::int = 1 and (v_j ->> 'restantes')::int = 2,
+        '015 : un riche actif couronne un problème de pauvre (il lui reste 2 couronnes)', v_j::text);
+      v_j := public.couronner(v_pbs[1]);
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'couronnes')::int = 1 and (v_j ->> 'restantes')::int = 2,
+        '015 : une seule couronne par problème et par riche', v_j::text);
+      perform pg_temp.wp_jouer(null);
+      v_n := (select count(*) from public.notifications n where n.user_id = v_a1 and n.type = 'couronne');
+      v_res := v_res || pg_temp.wp_ligne(v_n = 1 and exists (
+          select 1 from public.notifications n where n.user_id = v_a1
+            and n.texte like 'Le riche Riche couronneur a couronné ton problème%' and n.lien = 'p.html?id=' || v_pbs[1] and not n.lu),
+        '015 : notification « Le riche X a couronné ton problème » créée pour l''auteur (une seule)', v_n::text);
+      perform pg_temp.wp_jouer('authenticated', v_r1);
+      perform public.couronner(v_pbs[2]);
+      v_j := public.couronner(v_pbs[3]);
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'restantes')::int = 0, '015 : 3 couronnes données → plus aucune ce jour', v_j::text);
+      v_res := v_res || pg_temp.wp_attendre_erreur('select public.couronner(''' || v_pbs[4] || ''')', 'limite',
+        '015 : 4ᵉ couronne du jour refusée');
+      v_res := v_res || pg_temp.wp_attendre_erreur('select public.couronner(''' || v_pbr || ''')', 'introuvable',
+        '015 : un problème de riche ne se couronne pas');
+      -- removing frees nothing; crowning again the same problem does not notify twice
+      v_j := public.retirer_couronne(v_pbs[1]);
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'couronnes')::int = 0 and (v_j ->> 'couronne')::boolean = false,
+        '015 : une couronne se retire', v_j::text);
+      v_res := v_res || pg_temp.wp_attendre_erreur('select public.couronner(''' || v_pbs[4] || ''')', 'limite',
+        '015 : retirer une couronne ne rend pas de couronne pour la journée');
+      v_j := public.couronner(v_pbs[1]);
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'couronnes')::int = 1
+          and (select count(*) from public.notifications n where n.user_id = v_a1) = 3,
+        '015 : recouronner le même problème ne renvoie pas de notification', v_j::text);
+
+      -- projection
+      perform pg_temp.wp_jouer('anon');
+      v_j := public.get_probleme_public(v_pbs[2]);
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'couronnes')::int = 1 and v_j ->> 'couronne_par' = 'Riche couronneur'
+          and (v_j ->> 'ma_couronne')::boolean = false and (v_j ->> 'yacht')::int = 0 and v_j::text !~ '@'
+          and not (v_j ? 'riche_id') and not (v_j ? 'user_id'),
+        '015 : la projection publique montre « Couronné par <pseudo> », sans id ni e-mail', v_j::text);
+      perform pg_temp.wp_jouer('authenticated', v_r1);
+      v_res := v_res || pg_temp.wp_ligne((public.get_probleme_public(v_pbs[2]) ->> 'ma_couronne')::boolean,
+        '015 : le riche voit sa propre couronne (ma_couronne)');
+
+      -- notifications of the author
+      perform pg_temp.wp_jouer('authenticated', v_a1);
+      v_j := public.mes_notifications();
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'non_lues')::int = 3 and jsonb_array_length(v_j -> 'liste') = 3
+          and v_j::text !~ '@' and not (v_j -> 'liste' -> 0 ? 'user_id'),
+        '015 : mes_notifications → 3 non lues (3 problèmes couronnés), sans id d''utilisateur ni e-mail', v_j::text);
+      v_n := public.marquer_notifications_lues();
+      v_j := public.mes_notifications();
+      v_res := v_res || pg_temp.wp_ligne(v_n = 3 and (v_j ->> 'non_lues')::int = 0,
+        '015 : marquer_notifications_lues → 0 non lue', v_j::text);
+      perform pg_temp.wp_jouer('authenticated', v_p2);
+      v_j := public.mes_notifications();
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'non_lues')::int = 0 and jsonb_array_length(v_j -> 'liste') = 0,
+        '015 : un membre ne voit jamais les notifications d''un autre', v_j::text);
+
+      -- reactions reserved to active rich members
+      v_res := v_res || pg_temp.wp_attendre_erreur('select public.reagir(''' || v_pbs[1] || ''', ''yacht'')', 'interdit',
+        '015 : un pauvre ne peut pas réagir « yacht »');
+      perform pg_temp.wp_jouer('authenticated', v_r2);
+      v_res := v_res || pg_temp.wp_attendre_erreur('select public.reagir(''' || v_pbs[1] || ''', ''majordome'')', 'riche_en_attente',
+        '015 : un riche en attente ne peut pas réagir « majordome »');
+      perform pg_temp.wp_jouer('authenticated', v_r1);
+      v_j := public.reagir(v_pbs[1], 'yacht');
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'actif')::boolean and (v_j ->> 'yacht')::int = 1 and (v_j ->> 'majordome')::int = 0,
+        '015 : un riche actif réagit « Je regarde ça depuis mon yacht »', v_j::text);
+      v_j := public.reagir(v_pbs[1], 'majordome');
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'majordome')::int = 1, '015 : … et « Mon majordome s''en occupe »', v_j::text);
+
+      -- rich of the week, problem of the moment
+      perform pg_temp.wp_jouer('anon');
+      v_j := public.get_riche_de_la_semaine();
+      v_res := v_res || pg_temp.wp_ligne(v_j ->> 'pseudo' = 'Riche couronneur' and (v_j ->> 'couronnes_7j')::int = 3
+          and v_j -> 'derniere' ->> 'id' = v_pbr::text and v_j::text !~ '@',
+        '015 : le riche de la semaine = celui qui a donné le plus de couronnes, avec sa dernière publication', v_j::text);
+      v_j := public.get_probleme_du_moment();
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'id')::uuid = any (v_pbs[1:3]),
+        '015 : un problème couronné devient « le problème du moment » (une couronne = 10 réactions)', v_j ->> 'titre');
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne(
+        (select bool_and(c.relrowsecurity and c.relforcerowsecurity) from pg_class c
+         where c.oid in ('public.couronnes'::regclass, 'public.notifications'::regclass))
+        and not has_table_privilege('authenticated', 'public.notifications', 'select,insert,update,delete')
+        and not has_table_privilege('authenticated', 'public.couronnes', 'select,insert,update,delete'),
+        '015 : couronnes et notifications en RLS forcée sans aucun droit direct');
     end;
 
     -- End: undo everything written above

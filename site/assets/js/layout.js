@@ -106,6 +106,17 @@ function renderNav() {
   }
 }
 
+/** R-037: unread notifications, shown on the header avatar. */
+export function majNotifications(n) {
+  state.nonLues = Math.max(0, Number(n) || 0);
+  const a = headerActions && headerActions.querySelector('.pastille-camp');
+  if (!a) return;
+  const ancien = a.querySelector('.pastille-notif');
+  if (ancien) ancien.remove();
+  a.setAttribute('aria-label', a.dataset.label + (state.nonLues ? ` — ${state.nonLues} notification${state.nonLues > 1 ? 's' : ''} non lue${state.nonLues > 1 ? 's' : ''}` : ''));
+  if (state.nonLues) a.querySelector('.rond').appendChild(h('span', { class: 'pastille-notif', 'aria-hidden': 'true' }, state.nonLues > 9 ? '9+' : String(state.nonLues)));
+}
+
 function hasProfile() {
   return !!(state.session && state.session.profil);
 }
@@ -118,9 +129,9 @@ export function updateHeaderSession(session) {
   if (hasProfile()) {
     const p = session.profil;
     const camp = CAMPS[p.camp] || CAMPS.pauvre;
+    const label = `Mon espace — ${p.pseudo}, camp des ${camp.plural}`;
     headerActions.appendChild(h('a', {
-      class: `pastille-camp camp-${camp.id}`, href: 'espace.html',
-      'aria-label': `Mon espace — ${p.pseudo}, camp des ${camp.plural}`
+      class: `pastille-camp camp-${camp.id}`, href: 'espace.html', 'aria-label': label, dataset: { label }
     }, h('span', { class: 'rond' }, icon(camp.icon)), h('span', { class: 'pseudo' }, p.pseudo)));
   } else {
     headerActions.appendChild(h('button', {
@@ -131,6 +142,7 @@ export function updateHeaderSession(session) {
     type: 'button', class: 'btn btn-primaire btn-petit btn-publier-entete', onclick: () => intent('publier')
   }, 'Publier un problème', icon('arrow-right', { className: 'fleche' })));
   if (mobileMenu) buildMobileMenuContent();
+  if (hasProfile() && state.nonLues) majNotifications(state.nonLues);
 }
 
 function toggleMobileMenu(btn) {

@@ -57,6 +57,8 @@ export function createSupabaseApi() {
     getAnnonces: () => rpc('get_annonces').then((d) => d || []),
     // R-034: hero card of the home page (null when nothing can be shown)
     getProblemeDuMoment: () => rpc('get_probleme_du_moment').then((d) => d || null),
+    // R-037 (015). Pages hide the feature when the function is missing (code « configuration »).
+    getRicheDeLaSemaine: () => rpc('get_riche_de_la_semaine').then((d) => d || null),
     seDesinscrire: (jeton) => (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(jeton || ''))
       ? rpc('se_desinscrire', { p_jeton: jeton }) : Promise.resolve(false)),
 
@@ -87,6 +89,10 @@ export function createSupabaseApi() {
     envoyerMessageClub: (texte) => rpc('envoyer_message_club', { p_texte: texte }),
     signaler: (cibleType, cibleId) => rpc('signaler', { p_cible_type: cibleType, p_cible_id: cibleId }),
     getMonEspace: () => rpc('get_mon_espace'),
+    couronner: (problemId) => rpc('couronner', { p_problem_id: problemId }),
+    retirerCouronne: (problemId) => rpc('retirer_couronne', { p_problem_id: problemId }),
+    getMesNotifications: () => rpc('mes_notifications').then((d) => d || { non_lues: 0, liste: [] }),
+    marquerNotificationsLues: () => rpc('marquer_notifications_lues'),
     supprimerMonCompte: async () => {
       await rpc('supprimer_mon_compte');
       const sb = await getClient();

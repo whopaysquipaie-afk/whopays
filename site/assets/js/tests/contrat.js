@@ -1231,6 +1231,94 @@ test('N. Thèmes du jour', 'texte de partage adapté : thème du jour et problè
   assert(texteTheme(t, url).includes('« Mon patron »') && texteTheme(t, url).endsWith(url));
 });
 
+/* ---------------- O. Pouvoirs des riches (R-037) ---------------- */
+
+async function problemeDePauvre(api, join, { titre = 'Mon frigo fait de l’écho', montant = 300 } = {}) {
+  const auteur = await join('pauvre');
+  const r = await api.soumettreProbleme({ categorie: 'quotidien', titre, texte: 'Un texte assez long pour être publié tout de suite.', montant });
+  eq(r.statut, 'publie');
+  return { id: r.id, auteur };
+}
+
+test('O. Pouvoirs des riches', 'couronner : pauvre et riche en attente refusés, 3 par jour, une par problème, notification à l’auteur', async () => {
+  const { api, join, as, advance } = fresh();
+  const pbs = [];
+  for (let i = 0; i < 4; i++) pbs.push(await problemeDePauvre(api, join, { titre: `Mon problème couronnable ${i}` }));
+  await rejects(api.couronner(pbs[0].id), 'interdit', 'pauvre');
+  await join('riche', 'Riche Patient', { enAttente: true });
+  await rejects(api.couronner(pbs[0].id), 'riche_en_attente', 'en attente');
+  const riche = await join('riche', 'Caviar Couronneur');
+  let r = await api.couronner(pbs[0].id);
+  eq(r.couronnes, 1); eq(r.restantes, 2);
+  r = await api.couronner(pbs[0].id);
+  eq(r.couronnes, 1, 'une seule par riche'); eq(r.restantes, 2);
+  await api.couronner(pbs[1].id);
+  eq((await api.couronner(pbs[2].id)).restantes, 0);
+  await rejects(api.couronner(pbs[3].id), 'limite', '4ᵉ');
+  eq((await api.retirerCouronne(pbs[0].id)).couronnes, 0);
+  await rejects(api.couronner(pbs[3].id), 'limite', 'retirer ne rend rien');
+  const p = await api.getProblemePublic(pbs[1].id);
+  eq(p.couronnes, 1); eq(p.couronne_par, 'Caviar Couronneur'); eq(p.ma_couronne, true);
+  assertNoEmail(p, 'projection couronnée');
+  // the next day (Paris), three new crowns
+  advance(DAY);
+  eq((await api.couronner(pbs[3].id)).restantes, 2);
+  // notification of the author
+  await as(pbs[1].auteur.userId);
+  const n = await api.getMesNotifications();
+  eq(n.non_lues, 1);
+  assert(n.liste[0].texte.startsWith('Le riche Caviar Couronneur a couronné ton problème'), n.liste[0].texte);
+  eq(n.liste[0].lien, `p.html?id=${pbs[1].id}`);
+  assert(!('user_id' in n.liste[0]));
+  eq(await api.marquerNotificationsLues(), 1);
+  eq((await api.getMesNotifications()).non_lues, 0);
+  // a crown of the poor who re-crowns the same problem does not notify twice
+  await as(riche.userId);
+  await api.retirerCouronne(pbs[1].id);
+  await api.couronner(pbs[1].id);
+  await as(pbs[1].auteur.userId);
+  eq((await api.getMesNotifications()).liste.length, 1, 'pas de 2ᵉ notification');
+  // a problem of the rich is never crowned
+  await as(riche.userId);
+  const post = await api.publierRiche({ type: 'riche', titre: 'Mon yacht est trop petit', texte: 'Un vrai problème de riche, avec du teck.', montant: 50000 });
+  await rejects(api.couronner(post.id), 'introuvable', 'problème de riche');
+});
+
+test('O. Pouvoirs des riches', 'réactions « yacht » et « majordome » réservées aux riches actifs, compteurs visibles par tous', async () => {
+  const { api, join } = fresh();
+  const pb = await problemeDePauvre(api, join);
+  await rejects(api.reagir(pb.id, 'yacht'), 'interdit', 'pauvre');
+  await join('riche', 'Riche Patient', { enAttente: true });
+  await rejects(api.reagir(pb.id, 'majordome'), 'riche_en_attente', 'en attente');
+  await join('riche', 'Monocle Doré');
+  const r = await api.reagir(pb.id, 'yacht');
+  eq(r.actif, true); eq(r.yacht, 1); eq(r.majordome, 0);
+  eq((await api.reagir(pb.id, 'majordome')).majordome, 1);
+  await api.seDeconnecter();
+  const p = await api.getProblemePublic(pb.id);
+  eq(p.yacht, 1); eq(p.majordome, 1);
+});
+
+test('O. Pouvoirs des riches', 'le riche de la semaine (le plus de couronnes sur 7 jours, à défaut le plus récent) et le problème du moment couronné', async () => {
+  const { api, join, advance } = fresh();
+  await api.getCompteurs();  // seeds the demo now…
+  advance(10 * DAY);  // …then the seeded reactions (up to 2 days after their problem) and crowns leave the 7-day window
+  const pb = await problemeDePauvre(api, join, { titre: 'Personne ne me couronne' });
+  const autres = [await problemeDePauvre(api, join, { titre: 'Deuxième couronnable' }), await problemeDePauvre(api, join, { titre: 'Troisième couronnable' })];
+  await join('riche', 'Mécène Imaginaire');
+  await api.publierRiche({ type: 'publication', texte: 'Je distribue des couronnes, pas des euros.' });
+  await api.couronner(pb.id);
+  for (const a of autres) await api.couronner(a.id);
+  await join('riche', 'Riche Tout Neuf');
+  const r = await api.getRicheDeLaSemaine();
+  eq(r.pseudo, 'Mécène Imaginaire', 'le plus de couronnes (les riches de la démo en ont 2 au plus)'); eq(r.couronnes_7j, 3);
+  eq(r.derniere.texte, 'Je distribue des couronnes, pas des euros.');
+  assertNoEmail(r, 'riche de la semaine');
+  const sansCouronne = await problemeDePauvre(api, join, { titre: 'Le plus récent, sans couronne' });
+  const moment = (await api.getProblemeDuMoment()).id;
+  assert(moment !== sansCouronne.id && [pb.id, ...autres.map((x) => x.id)].includes(moment), 'une couronne (= 10 réactions) passe devant le plus récent');
+});
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {

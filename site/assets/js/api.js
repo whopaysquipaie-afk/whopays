@@ -26,11 +26,11 @@ function backend() {
 const METHODS = [
   // public reads
   'getCompteurs', 'getChiffres', 'getProblemesPublics', 'getProblemePublic', 'getProblemeHasard', 'getCommentaires',
-  'getPalmares', 'getMonRang', 'getAnnonces', 'seDesinscrire', 'getProblemeDuMoment',
+  'getPalmares', 'getMonRang', 'getAnnonces', 'seDesinscrire', 'getProblemeDuMoment', 'getRicheDeLaSemaine',
   // members
   'creerProfil', 'majProfil', 'soumettreProbleme', 'publierRiche', 'reagir', 'getMesReactions', 'commenter',
   'supprimerMonCommentaire', 'masquerCommentaire', 'getClubMessages', 'envoyerMessageClub', 'signaler',
-  'getMonEspace', 'supprimerMonCompte',
+  'getMonEspace', 'supprimerMonCompte', 'couronner', 'retirerCouronne', 'getMesNotifications', 'marquerNotificationsLues',
   // auth
   'rejoindre', 'seReconnecter', 'seDeconnecter', 'getSession', 'renvoyerConfirmation'
 ];

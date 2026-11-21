@@ -7,7 +7,7 @@ import { CATEGORIES, HOME_TILES, category } from '../categories.js';
 import { countUp, countUpWhenVisible } from '../animations.js';
 import { initMur } from '../mur.js';
 import { afficherAnnonces } from '../annonces.js';
-import { badgeCamp, filigrane } from '../carte.js';
+import { badgeCamp, filigrane, carteProbleme } from '../carte.js';
 import { montantAffiche } from '../riens.js';
 import { themeDuJour, texteTheme } from '../themes.js';
 import { intent } from '../layout.js';
@@ -124,6 +124,24 @@ for (const [id, complet] of [['theme-haut', false], ['theme-mur', true]]) {
   const zone = document.getElementById(id);
   if (zone) { zone.replaceChildren(bandeauTheme(complet)); zone.hidden = false; }
 }
+
+/* ---------- « Le riche de la semaine » (R-037; hidden while 015 is not applied or without rich member) ---------- */
+async function chargerRicheSemaine() {
+  const zone = document.getElementById('riche-semaine');
+  if (!zone) return;
+  let r = null;
+  try { r = await api.getRicheDeLaSemaine(); } catch { return; }
+  if (!r || !r.pseudo) return;
+  const n = Number(r.couronnes_7j) || 0;
+  zone.querySelector('.riche-semaine-corps').replaceChildren(
+    h('p', { class: 'riche-semaine-nom' }, h('span', { 'aria-hidden': 'true' }, '👑 '), h('strong', {}, r.pseudo)),
+    h('p', { class: 'gris' }, n
+      ? `A distribué ${formatNumber(n)} couronne${n > 1 ? 's' : ''} cette semaine. Un mécène imaginaire de premier ordre.`
+      : 'Le dernier riche arrivé. Il n’a encore couronné personne : on surveille.'),
+    r.derniere ? carteProbleme(r.derniere) : h('p', { class: 'gris' }, 'Pas encore de publication. Il réfléchit, depuis son yacht.'));
+  zone.hidden = false;
+}
+chargerRicheSemaine();
 
 // R-031: « Un nouveau riche vient d'arriver » (72 h)
 afficherAnnonces([$('#annonces-haut'), $('#annonces-mur')]);

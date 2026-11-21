@@ -8,6 +8,7 @@ import { barreReactions } from '../reactions.js';
 import { sectionCommentaires } from '../commentaires.js';
 import { signaler, dejaSignale } from '../signalement.js';
 import { barrePartage, urlProbleme, texteProbleme } from '../partage.js';
+import { boutonCouronne } from '../couronne.js';
 
 await initPage('problemes');
 
@@ -98,6 +99,7 @@ function afficher(brut) {
     h('div', { class: 'bloc' },
       h('h2', {}, 'Ta réaction'),
       barreReactions(p),
+      boutonCouronne(p, carte),
       h('div', { class: 'actions-probleme' }, p.type === 'publication' ? null : storyBtn, autre),
       h('h3', { class: 'mt-24' }, 'Fais-le circuler'),
       h('p', { class: 'gris petit mt-8' }, 'Plus il circule, plus un milliardaire a de chances de tomber dessus. Aucun argent ne transite par ici.'),

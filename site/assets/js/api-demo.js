@@ -121,7 +121,8 @@ function buildSeed(now) {
     mots_sensibles: [...MOTS_SENSIBLES_DEFAUT],
     reglages: { publication_auto: true },
     moderateurs: [],
-    annonces: [], annonce_envois: []
+    annonces: [], annonce_envois: [],
+    couronnes: [], notifications: []
   };
   const codes = new Set();
   // Members, registered over the last 30 days
@@ -192,6 +193,16 @@ function buildSeed(now) {
   });
   club(CLUB_RICHES, 'riche');
   club(CLUB_PAUVRES, 'pauvre');
+  // R-037: a few crowns from the rich over the last 2 days, with the authors' notifications
+  const riches = st.profiles.filter((p) => p.camp === 'riche').slice(0, 3);
+  const recentsPauvres = st.problems.filter((p) => p.statut === 'publie' && p.type === 'pauvre' && !p.est_exemple).slice(-8);
+  riches.forEach((r, i) => [0, 3].forEach((k, j) => {
+    const pb = recentsPauvres[(i * 2 + k) % recentsPauvres.length];
+    if (!pb || st.couronnes.some((c) => c.problem_id === pb.id && c.riche_id === r.id)) return;
+    const quand = iso(now - (i * 14 + j * 5 + 2) * HOUR);
+    st.couronnes.push({ problem_id: pb.id, riche_id: r.id, retiree: false, cree_le: quand });
+    st.notifications.push({ id: uuid(rand), user_id: pb.user_id, type: 'couronne', texte: `Le riche ${r.pseudo} a couronné ton problème « ${pb.titre} » 👑`, lien: `p.html?id=${pb.id}`, lu: false, cree_le: quand });
+  }));
   st.comments.sort((a, b) => a.cree_le.localeCompare(b.cree_le));
   return st;
 }
@@ -219,6 +230,9 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
             for (const p of st.profiles) if (p.email) p.email = p.email.replace(/@exemple\.invalid$/, '@demo.invalid');
             save(st);
           }
+          // R-037: states saved before 015
+          if (!st.couronnes) st.couronnes = [];
+          if (!st.notifications) st.notifications = [];
           if (st.profiles.some((p) => !p.jeton_desinscription)) {
             for (const p of st.profiles) if (!p.jeton_desinscription) p.jeton_desinscription = uuid(Math.random);
             save(st);
@@ -273,6 +287,20 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
   };
   const recent = (rows, userId, windowMs) => rows.filter((r) => r.user_id === userId && Date.parse(r.cree_le) > t() - windowMs).length;
 
+  /* ----- R-037 (= 015_pouvoirs_riches.sql): crowns, notifications ----- */
+  const jourParis = (ms) => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+  /** Visible crowns of a problem: not removed, given by a rich member who is not blocked. */
+  const couronnesVisibles = (st, problemId) => (st.couronnes || []).filter((c) => c.problem_id === problemId && !c.retiree
+    && st.profiles.some((p) => p.id === c.riche_id && !p.bloque));
+  /** Crowns given today (Paris calendar day), removed ones included (= 015). */
+  const couronnesDuJour = (st, richeId) => (st.couronnes || []).filter((c) => c.riche_id === richeId && jourParis(Date.parse(c.cree_le)) === jourParis(t())).length;
+  function notifier(st, userId, type, texte, lien) {
+    if (!userId) return;
+    st.notifications.push({ id: uuid(rand), user_id: userId, type, texte: String(texte).slice(0, 200), lien, lu: false, cree_le: iso(t()) });
+    const miennes = st.notifications.filter((n) => n.user_id === userId).sort((a, b) => b.cree_le.localeCompare(a.cree_le));
+    if (miennes.length > 100) { const garder = new Set(miennes.slice(0, 100)); st.notifications = st.notifications.filter((n) => n.user_id !== userId || garder.has(n)); }
+  }
+
   /* ----- public projections (never expose email, user_id, unpublished or masked rows) ----- */
   function visibleProblem(p) {
     return p && p.statut === 'publie' && !p.masque;
@@ -281,10 +309,13 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     const author = p.est_exemple || !p.user_id ? { pseudo: TEAM_PSEUDO, camp: null } : pseudoOf(st, p.user_id);
     const count = (type) => st.reactions.filter((r) => r.problem_id === p.id && r.type === type).length;
     const myId = uid(st);
+    const cour = couronnesVisibles(st, p.id);
     return {
       id: p.id, type: p.type || 'pauvre', premiere: !!p.premiere, categorie: p.categorie, titre: p.titre, texte: p.texte, montant: p.montant,
       pseudo: author.pseudo, camp: author.camp, est_exemple: !!p.est_exemple, cree_le: p.modere_le || p.cree_le,
-      rire: count('rire'), courage: count('courage'), paierais: count('paierais'),
+      rire: count('rire'), courage: count('courage'), paierais: count('paierais'), yacht: count('yacht'), majordome: count('majordome'),
+      couronnes: cour.length, couronne_par: cour.length === 1 ? pseudoOf(st, cour[0].riche_id).pseudo : null,
+      ma_couronne: !!myId && cour.some((c) => c.riche_id === myId),
       commentaires: st.comments.filter((c) => c.problem_id === p.id && !c.masque).length,
       est_mon_probleme: !!myId && p.user_id === myId
     };
@@ -382,10 +413,25 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       const auteurOk = (p) => { const a = st.profiles.find((x) => x.id === p.user_id); return !!a && !a.bloque; };
       const cands = st.problems.filter((p) => visibleProblem(p) && typeDe(p) === 'pauvre' && !p.est_exemple && p.user_id && auteurOk(p));
       if (!cands.length) return null;
-      const score = (p) => st.reactions.filter((r) => r.problem_id === p.id && Date.parse(r.cree_le) > depuis).length;
+      // R-037: a crown of the last 7 days weighs 10 reactions
+      const score = (p) => st.reactions.filter((r) => r.problem_id === p.id && Date.parse(r.cree_le) > depuis).length
+        + 10 * couronnesVisibles(st, p.id).filter((c) => Date.parse(c.cree_le) > depuis).length;
       const best = cands.map((p) => ({ p, s: score(p) }))
         .sort((a, b) => b.s - a.s || sortDate(b.p).localeCompare(sortDate(a.p)) || b.p.id.localeCompare(a.p.id))[0].p;
       return problemRow(st, best);
+    },
+
+    /** R-037 (= 015): the active rich member (moderators excluded) who gave the most crowns over 7 days, else the newest one. */
+    async getRicheDeLaSemaine() {
+      const st = load();
+      const depuis = t() - 7 * DAY;
+      const nb = (id) => (st.couronnes || []).filter((c) => c.riche_id === id && !c.retiree && Date.parse(c.cree_le) > depuis).length;
+      const r = st.profiles.filter((p) => p.camp === 'riche' && !p.bloque && richeActif(st, p) && !(st.moderateurs || []).includes(p.id))
+        .sort((a, b) => nb(b.id) - nb(a.id) || b.cree_le.localeCompare(a.cree_le) || a.id.localeCompare(b.id))[0];
+      if (!r) return null;
+      const derniere = st.problems.filter((p) => p.user_id === r.id && typeDe(p) !== 'pauvre' && visibleProblem(p))
+        .sort((a, b) => sortDate(b).localeCompare(sortDate(a)) || b.id.localeCompare(a.id))[0];
+      return { pseudo: r.pseudo, camp: r.camp, couronnes_7j: nb(r.id), derniere: derniere ? problemRow(st, derniere) : null };
     },
 
     async getCommentaires(problemId, avant = null) {
@@ -543,14 +589,63 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     async reagir(problemId, type) {
       return tx((st) => {
         const p = writer(st);
-        if (!['rire', 'courage', 'paierais'].includes(type)) throw ERR.invalide('Réaction inconnue.');
+        if (!['rire', 'courage', 'paierais', 'yacht', 'majordome'].includes(type)) throw ERR.invalide('Réaction inconnue.');
+        if ((type === 'yacht' || type === 'majordome') && p.camp !== 'riche') throw ERR.interdit('Cette réaction est réservée aux riches validés. Toi, tu as le droit de rire.');
         const pb = isUuid(problemId) ? st.problems.find((x) => x.id === problemId) : null;
         if (!visibleProblem(pb)) throw ERR.introuvable();
         const i = st.reactions.findIndex((r) => r.problem_id === problemId && r.user_id === p.id && r.type === type);
         let actif;
         if (i >= 0) { st.reactions.splice(i, 1); actif = false; } else { st.reactions.push({ problem_id: problemId, user_id: p.id, type, cree_le: iso(t()) }); actif = true; }
         const c = (ty) => st.reactions.filter((r) => r.problem_id === problemId && r.type === ty).length;
-        return { actif, rire: c('rire'), courage: c('courage'), paierais: c('paierais') };
+        return { actif, rire: c('rire'), courage: c('courage'), paierais: c('paierais'), yacht: c('yacht'), majordome: c('majordome') };
+      });
+    },
+
+    /* ===== Powers of the rich (= 015, R-037) ===== */
+    async couronner(problemId) {
+      return tx((st) => {
+        const p = writer(st);
+        if (p.camp !== 'riche') throw ERR.interdit('Seuls les riches validés distribuent des couronnes. Toi, tu peux réagir.');
+        const pb = isUuid(problemId) ? st.problems.find((x) => x.id === problemId) : null;
+        if (!visibleProblem(pb) || typeDe(pb) !== 'pauvre') throw ERR.introuvable('Ce problème de pauvre est introuvable ou n’est pas publié.');
+        const c = st.couronnes.find((x) => x.problem_id === problemId && x.riche_id === p.id);
+        let jour = couronnesDuJour(st, p.id);
+        if (c) c.retiree = false;
+        else {
+          if (jour >= 3) throw ERR.limite('Tu as déjà distribué tes 3 couronnes du jour. Le trésor royal rouvre demain.');
+          st.couronnes.push({ problem_id: problemId, riche_id: p.id, retiree: false, cree_le: iso(t()) });
+          jour++;
+          if (pb.user_id && pb.user_id !== p.id) notifier(st, pb.user_id, 'couronne', `Le riche ${p.pseudo} a couronné ton problème « ${pb.titre.slice(0, 80)} » 👑`, `p.html?id=${pb.id}`);
+        }
+        return { couronne: true, couronnes: couronnesVisibles(st, problemId).length, restantes: Math.max(0, 3 - jour) };
+      });
+    },
+
+    async retirerCouronne(problemId) {
+      return tx((st) => {
+        const p = writer(st);
+        if (p.camp !== 'riche') throw ERR.interdit('Seuls les riches validés distribuent des couronnes. Toi, tu peux réagir.');
+        const c = st.couronnes.find((x) => x.problem_id === problemId && x.riche_id === p.id);
+        if (c) c.retiree = true;
+        return { couronne: false, couronnes: couronnesVisibles(st, problemId).length, restantes: Math.max(0, 3 - couronnesDuJour(st, p.id)) };
+      });
+    },
+
+    async getMesNotifications() {
+      const st = load();
+      const p = me(st);
+      if (!p) return { non_lues: 0, liste: [] };
+      const miennes = (st.notifications || []).filter((n) => n.user_id === p.id).sort((a, b) => b.cree_le.localeCompare(a.cree_le) || b.id.localeCompare(a.id));
+      return { non_lues: miennes.filter((n) => !n.lu).length, liste: miennes.slice(0, 30).map(({ user_id, ...n }) => ({ ...n })) };
+    },
+
+    async marquerNotificationsLues() {
+      return tx((st) => {
+        const id = uid(st);
+        if (!id) throw ERR.nonConnecte();
+        let n = 0;
+        for (const x of st.notifications) if (x.user_id === id && !x.lu) { x.lu = true; n++; }
+        return n;
       });
     },
 
@@ -677,6 +772,8 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         st.comments = st.comments.filter((c) => c.user_id !== id && !myProblems.has(c.problem_id));
         st.club_messages = st.club_messages.filter((m) => m.user_id !== id);
         st.reports = st.reports.filter((r) => r.user_id !== id);
+        st.couronnes = (st.couronnes || []).filter((c) => c.riche_id !== id && !myProblems.has(c.problem_id));
+        st.notifications = (st.notifications || []).filter((n) => n.user_id !== id);
         st.problems = st.problems.filter((p) => p.user_id !== id);
         st.verifications = st.verifications.filter((v) => v.user_id !== id);
         st.moderateurs = (st.moderateurs || []).filter((m) => m !== id);
