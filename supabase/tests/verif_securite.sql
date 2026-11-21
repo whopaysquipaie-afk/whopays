@@ -96,10 +96,10 @@ declare
   -- direct table access
   v_tables   text[] := array['profiles', 'problems', 'reactions', 'comments', 'club_messages',
                              'reports', 'verifications', 'mots_interdits', 'reglages', 'mots_sensibles',
-                             'moderateurs', 'annonces', 'annonce_envois'];
+                             'moderateurs', 'annonces', 'annonce_envois', 'limites_ip'];
   v_colonnes text[] := array['pseudo', 'titre', 'type', 'texte', 'texte',
                              'cible_type', 'verifie_le', 'mot', 'valeur', 'mot',
-                             'user_id', 'user_id', 'user_id'];
+                             'user_id', 'user_id', 'user_id', 'action'];
   v_pb_auto     uuid;
   v_pb_sensible uuid;
   v_pb_premod   uuid;
@@ -1664,6 +1664,129 @@ begin
         and (select p.prosecdef and coalesce(p.proconfig, '{}') @> array['search_path=""'] and p.provolatile = 's'
              from pg_proc p where p.oid = 'public.get_probleme_du_moment()'::regprocedure),
       'get_probleme_du_moment : public, SECURITY DEFINER, search_path vide, lecture seule');
+
+    -- =================================================================
+    -- 014. Anti-bot limits per IP (R-035)
+    -- =================================================================
+    declare
+      v_ip1   uuid := gen_random_uuid();
+      v_ip2   uuid := gen_random_uuid();
+      v_ip3   uuid := gen_random_uuid();
+      v_n     integer;
+      v_sel   text;
+      v_e     text;
+      v_pb    uuid;
+    begin
+      perform pg_temp.wp_jouer(null);
+      insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_anonymous)
+      select '00000000-0000-0000-0000-000000000000'::uuid, u.id, 'authenticated', 'authenticated',
+             u.nom || '-' || v_suffixe || '@exemple.invalid', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb, false
+      from (values (v_ip1, 'ip1'), (v_ip2, 'ip2'), (v_ip3, 'ip3')) as u(id, nom);
+      update public.reglages r set valeur = '{"profil": 1, "publication": 30, "message": 60, "reaction": 3}'::jsonb
+      where r.cle = 'limites_ip';
+      delete from public.limites_ip;
+      -- an old line (25 h) is purged at the next insertion
+      insert into public.limites_ip (empreinte, action, cree_le) values (repeat('a', 64), 'reaction', now() - interval '25 hours');
+
+      -- profile creation: 1 per IP per hour here
+      perform set_config('request.headers', '{"cf-connecting-ip": "203.0.113.5", "x-forwarded-for": "198.51.100.9"}', true);
+      perform pg_temp.wp_jouer('authenticated', v_ip1);
+      perform public.creer_profil('pauvre', 'Pauvre IP un', 'ip1-' || v_suffixe || '@exemple.invalid');
+      begin
+        perform pg_temp.wp_jouer('authenticated', v_ip2);
+        perform public.creer_profil('pauvre', 'Pauvre IP deux', 'ip2-' || v_suffixe || '@exemple.invalid');
+        v_txt := 'aucune erreur';
+      exception when others then
+        v_txt := sqlerrm;
+      end;
+      v_res := v_res || pg_temp.wp_ligne(v_txt = 'Doucement ! Trop d''actions depuis ta connexion, reviens dans une heure.',
+        '014 : 2ᵉ création de profil depuis la même IP refusée (plafond atteint)', v_txt);
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne(not exists (select 1 from public.profiles pr where pr.id = v_ip2),
+        '014 : le profil refusé n''est pas créé');
+      insert into public.problems (user_id, type, categorie, titre, texte, montant, statut)
+      values (v_ip1, 'pauvre', 'reve', 'Un rêve pour les IP', 'Un texte assez long pour le test des IP.', 100, 'publie')
+      returning id into v_pb;
+      -- another IP (first element of x-forwarded-for when cf-connecting-ip is missing) is not blocked
+      perform set_config('request.headers', '{"x-forwarded-for": "198.51.100.7, 10.0.0.1"}', true);
+      perform pg_temp.wp_jouer('authenticated', v_ip2);
+      v_j := public.creer_profil('pauvre', 'Pauvre IP deux', 'ip2-' || v_suffixe || '@exemple.invalid');
+      perform pg_temp.wp_jouer(null);
+      select r.valeur #>> '{}' into v_sel from public.reglages r where r.cle = 'ip_sel';
+      v_e := encode(sha256(convert_to('198.51.100.7' || v_sel, 'UTF8')), 'hex');
+      v_res := v_res || pg_temp.wp_ligne(v_j ? 'code_partage'
+          and exists (select 1 from public.limites_ip l where l.empreinte = v_e and l.action = 'profil'),
+        '014 : sans cf-connecting-ip, le premier élément de x-forwarded-for est compté (autre IP, pas de blocage)');
+
+      -- reactions: 3 per IP per hour here; the 4th is refused, and the refused call is not counted
+      perform set_config('request.headers', '{"cf-connecting-ip": "203.0.113.5"}', true);
+      perform pg_temp.wp_jouer('authenticated', v_ip1);
+      perform public.reagir(v_pb, 'rire');
+      perform public.reagir(v_pb, 'courage');
+      perform public.reagir(v_pb, 'paierais');
+      begin
+        perform public.reagir(v_pb, 'rire');
+        v_txt := 'aucune erreur';
+      exception when others then
+        get stacked diagnostics v_hint = pg_exception_hint;
+        v_txt := v_hint;
+      end;
+      perform pg_temp.wp_jouer(null);
+      v_n := (select count(*) from public.limites_ip l where l.action = 'reaction' and l.empreinte <> repeat('a', 64));
+      v_res := v_res || pg_temp.wp_ligne(v_txt = 'limite' and v_n = 3,
+        '014 : 4ᵉ réaction depuis la même IP refusée (code limite), seules les 3 réussies sont comptées', v_txt || ' / ' || v_n);
+      v_res := v_res || pg_temp.wp_ligne(not exists (select 1 from public.limites_ip l where l.empreinte = repeat('a', 64)),
+        '014 : les lignes de plus de 24 h sont purgées à chaque insertion');
+      -- comments share the "message" quota, not the reaction one
+      perform pg_temp.wp_jouer('authenticated', v_ip1);
+      v_j := public.commenter(v_pb, 'Un commentaire depuis une IP pressée.');
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne(v_j ? 'id', '014 : le plafond des réactions ne bloque pas les commentaires (quota « message » séparé)');
+
+      -- no IP at all → nothing is blocked
+      perform set_config('request.headers', '', true);
+      perform pg_temp.wp_jouer('authenticated', v_ip1);
+      for v_i in 1 .. 6 loop
+        perform public.reagir(v_pb, 'rire');
+      end loop;
+      perform pg_temp.wp_jouer('authenticated', v_ip3);
+      v_j := public.creer_profil('pauvre', 'Pauvre IP trois', 'ip3-' || v_suffixe || '@exemple.invalid');
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne(v_j ? 'code_partage'
+          and (select count(*) from public.limites_ip l where l.action = 'reaction') = 3,
+        '014 : IP introuvable → aucun blocage et rien n''est compté');
+      perform set_config('request.headers', '{"cf-connecting-ip": "pas du json', true);
+      perform pg_temp.wp_jouer('authenticated', v_ip3);
+      v_j := public.reagir(v_pb, 'rire');
+      perform pg_temp.wp_jouer(null);
+      perform set_config('request.headers', '', true);
+      v_res := v_res || pg_temp.wp_ligne(v_j ? 'actif', '014 : en-têtes illisibles → aucun blocage');
+
+      -- the IP is never stored in clear
+      v_res := v_res || pg_temp.wp_ligne(
+        not exists (select 1 from public.limites_ip l
+                    where l.empreinte !~ '^[0-9a-f]{64}$' or l.empreinte like '%203.0.113%' or l.empreinte like '%198.51%')
+        and (select count(*) from public.limites_ip) >= 5,
+        '014 : aucune IP en clair stockée (empreintes sha256 seulement)');
+      v_res := v_res || pg_temp.wp_ligne(
+        (select c.relrowsecurity and c.relforcerowsecurity from pg_class c where c.oid = 'public.limites_ip'::regclass)
+        and not has_table_privilege('anon', 'public.limites_ip', 'select,insert,update,delete')
+        and not has_table_privilege('authenticated', 'public.limites_ip', 'select,insert,update,delete')
+        and char_length(v_sel) >= 32,
+        '014 : limites_ip en RLS forcée sans aucun droit ; sel aléatoire rangé dans reglages');
+      select string_agg(p.proname, ', ') into v_txt
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname like 'wp\_coeur\_%'
+        and (has_function_privilege('anon', p.oid, 'execute') or has_function_privilege('authenticated', p.oid, 'execute'));
+      v_res := v_res || pg_temp.wp_ligne(v_txt is null
+          and (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+               where n.nspname = 'public' and p.proname like 'wp\_coeur\_%') = 6
+          and (select bool_and(p.prosrc like '%public.wp_limite_ip(%') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+               where n.nspname = 'public' and p.proname in ('creer_profil', 'soumettre_probleme', 'publier_riche',
+                                                            'commenter', 'envoyer_message_club', 'reagir')),
+        '014 : les 6 fonctions d''écriture passent par wp_limite_ip ; leurs cœurs wp_coeur_* ne sont pas appelables', v_txt);
+    end;
 
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';

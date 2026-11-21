@@ -56,8 +56,9 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 11. `supabase/migrations/011_publications_riches.sql` (problèmes et publications des riches actifs, filtres du mur par type)
 12. `supabase/migrations/012_annonces_riches.sql` (« Un nouveau riche est arrivé », désinscription, envois d'e-mails : voir 4.2)
 13. `supabase/migrations/013_probleme_du_moment.sql` (carte « Le problème du moment » de l'accueil : `get_probleme_du_moment()`, publique, lecture seule)
-13. `supabase/seed/mots_interdits.sql`
-14. `supabase/seed/exemples.sql`
+14. `supabase/migrations/014_anti_robots.sql` (limites par adresse IP : 5 profils, 30 publications, 60 commentaires ou messages, 300 réactions par heure ; IP jamais stockée en clair ; voir 3.1)
+15. `supabase/seed/mots_interdits.sql`
+16. `supabase/seed/exemples.sql`
 
 Pour modérer depuis un téléphone, inscrire son propre compte de membre dans `public.moderateurs` (voir `docs/MODERATION.md`, « Page de modération »).
 
@@ -95,6 +96,20 @@ Puis vérifier la sécurité : exécuter `supabase/tests/verif_securite.sql`. Ch
    - **Site key** (publique) → `CONFIG.TURNSTILE_SITE_KEY` dans `site/assets/js/config.js`.
    - **Secret key** → uniquement dans Supabase (étape 2.3).
    - Pour tester en local, ajouter aussi `localhost` aux noms d'hôte.
+### 3.1 Activer Turnstile : l'ordre exact (R-035)
+
+Le code est prêt : tant que `CONFIG.TURNSTILE_SITE_KEY` est vide, aucun widget n'est chargé ni demandé. Le jour de l'activation, **respecter cet ordre**, sinon plus personne ne peut rejoindre un camp :
+
+1. Coller la **clé de site** (publique) dans `CONFIG.TURNSTILE_SITE_KEY` (`site/assets/js/config.js`), committer, pousser, et **attendre la fin du déploiement** GitHub Pages (onglet *Actions* au vert, puis recharger le site : le fichier `assets/js/config.js` servi doit contenir la clé).
+2. **Seulement ensuite**, dans Supabase *Authentication → Attack Protection*, activer **CAPTCHA** (Cloudflare Turnstile) et coller la **clé secrète**.
+3. Tester : « Rejoindre » un camp avec un nouvel e-mail, puis « Déjà membre ? ». Le widget est en mode `interaction-only` : invisible pour presque tout le monde, il n'apparaît (case à cocher) que si Cloudflare a un doute ; aucun espace vide ni clignotement sinon (`.turnstile-zone:empty` est masquée).
+
+Pour désactiver : l'ordre inverse (d'abord le CAPTCHA dans Supabase, puis vider la clé dans `config.js`).
+
+En plus de Turnstile, sans rien configurer :
+- **Limites par adresse IP** (migration 014) : 5 créations de profil, 30 publications, 60 commentaires ou messages de club, 300 réactions par IP et par heure. L'IP vient de l'en-tête `cf-connecting-ip` (sinon le premier élément de `x-forwarded-for`) ; seule une empreinte salée (sha256) est stockée, 24 h au plus. Réglables sans redéploiement : `update public.reglages set valeur = '{"profil": 5, "publication": 30, "message": 60, "reaction": 300}' where cle = 'limites_ip';`
+- **Champ piège et temps minimum** dans « Rejoindre » et « Publier » : un robot qui remplit le champ invisible `site_web` ou envoie en moins de 3 secondes voit un faux succès, rien n'est envoyé.
+
 2. **Web Analytics** (facultatif, sans cookie) → *Add a site* → copier le **token** → `CONFIG.CF_ANALYTICS_TOKEN`.
 
 ---

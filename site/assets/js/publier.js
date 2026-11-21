@@ -11,6 +11,7 @@ import { creerTurnstile } from './turnstile.js';
 import { session } from './page.js';
 import { barrePartage, urlProbleme, texteProbleme } from './partage.js';
 import { titreDe } from './carte.js';
+import { creerPiege } from './piege.js';
 
 /** Success screen when the problem is published at once (R-017): view it, share it, story card. */
 async function ecranEnLigne(id, titreSaisi) {
@@ -67,6 +68,7 @@ export async function ouvrirPublier({ categorie = null } = {}) {
   const form = h('form', { novalidate: true });
   const rejoindre = membre ? null : champsRejoindre();
   const zoneTs = h('div', { class: 'turnstile-zone' });
+  const piege = creerPiege();
 
   // Category
   const select = h('select', { id: 'pub-categorie', name: 'categorie', required: true },
@@ -97,7 +99,7 @@ export async function ouvrirPublier({ categorie = null } = {}) {
   const erreur = boiteErreur();
   const submit = h('button', { type: 'submit', class: 'btn btn-primaire btn-bloc mt-24' }, membre ? 'Envoyer mon problème' : 'Rejoindre et envoyer', icon('arrow-right', { className: 'fleche' }));
 
-  form.append(
+  form.append(piege.el,
     ...(rejoindre ? [h('p', { class: 'etiquette-section' }, '1. Choisis ton camp'), ...rejoindre.nodes, h('div', { class: 'separateur' }), h('p', { class: 'etiquette-section' }, '2. Ton problème')] : []),
     champCat, titre.wrap, texte.wrap, montant.wrap,
     h('div', { class: 'avertissement' }, icon('alert-triangle'),
@@ -108,7 +110,8 @@ export async function ouvrirPublier({ categorie = null } = {}) {
   );
 
   const { body, close } = openDialog({ title: 'Publier un problème', content: [form], onClose: () => turnstile.destroy() });
-  const turnstile = creerTurnstile(membre ? h('div') : zoneTs);
+  // Members never call Supabase Auth here: no widget at all for them
+  const turnstile = membre ? { getToken: async () => undefined, destroy() {} } : creerTurnstile(zoneTs);
   setTimeout(() => (rejoindre ? rejoindre.champs.camps.focus() : select.focus()), 50);
 
   const validerProbleme = () => {
@@ -131,6 +134,7 @@ export async function ouvrirPublier({ categorie = null } = {}) {
     const okRejoindre = rejoindre ? rejoindre.valider() : true;
     const okProbleme = validerProbleme();
     if (!okRejoindre || !okProbleme) return;
+    if (piege.estRobot()) { body.replaceChildren(ecranRecu()); return; } // R-035: fake success
     chargement(submit, true, 'Envoi…');
     try {
       const deja = await api.getSession();
@@ -179,12 +183,14 @@ function ouvrirPublierRiche() {
   });
   const erreur = boiteErreur();
   const submit = h('button', { type: 'submit', class: 'btn btn-primaire btn-bloc mt-24' }, 'Publier', icon('arrow-right', { className: 'fleche' }));
+  const piege = creerPiege();
   function maj() {
     const riche = cRiche.input.checked;
     titre.wrap.hidden = !riche;
     montant.wrap.hidden = !riche;
   }
   form.append(
+    piege.el,
     h('fieldset', { class: 'prix-riches' }, h('legend', { class: 'visually-hidden' }, 'Que veux-tu publier ?'), cRiche.el, cPub.el),
     titre.wrap, texte.wrap, montant.wrap,
     h('div', { class: 'avertissement' }, icon('alert-triangle'),
@@ -203,6 +209,7 @@ function ouvrirPublierRiche() {
       (type === 'riche' && errs[0] ? titre : type === 'riche' && errs[2] && !errs[1] ? montant : texte).focus();
       return;
     }
+    if (piege.estRobot()) { body.replaceChildren(ecranRecu()); return; } // R-035: fake success
     chargement(submit, true, 'Envoi…');
     try {
       const m = montant.value().replace(/\s/g, '');

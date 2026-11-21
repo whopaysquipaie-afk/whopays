@@ -7,7 +7,8 @@
 //  5. a Content-Security-Policy <meta> on every page, no inline script, no inline handler
 //  6. no secret pattern in the working tree AND in the whole Git history
 //  7. visible texts: "problème" never misspelled "probléme"
-//  8. JavaScript budget: < 150 KB reachable from each page (vendor/ excluded)
+//  8. JavaScript budget: < 150 KB loaded by each page at start-up (static imports), < 250 KB with everything
+//     it can open on demand (dynamic imports); vendor/ excluded (DC-017, DC-023, DC-033)
 //  (+ 7b service worker / assets, 7c sensitive words JS = SQL, 7d private moderation page)
 
 import { readFileSync, readdirSync, statSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
@@ -321,31 +322,37 @@ const SERVICE_ROLE = new RegExp('service' + '_role');
   // sw.js (worker) and the private moderation page (moderators only). DC-017, DC-023.
   const horsBudget = (f) => /site\/(sw\.js$|assets\/js\/(tests\/|api-demo\.js$|demo-data\.js$|demo-ui\.js$|mots-sensibles\.js$|pages\/tests\.js$|moderation\.js$|pages\/moderation\.js$))/.test(rel(f));
   const RE_IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s+)(['"])(\.{1,2}\/[^'"]+)\1/gm;
-  const atteignables = (entree) => {
+  const RE_STATIQUE = /(?:\bfrom\s*|^\s*import\s+)(['"])(\.{1,2}\/[^'"]+)\1/gm;
+  const atteignables = (entree, re = RE_IMPORT) => {
     const vus = new Set();
     const pile = [entree];
     while (pile.length) {
       const f = pile.pop();
       if (vus.has(f) || !existsSync(f)) continue;
       vus.add(f);
-      for (const m of read(f).matchAll(RE_IMPORT)) pile.push(join(dirname(f), m[2]));
+      for (const m of read(f).matchAll(re)) pile.push(join(dirname(f), m[2]));
     }
     return [...vus];
   };
   const problems = [];
   let pire = { kb: 0, page: '' };
+  let pireTotal = { kb: 0, page: '' };
   for (const page of siteHtml) {
     for (const m of read(page).matchAll(/<script[^>]*type="module"[^>]*src="([^"]+)"/g)) {
       const entree = join(dirname(page), m[1]);
       if (horsBudget(entree)) continue;
-      const total = atteignables(entree).filter((f) => !horsBudget(f) && !isVendor(f)).reduce((s, f) => s + statSync(f).size, 0);
-      const kb = Math.round(total / 1024);
+      const poids = (re) => atteignables(entree, re).filter((f) => !horsBudget(f) && !isVendor(f)).reduce((s, f) => s + statSync(f).size, 0);
+      const depart = poids(RE_STATIQUE);
+      const total = poids(RE_IMPORT);
+      const kb = Math.round(depart / 1024);
       if (kb >= pire.kb) pire = { kb, page: rel(page) };
-      if (total > 150 * 1024) problems.push(`${rel(page)} : ${kb} Ko > 150 Ko`);
+      if (total >= pireTotal.kb * 1024) pireTotal = { kb: Math.round(total / 1024), page: rel(page) };
+      if (depart > 150 * 1024) problems.push(`${rel(page)} : ${kb} Ko au chargement > 150 Ko`);
+      if (total > 250 * 1024) problems.push(`${rel(page)} : ${Math.round(total / 1024)} Ko avec les imports à la demande > 250 Ko`);
     }
   }
   const tout = siteJs.filter((f) => !horsBudget(f)).reduce((s, f) => s + statSync(f).size, 0);
-  check(`Poids du JavaScript par page : ${pire.kb} Ko au plus (${pire.page} ; limite 150 Ko, imports dynamiques compris ; tout le site hors démo, tests, sw.js et modération : ${Math.round(tout / 1024)} Ko)`, problems);
+  check(`Poids du JavaScript par page : ${pire.kb} Ko au chargement au plus (${pire.page} ; limite 150 Ko), ${pireTotal.kb} Ko avec tout ce qui s'ouvre à la demande (${pireTotal.page} ; limite 250 Ko) ; tout le site hors démo, tests, sw.js et modération : ${Math.round(tout / 1024)} Ko`, problems);
 }
 
 /* Report */

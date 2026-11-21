@@ -9,6 +9,7 @@ import { isSafeUrl, checkAttribute } from '../dom-safe.js';
 import { EXEMPLES, PROBLEMES, POSTS_RICHES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES, MEMBRES } from '../demo-data.js';
 import { CATEGORY_IDS } from '../categories.js';
 import { enRiens, phraseRiens, montantAffiche, enEuros } from '../riens.js';
+import { estRobot, DELAI_MIN_MS } from '../piege.js';
 
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
@@ -1157,6 +1158,48 @@ function assertNoEmail(payload, where) {
   const json = JSON.stringify(payload);
   assert(!/@/.test(json) && !/"email"/.test(json), `${where} : contient une adresse e-mail`);
 }
+
+/* ---------------- M. Anti-robots (R-035) ---------------- */
+
+test('M. Anti-robots', 'champ piège rempli ou formulaire envoyé en moins de 3 s → robot (rien n’est envoyé)', () => {
+  eq(DELAI_MIN_MS, 3000);
+  eq(estRobot('', 3000), false, 'humain à 3 s');
+  eq(estRobot('', 45000), false, 'humain lent');
+  eq(estRobot('  ', 5000), false, 'espaces seulement');
+  eq(estRobot('http://spam.example', 60000), true, 'piège rempli');
+  eq(estRobot('', 2999), true, 'trop rapide');
+  eq(estRobot('', NaN), true, 'durée inconnue');
+  eq(estRobot(null, 4000), false, 'piège absent');
+});
+
+test('M. Anti-robots', 'formulaires « Rejoindre » et « Publier » : champ piège site_web hors écran, hors tabulation, sans saisie automatique', async () => {
+  const fs = await import('node:fs').catch(() => null);
+  if (!fs) return;  // browser: source files are not readable here
+  const { readFileSync } = fs;
+  const lire = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+  const piege = lire('../piege.js');
+  for (const attendu of ["name: 'site_web'", 'tabIndex: -1', "autocomplete: 'off'", "'aria-hidden', 'true'"]) assert(piege.includes(attendu), attendu);
+  const auth = lire('../auth.js');
+  const publier = lire('../publier.js');
+  assert(/form\.append\(piege\.el/.test(auth) && /piege\.estRobot\(\)/.test(auth), 'Rejoindre');
+  eq((publier.match(/piege\.estRobot\(\)/g) || []).length, 2, 'Publier (pauvre + riche)');
+  const css = lire('../../css/style.css');
+  assert(/\.piege \{[^}]*left: -10000px/.test(css) && !/\.piege \{[^}]*display: none/.test(css), 'hors écran, jamais display:none');
+});
+
+test('M. Anti-robots', 'migration 014 : plafonds par IP réglables, IP jamais stockée en clair, 6 fonctions d’écriture branchées', async () => {
+  const fs = await import('node:fs').catch(() => null);
+  if (!fs) return;  // browser: source files are not readable here
+  const { readFileSync } = fs;
+  const sql = readFileSync(new URL('../../../../supabase/migrations/014_anti_robots.sql', import.meta.url), 'utf8');
+  assert(sql.includes('{"profil": 5, "publication": 30, "message": 60, "reaction": 300}'), 'plafonds');
+  assert(sql.includes("'cf-connecting-ip'") && sql.includes("'x-forwarded-for'"), 'en-têtes');
+  assert(/sha256\(convert_to\(v_ip \|\| coalesce\(v_sel/.test(sql), 'empreinte salée');
+  assert(sql.includes("Doucement ! Trop d''actions depuis ta connexion, reviens dans une heure."), 'message');
+  for (const f of ['creer_profil', 'soumettre_probleme', 'publier_riche', 'commenter', 'envoyer_message_club', 'reagir']) {
+    assert(new RegExp(`function public\\.${f}\\(`).test(sql), f);
+  }
+});
 
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];

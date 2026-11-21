@@ -10,6 +10,7 @@ import { creerTurnstile } from './turnstile.js';
 import { lireRef, oublierRef } from './parrainage.js';
 import { confetti } from './animations.js';
 import { LIBELLE_NEWSLETTER } from './auth-textes.js';
+import { creerPiege } from './piege.js';
 
 export const INFO_DONNEES = 'Ton pseudo et ton e-mail servent uniquement à faire fonctionner ton compte, et à t’envoyer des nouvelles si tu le demandes. Tu peux supprimer ton compte à tout moment depuis Mon espace. Responsable : Hassen Bamri.';
 export const SOUS_BOUTON = 'Pas de mot de passe. Pas de carte bancaire. Pas de milliardaire non plus (pour l’instant).';
@@ -88,8 +89,9 @@ export function ouvrirRejoindre({ camp = null, apres = null, raison = '' } = {})
   const erreur = boiteErreur();
   const submit = h('button', { type: 'submit', class: 'btn btn-primaire btn-bloc mt-24' }, 'C’est parti', icon('arrow-right', { className: 'fleche' }));
   const dejaMembre = h('button', { type: 'button', class: 'lien' }, 'Déjà membre ? Reçois un lien de connexion');
+  const piege = creerPiege();
 
-  form.append(
+  form.append(piege.el,
     raison ? h('p', { class: 'gris' }, raison) : h('p', { class: 'gris' }, 'Riche ou pauvre, un pseudo, un e-mail. 10 secondes, promis.'),
     ...f.nodes, zoneTs, erreur.el, submit,
     h('p', { class: 'sous-bouton' }, SOUS_BOUTON),
@@ -107,6 +109,8 @@ export function ouvrirRejoindre({ camp = null, apres = null, raison = '' } = {})
     erreur.hide();
     if (!f.valider()) return;
     const v = f.valeurs();
+    // R-035: a bot gets the success toast, nothing is sent
+    if (piege.estRobot()) { close(); toast(`Bienvenue chez les ${CAMPS[v.camp].plural}, ${v.pseudo.trim()} !`); return; }
     chargement(submit, true, 'On t’installe…');
     try {
       const statut = await executerRejoindre(v, turnstile);

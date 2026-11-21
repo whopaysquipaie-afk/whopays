@@ -5,6 +5,9 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Versions fol
 
 ## [Unreleased]
 
+### Security
+- Anti-bot protection (R-035, `014_anti_robots.sql`): per-IP hourly ceilings in the database (5 profiles, 30 posts, 60 comments or club messages, 300 reactions; adjustable in `reglages.limites_ip`), the IP is never stored (salted sha256 fingerprint, purged after 24 h) and nothing is blocked when it is unknown. « Rejoindre » and « Publier » forms get an invisible trap field and a 3-second minimum: bots get a fake success and nothing is sent. Exact Turnstile activation order in docs/CONFIGURATION.md §3.1. JavaScript budget: 150 KB loaded at start-up per page, 250 KB including on-demand modules.
+
 ### Fixed
 - E-mail never attached to accounts created while e-mail sending was failing (anonymous auth user without `email` / `new_email`, address only in the profile): « Renvoyer l'e-mail de confirmation » now falls back to the profile address instead of answering « Aucune adresse e-mail à confirmer » without calling the server, and reports sending errors (« L'envoi a échoué, réessaie dans un instant ») instead of ignoring them. Pages also attach the profile address silently, once per browser session. If the address already belongs to another confirmed account, Mon espace says so and nothing is changed. The end-to-end test no longer attaches e-mails (SMTP is live: no mail to invented addresses).
 - « Mon espace » on phones: the identity card is now mobile first (avatar + pseudo on one row, pseudo on two lines at most, buttons below at full width; former layout from 768 px), and the page no longer overflows horizontally at 360 px (grid tracks `minmax(0, 1fr)` instead of `auto`, which grew to the width of the referral link). Moderation buttons wrap instead of overflowing; the bottom banner reserves the iPhone home-bar area.
