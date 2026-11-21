@@ -1993,7 +1993,7 @@ begin
       v_res := v_res || pg_temp.wp_ligne(v_r1 is not null and v_r2 is not null and v_r1 < v_r2
           and v_j::text !~ '@' and v_j::text !~ v_m1::text,
         '016 : palmarès « depuis toujours » = tous les mois, sans id ni e-mail', v_r1 || ' / ' || v_r2);
-      v_res := v_res || pg_temp.wp_ligne(public.get_palmares(100) -> 'lignes' = v_j -> 'lignes',
+      v_res := v_res || pg_temp.wp_ligne(public.get_palmares(100) -> 'lignes' = (select jsonb_agg(l - 'badges' - 'code' order by (l ->> 'rang')::int) from jsonb_array_elements(v_j -> 'lignes') l),
         '016 : l''ancienne signature get_palmares(p_limite) renvoie toujours le général');
       v_res := v_res || pg_temp.wp_attendre_erreur('select public.get_palmares(10, ''semaine'')', 'invalide',
         '016 : période inconnue refusée');
@@ -2013,6 +2013,65 @@ begin
              from pg_proc p where p.oid in ('public.get_palmares(integer, text)'::regprocedure, 'public.get_mon_rang(text)'::regprocedure))
         and (select coalesce(p.pronargdefaults, 0) from pg_proc p where p.oid = 'public.get_palmares(integer, text)'::regprocedure) = 0,
         '016 : nouvelles signatures publiques, SECURITY DEFINER, lecture seule, sans valeur par défaut (pas d''ambiguïté PostgREST)');
+    end;
+
+    -- =================================================================
+    -- 017. Titles and badges (R-039)
+    -- =================================================================
+    declare
+      v_b1    uuid := gen_random_uuid();
+      v_code  text;
+      v_code_r text;
+      v_code_b text;
+      v_pbs   uuid[] := '{}';
+      v_id    uuid;
+    begin
+      perform pg_temp.wp_jouer(null);
+      insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_anonymous)
+      values ('00000000-0000-0000-0000-000000000000'::uuid, v_b1, 'authenticated', 'authenticated',
+              'b1-' || v_suffixe || '@exemple.invalid', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb, false);
+      perform pg_temp.wp_jouer('authenticated', v_b1);
+      v_code := public.creer_profil('pauvre', 'Pauvre médaillé', 'b1-' || v_suffixe || '@exemple.invalid') ->> 'code_partage';
+      perform pg_temp.wp_jouer(null);
+      -- 1 problem at 10x Rien + 10 small « factures » problems, all this month
+      insert into public.problems (user_id, type, categorie, titre, texte, montant, statut)
+      values (v_b1, 'pauvre', 'factures', 'Le plafond', 'Un problème qui touche le plafond des pauvres.', 10000, 'publie');
+      for v_i in 1 .. 10 loop
+        insert into public.problems (user_id, type, categorie, titre, texte, montant, statut)
+        values (v_b1, 'pauvre', 'factures', 'Facture ' || v_i, 'Encore une facture, la ' || v_i || 'ᵉ du mois.', 1, 'publie')
+        returning id into v_id;
+        v_pbs := v_pbs || v_id;
+      end loop;
+      -- a rich member crowns 10 of them (= 10 crowns given), 3 members invited by b1
+      insert into public.couronnes (problem_id, riche_id) select unnest(v_pbs), v_riche;
+      update public.profiles pr set invite_par = v_b1 where pr.id in (v_pauvre2, v_pauvre3, v_pauvre4);
+      select pr.code_partage into v_code_r from public.profiles pr where pr.id = v_riche;
+      select pr.code_partage into v_code_b from public.profiles pr where pr.id = v_bloque;
+
+      perform pg_temp.wp_jouer('anon');
+      v_j := public.get_badges(lower(v_code));
+      v_res := v_res || pg_temp.wp_ligne(v_j ->> 'pseudo' = 'Pauvre médaillé'
+          and v_j -> 'badges' = '["or", "roi_decouvert", "plafond", "couronne", "rabatteur", "premier"]'::jsonb
+          and (select count(*) from jsonb_object_keys(v_j)) = 2,
+        '017 : badges calculés (or du mois, roi du découvert, plafond, couronné, rabatteur, premier problème), seulement pseudo + badges', v_j::text);
+      v_res := v_res || pg_temp.wp_ligne((public.get_badges(v_code_r) -> 'badges') ? 'mecene',
+        '017 : 🎩 Mécène imaginaire pour un riche qui a donné 10 couronnes');
+      v_res := v_res || pg_temp.wp_ligne(public.get_badges('pas-un-code') is null and public.get_badges(null) is null
+          and public.get_badges(v_code_b) is null,
+        '017 : code invalide ou membre bloqué → null');
+      v_j := public.get_palmares(100, 'mois');
+      v_res := v_res || pg_temp.wp_ligne(v_j -> 'lignes' -> 0 ->> 'pseudo' = 'Pauvre médaillé'
+          and v_j -> 'lignes' -> 0 -> 'badges' ? 'or' and v_j -> 'lignes' -> 0 ->> 'code' = v_code
+          and v_j::text !~ '@' and v_j::text !~ v_b1::text,
+        '017 : le palmarès porte les badges et le code de partage de chaque ligne (jamais l''id)', left(v_j::text, 300));
+      perform pg_temp.wp_jouer(null);
+      update public.problems p set masque = true where p.user_id = v_b1 and p.montant = 10000;
+      v_res := v_res || pg_temp.wp_ligne(not ((public.get_badges(v_code) -> 'badges') ? 'plafond'),
+        '017 : un problème masqué ne donne plus de badge');
+      v_res := v_res || pg_temp.wp_ligne(has_function_privilege('anon', 'public.get_badges(text)', 'execute')
+          and not has_function_privilege('anon', 'public.wp_badges(uuid)', 'execute'),
+        '017 : get_badges public, wp_badges interne');
     end;
 
     -- End: undo everything written above

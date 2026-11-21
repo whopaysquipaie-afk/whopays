@@ -15,6 +15,7 @@ import { LIBELLE_NEWSLETTER } from './auth-textes.js';
 import { FORMULES, richeEnAttente, ecranPrixRiche, ouvrirPrixRiche } from './riche-attente.js';
 import { montantAffiche } from './riens.js';
 import { blocNotifications } from './notifications.js';
+import { BADGES, ORDRE_BADGES } from './badges.js';
 
 const STATUTS = {
   recu: { label: 'En relecture', classe: '' },
@@ -74,6 +75,11 @@ export async function monterEspace(zone) {
   /* ---------- Poor: my total and my rank (R-028) ---------- */
   if (e.camp === 'pauvre') grille.appendChild(blocRang(e));
 
+  /* ---------- My badges (R-039; hidden while 017 is not applied) ---------- */
+  const zoneBadges = h('div', { class: 'pleine', hidden: true });
+  grille.appendChild(zoneBadges);
+  api.getBadges(e.code_partage).then((r) => { if (r) zoneBadges.replaceWith(blocBadges(r.badges, e.camp)); }, () => {});
+
   /* ---------- Referral ---------- */
   const lien = lienParrainage(e.code_partage);
   grille.appendChild(h('section', { class: 'bloc', 'aria-labelledby': 'titre-parrainage' },
@@ -121,6 +127,23 @@ export async function monterEspace(zone) {
       h('button', { type: 'button', class: 'btn btn-fantome', onclick: deconnexion }, icon('logout'), 'Se déconnecter'),
       h('button', { type: 'button', class: 'btn btn-danger', onclick: () => supprimer(e) }, icon('trash'), 'Supprimer mon compte'))));
   zone.closest('main').setAttribute('aria-busy', 'false');
+}
+
+/** R-039: earned badges, then the ones left to unlock (podium and poor-only badges hidden for the rich, and the reverse). */
+function blocBadges(ids, camp) {
+  const gagnes = new Set(ids || []);
+  const pourMoi = (id) => (camp === 'riche' ? !['or', 'argent', 'bronze', 'roi_decouvert', 'smicard', 'plafond', 'couronne'].includes(id) : id !== 'mecene');
+  const tuile = (id, ok) => h('li', { class: `badge-tuile${ok ? '' : ' a-debloquer'}` },
+    h('span', { class: 'badge-emoji', 'aria-hidden': 'true' }, BADGES[id].emoji),
+    h('span', {}, h('strong', {}, BADGES[id].nom), h('small', {}, BADGES[id].description)));
+  const ok = ORDRE_BADGES.filter((id) => gagnes.has(id));
+  const reste = ORDRE_BADGES.filter((id) => !gagnes.has(id) && pourMoi(id));
+  return h('section', { class: 'bloc pleine', 'aria-labelledby': 'titre-badges' },
+    h('h2', { id: 'titre-badges' }, 'Mes badges'),
+    ok.length ? h('ul', { class: 'badges-grille' }, ok.map((id) => tuile(id, true)))
+      : h('p', { class: 'gris mt-8' }, 'Aucun badge pour l’instant. Même pas celui du premier problème. Courage.'),
+    reste.length ? h('details', { class: 'mt-16' }, h('summary', {}, `À débloquer (${reste.length})`),
+      h('ul', { class: 'badges-grille' }, reste.map((id) => tuile(id, false)))) : null);
 }
 
 /** "Mon total : 3 problèmes · 4,25x Rien" + "Ton rang : 42ᵉ sur 312 pauvres" (R-028). */

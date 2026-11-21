@@ -9,6 +9,7 @@ import { isSafeUrl, checkAttribute } from '../dom-safe.js';
 import { EXEMPLES, PROBLEMES, POSTS_RICHES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES, MEMBRES } from '../demo-data.js';
 import { CATEGORY_IDS } from '../categories.js';
 import { enRiens, phraseRiens, montantAffiche, enEuros } from '../riens.js';
+import { badgesConnus, libelleBadges } from '../badges.js';
 import { deMois } from '../themes.js';
 import { themeDuJour, texteTheme, texteProbleme } from '../themes.js';
 import { estRobot, DELAI_MIN_MS } from '../piege.js';
@@ -1337,7 +1338,7 @@ test('P. Saisons du palmarès', 'palmarès du mois (heure de Paris, remise à z�
   const general = await api.getPalmares({ periode: 'toujours' });
   const rang = (l, pseudo) => l.lignes.find((x) => x.pseudo === pseudo).rang;
   assert(rang(general, 'Gros Découvert') < rang(general, 'Petit Nouveau'), 'général');
-  eq(JSON.stringify((await api.getPalmares()).lignes), JSON.stringify(general.lignes), 'ancienne signature = général');
+  eq(JSON.stringify((await api.getPalmares()).lignes), JSON.stringify(general.lignes.map(({ code, badges, ...l }) => l)), 'ancienne signature = général (sans badges ni code)');
   await rejects(api.getPalmares({ periode: 'semaine' }), 'invalide');
   assertNoEmail(mois, 'palmarès du mois');
   await as(vieux.userId);
@@ -1354,6 +1355,34 @@ test('P. Saisons du palmarès', '« de novembre », « d’avril », « d’aoû
   eq(deMois(new Date('2026-08-15T12:00:00Z')), 'd’août');
   eq(deMois(new Date('2026-10-15T12:00:00Z')), 'd’octobre');
   eq(deMois(new Date('2026-11-30T23:30:00Z')), 'de décembre', 'heure de Paris');
+});
+
+/* ---------------- Q. Titres et badges (R-039) ---------------- */
+
+test('Q. Titres et badges', 'badges calculés : podium du mois, roi du découvert, plafond, couronné, rabatteur, premier problème ; seulement pseudo + badges', async () => {
+  const { api, join, as, advance } = fresh();
+  await api.getCompteurs();
+  advance(40 * DAY);  // a new month without the seeded problems
+  const moi = await join('pauvre', 'Médaille en Chocolat');
+  await api.soumettreProbleme({ categorie: 'factures', titre: 'Le plafond est atteint', texte: 'Un problème à dix Riens tout ronds.', montant: 10000 });
+  for (let i = 0; i < 6; i++) await api.soumettreProbleme({ categorie: 'factures', titre: `Facture numéro ${i}`, texte: 'Encore une facture, toujours la même histoire.', montant: 1 });
+  const s = await api.getSession();
+  const code = s.profil.code_partage;
+  for (let i = 0; i < 3; i++) await join('pauvre', `Invité ${i}`, { codeRef: code });
+  await join('riche', 'Couronneur Fou');
+  const pbs = await api.getProblemesPublics({ type: 'pauvre', limite: 7 });
+  await api.couronner(pbs.find((p) => p.pseudo === 'Médaille en Chocolat').id);
+  const b = await api.getBadges(code.toLowerCase());
+  eq(JSON.stringify(Object.keys(b)), '["pseudo","badges"]');
+  eq(b.pseudo, 'Médaille en Chocolat');
+  eq(JSON.stringify(b.badges), '["or","roi_decouvert","plafond","couronne","rabatteur","premier"]');
+  eq(await api.getBadges('PASUNCODE'), null);
+  const p = await api.getPalmares({ periode: 'mois' });
+  eq(p.lignes[0].code, code); assert(p.lignes[0].badges.includes('or'));
+  assertNoEmail(p, 'palmarès avec badges');
+  await as(moi.userId);
+  eq(badgesConnus(['premier', 'inconnu', 'or']).map((x) => x.id).join(','), 'or,premier', 'ordre d’affichage, badges inconnus ignorés');
+  eq(libelleBadges(['plafond']), '🔟 Plafond atteint');
 });
 
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {

@@ -349,6 +349,44 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       .map(({ cree_le, ...l }, i) => ({ rang: i + 1, ...l }));
   }
 
+  /** = wp_badges (017): computed badges of a member, in display order. */
+  function badgesDe(st, userId) {
+    const p = st.profiles.find((x) => x.id === userId);
+    if (!p || p.bloque) return [];
+    const b = [];
+    const visibles = st.problems.filter((x) => x.user_id === userId && visibleProblem(x) && !x.est_exemple);
+    const pauvres = visibles.filter((x) => typeDe(x) === 'pauvre');
+    if (p.camp === 'pauvre') {
+      const l = classementPauvres(st, 'mois').find((x) => x.user_id === userId);
+      if (l && l.rang <= 3) b.push(['or', 'argent', 'bronze'][l.rang - 1]);
+      const factures = new Map();
+      for (const x of st.problems) {
+        if (!visibleProblem(x) || x.est_exemple || typeDe(x) !== 'pauvre' || x.categorie !== 'factures' || !x.user_id) continue;
+        const a = st.profiles.find((y) => y.id === x.user_id);
+        if (!a || a.camp !== 'pauvre' || a.bloque) continue;
+        factures.set(a.id, { n: (factures.get(a.id)?.n || 0) + 1, cree_le: a.cree_le, id: a.id });
+      }
+      const roi = [...factures.values()].sort((x, y) => y.n - x.n || x.cree_le.localeCompare(y.cree_le) || x.id.localeCompare(y.id))[0];
+      if (roi && roi.id === userId) b.push('roi_decouvert');
+      if (pauvres.length >= 20) b.push('smicard');
+      if (pauvres.some((x) => (x.montant || 0) >= 10000)) b.push('plafond');
+      const ids = new Set(visibles.map((x) => x.id));
+      if ((st.couronnes || []).some((c) => ids.has(c.problem_id) && !c.retiree)) b.push('couronne');
+    }
+    const nbReac = (pid, type) => st.reactions.filter((r) => r.problem_id === pid && r.type === type).length;
+    if (visibles.some((x) => nbReac(x.id, 'rire') >= 20)) b.push('star_rire');
+    if (visibles.some((x) => nbReac(x.id, 'yacht') >= 1)) b.push('yacht');
+    if (p.camp === 'riche' && (st.couronnes || []).filter((c) => c.riche_id === userId && !c.retiree).length >= 10) b.push('mecene');
+    if (st.profiles.filter((x) => x.invite_par === userId).length >= 3) b.push('rabatteur');
+    if (st.comments.filter((c) => c.user_id === userId && !c.masque).length >= 30) b.push('pipelette');
+    if (pauvres.length >= 1) b.push('premier');
+    return b;
+  }
+  const profilParCode = (st, code) => {
+    const c = String(code || '').trim().toUpperCase();
+    return /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/.test(c) ? st.profiles.find((x) => x.code_partage === c && !x.bloque) || null : null;
+  };
+
   const api = {
     mode: 'demo',
 
@@ -494,8 +532,18 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     async getPalmares({ limite = 100, periode = null } = {}) {
       const per = periodeValide(periode);
       const lim = Math.max(1, Math.min(100, Number.isInteger(limite) ? limite : 100));
-      const c = classementPauvres(load(), per);
-      return { ...(periode ? { periode: per } : {}), classes: c.length, lignes: c.slice(0, lim).map(({ user_id, ...l }) => l) };
+      const st = load();
+      const c = classementPauvres(st, per);
+      // R-039 (017): the new signature also carries the badges and the share code of each line
+      const extra = (id) => (periode ? { code: st.profiles.find((x) => x.id === id).code_partage, badges: badgesDe(st, id) } : {});
+      return { ...(periode ? { periode: per } : {}), classes: c.length, lignes: c.slice(0, lim).map(({ user_id, ...l }) => ({ ...l, ...extra(user_id) })) };
+    },
+
+    /** R-039 (= get_badges, 017): { pseudo, badges } by share code, or null. */
+    async getBadges(code) {
+      const st = load();
+      const p = profilParCode(st, code);
+      return p ? { pseudo: p.pseudo, badges: badgesDe(st, p.id) } : null;
     },
 
     async getMonRang(periode = null) {
