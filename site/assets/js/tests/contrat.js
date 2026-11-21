@@ -1567,6 +1567,20 @@ test('W. Défis entre pauvres', 'défier depuis un profil : pauvres seulement, p
   void prov;
 });
 
+/* ---------------- X. Billet de 1x Rien (R-045) ---------------- */
+
+test('X. Billet de 1x Rien', 'billet 1600 × 800 avec pseudo et rang, toujours marqué « SANS AUCUNE VALEUR », chargé à la demande', async () => {
+  const fs = await import('node:fs').catch(() => null);
+  if (!fs) return;
+  const lire = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
+  const b = lire('../billet.js');
+  assert(b.includes("const W = 1600;") && b.includes("const H = 800;"), 'format');
+  assert(b.includes("'SANS AUCUNE VALEUR'") && b.includes('Ce billet ne vaut rien'), 'aucune promesse d’argent');
+  assert(!/innerHTML/.test(b), 'pas d’innerHTML');
+  const p = lire('../pages/profil.js');
+  assert(p.includes("await import('../billet.js')") && !/^import .*billet\.js/m.test(p), 'import dynamique');
+});
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {

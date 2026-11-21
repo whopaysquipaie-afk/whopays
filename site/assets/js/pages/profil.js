@@ -38,6 +38,22 @@ export function phraseCV(r, moi) {
   return `${moi ? 'Mon' : 'Son'} CV de pauvre : ${riens} de problèmes. Pour l’instant. Et toi ?`;
 }
 
+/** R-045: « Billet de 1x Rien » with the pseudo and the rank (canvas, loaded on demand). */
+function boutonBillet(r, url) {
+  const b = h('button', { type: 'button', class: 'btn btn-secondaire' }, '💵 Billet de 1x Rien');
+  b.addEventListener('click', async () => {
+    b.setAttribute('aria-busy', 'true');
+    try {
+      const { ouvrirBillet } = await import('../billet.js');
+      const rang = r.camp === 'riche' ? 'Riche certifié (de rien)'
+        : r.rang_mois && r.rang_mois.rang ? `${ordinal(r.rang_mois.rang)} pauvre du mois`
+          : r.rang_general && r.rang_general.rang ? `${ordinal(r.rang_general.rang)} pauvre de tous les temps` : 'Pauvre en devenir';
+      await ouvrirBillet({ pseudo: r.pseudo, rang, code: r.code }, { url });
+    } catch (e) { toastError(e); } finally { b.removeAttribute('aria-busy'); }
+  });
+  return b;
+}
+
 /** R-044: « Je te défie de faire mieux » (another poor member's profile, 022 applied). */
 function boutonDefi(r) {
   if (!r.peut_defier) return null;
@@ -127,7 +143,7 @@ async function charger() {
       ? h('ul', { class: 'badges-grille' }, badges.map((b) => h('li', { class: 'badge-tuile' },
         h('span', { class: 'badge-emoji', 'aria-hidden': 'true' }, b.emoji), h('span', {}, h('strong', {}, b.nom), h('small', {}, b.description)))))
       : h('p', { class: 'gris mt-16' }, 'Aucun badge pour l’instant.'),
-    h('div', { class: 'hero-actions' }, partager, story, boutonDefi(r)));
+    h('div', { class: 'hero-actions' }, partager, story, boutonBillet(r, url), boutonDefi(r)));
 
   const posts = r.problemes || [];
   $('#titre-profil-posts').textContent = r.camp === 'riche' ? 'Ses publications' : (moi ? 'Mes problèmes' : 'Ses problèmes');

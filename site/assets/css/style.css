@@ -1134,6 +1134,9 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .profil-stats li { padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .05); display: grid; gap: 2px; min-width: 0; }
 .profil-stats strong { font-family: var(--f-titre); font-style: italic; font-weight: 900; font-size: 24px; color: var(--citron); overflow-wrap: anywhere; }
 .profil-stats small { color: var(--gris); }
+/* R-045: banknote preview */
+.billet-zone { display: flex; justify-content: center; }
+.billet-apercu { width: 100%; max-width: 480px; height: auto; border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
 /* R-043: preview of the gazette (moderation) */
 .gazette-apercu { margin-top: 12px; padding: 16px; border-radius: 14px; background: #0B0B0B; border: 1px solid #2A2A2A; overflow-wrap: anywhere; }
 .gazette-apercu h3 { margin: 14px 0 6px; font-size: 16px; }
