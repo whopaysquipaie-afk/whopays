@@ -2,11 +2,13 @@
 // Generates the SVG assets of the brand (icons, decorations, PNG masters, social images).
 // The logo itself (logo.svg, logo-clair.svg) is a delivered source file, embedded as-is.
 // Usage: node tools/images.mjs
-// Outputs: site/assets/img/*.svg, site/assets/img/src/*.svg (PNG masters), docs/social-preview.svg
+// Outputs: site/assets/img/*.svg, site/assets/img/src/*.svg (PNG masters, incl. the 10 share images partage-<categorie>.svg
+// of R-042, rendered to site/assets/img/partage/<categorie>.png), docs/social-preview.svg
 
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CATEGORIES } from '../site/assets/js/categories.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const IMG = join(ROOT, 'site/assets/img');
@@ -185,6 +187,36 @@ function socialPreview() {
 </svg>`;
 }
 
+/** R-042: share image of a category (1200 × 630): logo, category, slogan, a card with the title's place. */
+function imagePartage(cat) {
+  const w = 1200, hgt = 630;
+  const L = logoGroup(70, 64, 360);
+  const pill = Math.round(cat.label.length * 17 + 56);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${hgt}" width="${w}" height="${hgt}">
+  <rect width="${w}" height="${hgt}" fill="${C.noir}"/>
+  <circle cx="1090" cy="110" r="250" fill="${C.citron}" opacity=".07"/>
+  <circle cx="160" cy="600" r="220" fill="${C.lavande}" opacity=".06"/>
+  ${L.g}
+  <rect x="70" y="232" width="${pill}" height="58" rx="29" fill="${C.lavande}"/>
+  <text x="98" y="271" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="30" font-weight="600" fill="${C.lavandeTexte}">${cat.label}</text>
+  ${textBlock(['Un problème de pauvre'], { x: 70, y: 380, size: 54 })}
+  ${textBlock([{ text: 'cherche son milliardaire.', color: C.citron }], { x: 70, y: 444, size: 54 })}
+  <rect x="70" y="530" width="640" height="44" rx="22" fill="${C.anthracite}" stroke="#2A2A2A"/>
+  <text x="96" y="559" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="20" font-weight="600" fill="${C.gris}">Projet humoristique — aucun argent ne circule entre membres.</text>
+  <g transform="translate(800 250) rotate(-5)">
+    <rect width="320" height="270" rx="22" fill="${C.creme}" stroke="${C.citron}" stroke-width="6"/>
+    <rect x="24" y="24" width="60" height="60" rx="14" fill="${C.anthracite}"/>
+    ${questionMark(39, 30, C.citron, 0.22)}
+    <rect x="100" y="38" width="150" height="28" rx="14" fill="${C.lavande}"/>
+    <rect x="24" y="108" width="270" height="22" rx="11" fill="#141414"/>
+    <rect x="24" y="140" width="200" height="22" rx="11" fill="#141414"/>
+    <rect x="24" y="180" width="250" height="12" rx="6" fill="#B9B9B2"/>
+    <rect x="24" y="200" width="210" height="12" rx="6" fill="#B9B9B2"/>
+    <text x="24" y="246" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600" fill="#55554F">Milliardaires intéressés : 0</text>
+  </g>
+</svg>`;
+}
+
 function splash() {
   const L = logoGroup(56, 0, 400);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
@@ -222,5 +254,7 @@ out(join(SRC, 'icone-192.svg'), iconQ({ size: 192, safe: true }));
 out(join(SRC, 'icone-512.svg'), iconQ({ size: 512, safe: true }));
 out(join(SRC, 'og-image-1200x630.svg'), ogImage());
 out(join(SRC, 'splash-512.svg'), splash());
+// R-042: share images per category (PNG rendered from these masters: site/assets/img/partage/<id>.png)
+for (const cat of CATEGORIES) out(join(SRC, `partage-${cat.id}.svg`), imagePartage(cat));
 out(join(ROOT, 'docs/social-preview.svg'), socialPreview());
 console.log('Done.');

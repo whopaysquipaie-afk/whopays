@@ -177,6 +177,20 @@ Sans la fonction déployée, le bouton affiche « Envoi impossible : la fonction
 
 ---
 
+### 4.3 Aperçus de partage propres à chaque problème : fonction Edge `partage` (R-042)
+
+Sans elle, un lien de problème partagé montre l'image générique du site. Avec elle, WhatsApp, X, Facebook, LinkedIn… affichent **le titre du problème**, « 5x Rien recherchés — soit 5 000 € · Qui paie ? » et **l'image de sa catégorie** (`site/assets/img/partage/<categorie>.png`, 1200 × 630, générées depuis `tools/images.mjs`).
+
+Fonctionnement : `GET https://<projet>.supabase.co/functions/v1/partage?id=<problème>[&ref=<code>]` lit le problème avec la fonction **publique** `get_probleme_public` (clé publique : les mêmes données que le site) ; les robots d'aperçu (facebookexternalhit, Twitterbot, WhatsApp, LinkedInBot, Slackbot, Discordbot, TelegramBot…) reçoivent une petite page HTML avec les balises `og:*` / `twitter:*` ; **les humains sont redirigés tout de suite** (HTTP 302) vers `p.html?id=…`. Problème inconnu, masqué ou pas encore publié → redirection vers l'accueil.
+
+1. Déployer **sans vérification de JWT** (les robots n'ont pas de jeton) :
+   `supabase functions deploy partage --no-verify-jwt`
+2. Secret : `SITE_URL` (déjà posé pour `annoncer-riche`, avec la barre finale). `SUPABASE_URL` et `SUPABASE_ANON_KEY` sont fournis par Supabase.
+3. Tester : `curl -A "facebookexternalhit/1.1" "https://<projet>.supabase.co/functions/v1/partage?id=<id d'un problème publié>"` → page avec `og:title` ; sans `-A` → `302` vers `p.html?id=…`. Vérifier aussi avec le débogueur de partage de Facebook.
+4. **Seulement ensuite**, renseigner `CONFIG.URL_PARTAGE = 'https://<projet>.supabase.co/functions/v1/partage'` dans `site/assets/js/config.js`, committer et pousser : tous les boutons de partage d'un problème (page problème, « C'est en ligne ! », Mon espace) utiliseront ce lien. Vide = comportement d'avant (lien `p.html?id=…`).
+
+> Attention : sur le domaine par défaut `*.supabase.co`, Supabase peut servir les réponses HTML des fonctions Edge en `text/plain`. Les humains ne sont pas concernés (redirection 302), mais certains robots d'aperçu exigent `text/html` : si l'aperçu reste générique après le test du point 3, il faut un **domaine personnalisé** pour les fonctions (offre payante) ou héberger cette redirection ailleurs (ex. Cloudflare Worker, même code). Dans le doute, laisser `URL_PARTAGE` vide : le site fonctionne comme avant.
+
 ## 5. Brancher le site
 
 Dans `site/assets/js/config.js` :

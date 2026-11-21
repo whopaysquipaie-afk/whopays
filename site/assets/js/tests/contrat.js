@@ -9,6 +9,8 @@ import { isSafeUrl, checkAttribute } from '../dom-safe.js';
 import { EXEMPLES, PROBLEMES, POSTS_RICHES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES, MEMBRES } from '../demo-data.js';
 import { CATEGORY_IDS } from '../categories.js';
 import { enRiens, phraseRiens, montantAffiche, enEuros } from '../riens.js';
+import { urlProbleme } from '../liens.js';
+import { CONFIG, siteUrl } from '../config.js';
 import { badgesConnus, libelleBadges } from '../badges.js';
 import { deMois } from '../themes.js';
 import { themeDuJour, texteTheme, texteProbleme } from '../themes.js';
@@ -1467,6 +1469,41 @@ test('T. Le duel', 'un visiteur joue : deux problèmes de pauvres différents, v
   eq(top[0].carte.id, a.id); eq(top[0].victoires, 4);
   assertNoEmail(top, 'plus drôles');
   eq((await api.getProblemeDuMoment()).id, a.id, '2 points par victoire');
+});
+
+/* ---------------- U. Aperçus de partage (R-042) ---------------- */
+
+test('U. Aperçus de partage', 'URL_PARTAGE renseignée → lien de la fonction Edge ; vide ou invalide → p.html?id=… (comportement d’avant)', () => {
+  const id = '11111111-2222-4333-8444-555555555555';
+  eq(urlProbleme(id, null, { urlPartage: '' }), siteUrl(`p.html?id=${id}`));
+  eq(urlProbleme(id, 'ABCDEFGH', { urlPartage: '' }), siteUrl(`p.html?id=${id}&ref=ABCDEFGH`));
+  eq(urlProbleme(id, 'ABCDEFGH', { urlPartage: 'https://projet.supabase.co/functions/v1/partage' }), `https://projet.supabase.co/functions/v1/partage?id=${id}&ref=ABCDEFGH`);
+  eq(urlProbleme(id, null, { urlPartage: 'javascript:alert(1)' }), siteUrl(`p.html?id=${id}`), 'jamais autre chose que https');
+  eq(CONFIG.URL_PARTAGE, '', 'vide par défaut');
+});
+
+test('U. Aperçus de partage', 'fonction Edge « partage » : og:title = titre, og:description en Riens, image de la catégorie, tout échappé', async () => {
+  if (typeof process === 'undefined') return;  // browser: the Edge Function is not served
+  const m = await import('../../../../supabase/functions/partage/index.ts').catch(() => null);
+  if (!m) return;
+  const site = 'https://exemple.test/whopays/';
+  const html = m.pageApercu({ id: 'x', type: 'pauvre', categorie: 'patron', titre: 'Mon patron <script>alert(1)</script> & moi', montant: 5000 }, { site, cible: `${site}p.html?id=x` });
+  assert(html.includes('<meta property="og:title" content="Mon patron &lt;script&gt;alert(1)&lt;/script&gt; &amp; moi">'), 'titre échappé');
+  assert(html.includes('content="5x Rien recherchés — soit 5 000 € · Qui paie ?"'), 'description');
+  assert(html.includes(`content="${site}assets/img/partage/patron.png"`), 'image de la catégorie');
+  assert(html.includes('<meta name="twitter:card" content="summary_large_image">'));
+  assert(!/<script/i.test(html), 'aucun script');
+  const pub = m.pageApercu({ id: 'y', type: 'publication', categorie: null, titre: null, texte: 'Une publication de riche', montant: null }, { site, cible: site });
+  assert(pub.includes(`${site}assets/img/og-image.png`) && pub.includes('og:title" content="Une publication de riche"'), 'publication');
+});
+
+test('U. Aperçus de partage', 'les 10 images de partage existent (une par catégorie)', async () => {
+  const fs = await import('node:fs').catch(() => null);
+  if (!fs) return;
+  for (const c of CATEGORY_IDS) {
+    const b = fs.readFileSync(new URL(`../../img/partage/${c}.png`, import.meta.url));
+    eq(b.readUInt32BE(16), 1200, `${c} largeur`); eq(b.readUInt32BE(20), 630, `${c} hauteur`);
+  }
 });
 
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {

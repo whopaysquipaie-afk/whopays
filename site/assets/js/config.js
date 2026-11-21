@@ -12,6 +12,9 @@ export const CONFIG = {
   TURNSTILE_SITE_KEY: '',
   // Support address (R-029: "Contacter le support" to become rich)
   SUPPORT_EMAIL: 'whopays.quipaie@gmail.com',
+  // R-042: address of the Edge Function « partage » (link previews of a problem), e.g.
+  // 'https://<projet>.supabase.co/functions/v1/partage'. Empty = share the plain p.html?id=… link.
+  URL_PARTAGE: '',
   // Cloudflare Web Analytics token (cookieless). Empty = no analytics.
   CF_ANALYTICS_TOKEN: ''
 };

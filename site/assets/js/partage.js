@@ -1,15 +1,13 @@
 // Sharing: WhatsApp, X, Facebook, LinkedIn, copy link, native share.
 // Text format (brief dev §6.H): « {titre} » — Qui paie ? {url}, with ?ref= of the member when signed in.
 
-import { siteUrl } from './config.js';
 import { h, toast, copyText } from './ui.js';
 import { icon } from './icons.js';
 // texteProbleme lives in themes.js (pure, unit-tested in Node); re-exported here for the pages
 export { texteProbleme } from './themes.js';
 
-export function urlProbleme(id, codeRef = null) {
-  return siteUrl(`p.html?id=${encodeURIComponent(id)}${codeRef ? `&ref=${encodeURIComponent(codeRef)}` : ''}`);
-}
+// R-042: the link may go through the Edge Function « partage » (CONFIG.URL_PARTAGE); pure helper in liens.js
+export { urlProbleme } from './liens.js';
 
 
 
