@@ -1134,6 +1134,25 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .profil-stats li { padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .05); display: grid; gap: 2px; min-width: 0; }
 .profil-stats strong { font-family: var(--f-titre); font-style: italic; font-weight: 900; font-size: 24px; color: var(--citron); overflow-wrap: anywhere; }
 .profil-stats small { color: var(--gris); }
+/* R-046: the curve of the Riens (single series: lemon on the dark surface; text in text tokens) */
+.courbe { margin: 0; }
+.courbe-zone { position: relative; }
+.courbe-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.courbe-grille { stroke: #2A2A2A; stroke-width: 1; }
+.courbe-base { stroke: var(--gris); stroke-width: 1; }
+.courbe-mark { fill: var(--citron); }
+.courbe-cible { fill: transparent; }
+.courbe-barre { cursor: default; outline: none; }
+.courbe-barre:hover .courbe-mark, .courbe-barre:focus .courbe-mark { fill: #E4FF7A; }
+.courbe-barre:focus-visible .courbe-cible { stroke: var(--citron); stroke-width: 2; }
+.courbe-axe { display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px; color: var(--gris); }
+.courbe-record { margin: 0 0 6px; font-size: 13px; color: var(--gris); }
+.courbe-bulle { position: absolute; top: -8px; transform: translate(-50%, -100%); padding: 6px 10px; border-radius: 8px; background: #FFFFFF; color: var(--noir); font-size: 13px; font-weight: 600; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 20px rgba(0, 0, 0, .4); }
+@media (max-width: 599px) { .courbe-bulle { left: 0 !important; right: 0; transform: translateY(-100%); white-space: normal; text-align: center; } }
+.courbe-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+.courbe-table th, .courbe-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #2A2A2A; }
+.stats-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.nombre-texte { font-size: clamp(22px, 6vw, 30px); overflow-wrap: anywhere; }
 /* R-045: banknote preview */
 .billet-zone { display: flex; justify-content: center; }
 .billet-apercu { width: 100%; max-width: 480px; height: auto; border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }

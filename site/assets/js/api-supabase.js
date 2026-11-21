@@ -47,6 +47,7 @@ export function createSupabaseApi() {
     /* ================= Public reads ================= */
     getCompteurs: () => rpc('get_compteurs'),
     getChiffres: () => rpc('get_chiffres'),
+    getChiffresPlus: () => rpc('get_chiffres_plus'),  // R-046 (023)
     getProblemesPublics: ({ categorie = null, limite = 12, avant = null, type = null } = {}) =>
       rpc('get_problemes_publics', { p_categorie: categorie || null, p_limite: limite, p_avant: avant, ...(type ? { p_type: type } : {}) }).then((d) => d || []),
     getProblemePublic: (id) => rpc('get_probleme_public', { p_id: id }),

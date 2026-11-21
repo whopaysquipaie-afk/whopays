@@ -1581,6 +1581,24 @@ test('X. Billet de 1x Rien', 'billet 1600 × 800 avec pseudo et rang, toujours m
   assert(p.includes("await import('../billet.js')") && !/^import .*billet\.js/m.test(p), 'import dynamique');
 });
 
+/* ---------------- Y. Les chiffres enrichis (R-046) ---------------- */
+
+test('Y. Les chiffres enrichis', '30 jours de Riens publiés, catégorie la plus pauvre de la semaine, heure de pointe (Paris), agrégats seulement', async () => {
+  const { api, join, clock } = fresh();
+  clock.now = Date.parse('2026-11-21T17:30:00Z');  // 18 h 30 in Paris
+  await join('pauvre', 'Statisticien Fauché');
+  await api.soumettreProbleme({ categorie: 'patron', titre: 'Mon patron compte mes pauses', texte: 'Il a un chronomètre. Et un tableur.', montant: 9000 });
+  const r = await api.getChiffresPlus();
+  eq(r.par_jour.length, 30); eq(r.par_heure.length, 24);
+  eq(r.par_jour[29].jour, '2026-11-21');
+  assert(r.par_jour[29].total >= 9000 && r.par_jour[29].nb >= 1, 'aujourd’hui');
+  assert(r.par_heure[18] >= 1, '18 h à Paris');
+  assert(r.categorie_semaine && CATEGORY_IDS.includes(r.categorie_semaine.categorie), 'catégorie de la semaine');
+  assert(r.heure_pointe && r.heure_pointe.heure >= 0 && r.heure_pointe.heure <= 23, 'heure de pointe');
+  assertNoEmail(r, 'chiffres enrichis');
+  assert(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(JSON.stringify(r)), 'aucun identifiant');
+});
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {

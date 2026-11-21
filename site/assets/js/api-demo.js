@@ -474,6 +474,25 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       };
     },
 
+    /** R-046 (= get_chiffres_plus, 023): aggregates only. */
+    async getChiffresPlus() {
+      const st = load();
+      const pub = st.problems.filter((p) => visibleProblem(p) && typeDe(p) === 'pauvre' && !p.est_exemple);
+      const jourDe = (ms) => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date(ms));
+      const heureDe = (ms) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hourCycle: 'h23' }).format(new Date(ms)));
+      const par_jour = Array.from({ length: 30 }, (_, i) => jourDe(t() - (29 - i) * DAY)).map((jour) => {
+        const l = pub.filter((p) => jourDe(Date.parse(sortDate(p))) === jour);
+        return { jour, total: l.reduce((s, p) => s + (p.montant || 0), 0), nb: l.length };
+      });
+      const semaine = pub.filter((p) => Date.parse(sortDate(p)) > t() - 7 * DAY);
+      const cats = CATEGORY_IDS.map((categorie) => { const l = semaine.filter((p) => p.categorie === categorie); return { categorie, total: l.reduce((s, p) => s + (p.montant || 0), 0), nb: l.length }; })
+        .filter((c) => c.nb).sort((a, b) => b.total - a.total || b.nb - a.nb || a.categorie.localeCompare(b.categorie));
+      const mois = pub.filter((p) => Date.parse(sortDate(p)) > t() - 30 * DAY);
+      const par_heure = Array.from({ length: 24 }, (_, hh) => mois.filter((p) => heureDe(Date.parse(sortDate(p))) === hh).length);
+      const top = Math.max(...par_heure);
+      return { par_jour, categorie_semaine: cats[0] || null, heure_pointe: top ? { heure: par_heure.indexOf(top), nb: top } : null, par_heure };
+    },
+
     async getProblemesPublics({ categorie = null, limite = 12, avant = null, type = null } = {}) {
       if (categorie !== null && categorie !== undefined && categorie !== '' && !CATEGORY_IDS.includes(categorie)) throw ERR.invalide('Catégorie inconnue.');
       if (type !== null && type !== undefined && type !== '' && !TYPES.includes(type)) throw ERR.invalide('Type de publication inconnu.');

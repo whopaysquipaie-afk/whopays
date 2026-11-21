@@ -7,7 +7,7 @@ import { category } from '../categories.js';
 import { countUp, countUpWhenVisible } from '../animations.js';
 import { siteUrl } from '../config.js';
 import { partageNatif, copierLien } from '../partage.js';
-import { enRiens } from '../riens.js';
+import { enRiens, montantAffiche } from '../riens.js';
 
 await initPage('chiffres');
 
@@ -66,3 +66,29 @@ $('#partager-chiffres').addEventListener('click', async () => {
 });
 
 charger();
+
+/* ---------- R-046: the curve of the Riens, the poorest category of the week, the rush hour (hidden without 023) ---------- */
+const PHRASES_HEURE = (hh) => (hh < 6 ? 'les insomniaques ont des problèmes' : hh < 12 ? 'les problèmes se lèvent tôt' : hh < 14 ? 'les problèmes de la pause déj' : hh < 19 ? 'les problèmes du bureau' : 'les problèmes du soir, les plus sincères');
+async function chargerPlus() {
+  let r;
+  try { r = await api.getChiffresPlus(); } catch { return; }
+  if (!r || !Array.isArray(r.par_jour) || !r.par_jour.length) return;
+  const { courbeRiens } = await import('../courbe.js');
+  $('#courbe-riens').replaceChildren(courbeRiens(r.par_jour));
+  const tuiles = [];
+  if (r.categorie_semaine) {
+    const cat = category(r.categorie_semaine.categorie);
+    const m = montantAffiche(r.categorie_semaine.total, { zero: true });
+    tuiles.push(h('div', { class: 'stat' }, h('div', { class: 'libelle' }, 'Catégorie la plus pauvre de la semaine'),
+      h('div', { class: 'nombre nombre-texte' }, cat ? cat.label : r.categorie_semaine.categorie),
+      h('div', { class: 'libelle' }, `${m.principal} (${m.euros}) · ${formatNumber(r.categorie_semaine.nb)} problème${r.categorie_semaine.nb > 1 ? 's' : ''}`)));
+  }
+  if (r.heure_pointe) {
+    tuiles.push(h('div', { class: 'stat' }, h('div', { class: 'libelle' }, 'Heure de pointe des problèmes'),
+      h('div', { class: 'nombre' }, `${r.heure_pointe.heure} h`),
+      h('div', { class: 'libelle' }, `${PHRASES_HEURE(r.heure_pointe.heure)} (30 derniers jours)`)));
+  }
+  $('#tuiles-semaine').replaceChildren(...tuiles);
+  $('#chiffres-plus').hidden = false;
+}
+chargerPlus();

@@ -2351,6 +2351,25 @@ begin
         '022 : défier réservé aux membres ; table defis en RLS forcée');
     end;
 
+    -- =================================================================
+    -- 023. « Les chiffres » enriched (R-046)
+    -- =================================================================
+    begin
+      perform pg_temp.wp_jouer('anon');
+      v_j := public.get_chiffres_plus();
+      v_res := v_res || pg_temp.wp_ligne(jsonb_array_length(v_j -> 'par_jour') = 30
+          and jsonb_array_length(v_j -> 'par_heure') = 24
+          and (v_j -> 'par_jour' -> 29 ->> 'jour')::date = (now() at time zone 'Europe/Paris')::date
+          and (v_j -> 'par_jour' -> 29 ->> 'total')::bigint > 0
+          and v_j -> 'categorie_semaine' ? 'categorie' and (v_j -> 'heure_pointe' ->> 'heure')::int between 0 and 23
+          and v_j::text !~ '@' and v_j::text !~ '[0-9a-f]{8}-[0-9a-f]{4}-',
+        '023 : chiffres enrichis publics (30 jours, catégorie de la semaine, heure de pointe), agrégats seulement', left(v_j::text, 250));
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne((select p.prosecdef and p.provolatile = 's' and coalesce(p.proconfig, '{}') @> array['search_path=""']
+                                          from pg_proc p where p.oid = 'public.get_chiffres_plus()'::regprocedure),
+        '023 : get_chiffres_plus SECURITY DEFINER, lecture seule, search_path vide');
+    end;
+
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';
   exception
