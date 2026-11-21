@@ -28,6 +28,10 @@ const STATUTS = {
 export async function monterEspace(zone) {
   let e;
   try {
+    // R-050: a visitor without a profile gets the invitation at once (in Supabase mode anon has no
+    // EXECUTE on get_mon_espace: the call answered « Action non autorisée. » instead)
+    const s = await api.getSession().catch(() => null);
+    if (!s || !s.profil) { invitation(zone); return; }
     e = await api.getMonEspace();
   } catch (err) {
     if (err.code === 'non_connecte' || err.code === 'profil_absent') { invitation(zone); return; }
