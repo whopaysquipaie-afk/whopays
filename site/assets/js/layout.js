@@ -8,6 +8,7 @@ import { CAMPS } from './categories.js';
 const NAV = [
   { id: 'problemes', label: 'Les problèmes', href: 'index.html#mur' },
   { id: 'palmares', label: 'Le palmarès', href: 'palmares.html' },
+  { id: 'duel', label: 'Le duel', href: 'duel.html' },
   { id: 'chiffres', label: 'Les chiffres', href: 'chiffres.html' },
   { id: 'club', label: 'Mon club', href: 'club.html', membersOnly: true }
 ];

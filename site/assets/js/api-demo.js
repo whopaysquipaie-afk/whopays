@@ -122,7 +122,7 @@ function buildSeed(now) {
     reglages: { publication_auto: true },
     moderateurs: [],
     annonces: [], annonce_envois: [],
-    couronnes: [], notifications: [], suivis: []
+    couronnes: [], notifications: [], suivis: [], duels: []
   };
   const codes = new Set();
   // Members, registered over the last 30 days
@@ -240,6 +240,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
           if (!st.couronnes) st.couronnes = [];
           if (!st.notifications) st.notifications = [];
           if (!st.suivis) st.suivis = [];
+          if (!st.duels) st.duels = [];
           if (st.profiles.some((p) => !p.jeton_desinscription)) {
             for (const p of st.profiles) if (!p.jeton_desinscription) p.jeton_desinscription = uuid(Math.random);
             save(st);
@@ -485,7 +486,8 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       if (!cands.length) return null;
       // R-037: a crown of the last 7 days weighs 10 reactions
       const score = (p) => st.reactions.filter((r) => r.problem_id === p.id && Date.parse(r.cree_le) > depuis).length
-        + 10 * couronnesVisibles(st, p.id).filter((c) => Date.parse(c.cree_le) > depuis).length;
+        + 10 * couronnesVisibles(st, p.id).filter((c) => Date.parse(c.cree_le) > depuis).length
+        + 2 * (st.duels || []).filter((d) => d.gagnant_id === p.id && Date.parse(d.cree_le) > depuis).length;  // R-041
       const best = cands.map((p) => ({ p, s: score(p) }))
         .sort((a, b) => b.s - a.s || sortDate(b.p).localeCompare(sortDate(a.p)) || b.p.id.localeCompare(a.p.id))[0].p;
       return problemRow(st, best);
@@ -586,6 +588,42 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         Object.assign(r, { rang_mois: { rang: lm ? lm.rang : null, sur: m.length }, rang_general: { rang: lg ? lg.rang : null, sur: g.length }, total: lg ? lg.total : 0, nb: lg ? lg.nb : 0 });
       }
       return r;
+    },
+
+    /* ===== The duel (= 020_duel.sql, R-041) ===== */
+    async getDuel(sauf = []) {
+      const st = load();
+      const ok = (p) => visibleProblem(p) && typeDe(p) === 'pauvre' && !p.est_exemple && p.user_id && st.profiles.some((x) => x.id === p.user_id && !x.bloque);
+      const exclus = new Set((Array.isArray(sauf) ? sauf : []).slice(0, 20));
+      let cands = st.problems.filter((p) => ok(p) && !exclus.has(p.id));
+      if (cands.length < 2) cands = st.problems.filter(ok);
+      if (cands.length < 2) return [];
+      const i = Math.floor(rand() * cands.length);
+      let j = Math.floor(rand() * (cands.length - 1));
+      if (j >= i) j++;
+      return [problemRow(st, cands[i]), problemRow(st, cands[j])];
+    },
+
+    async voterDuel(gagnant, perdant) {
+      return tx((st) => {
+        const ok = (id) => { const p = isUuid(id) && st.problems.find((x) => x.id === id); return !!p && visibleProblem(p) && typeDe(p) === 'pauvre' && !p.est_exemple && st.profiles.some((x) => x.id === p.user_id && !x.bloque); };
+        if (!gagnant || gagnant === perdant || !ok(gagnant) || !ok(perdant)) throw ERR.invalide('Ce duel n’existe plus. On t’en sert un autre.');
+        const moi = me(st);
+        if (moi && moi.bloque) throw ERR.bloque();
+        st.duels.push({ gagnant_id: gagnant, perdant_id: perdant, cree_le: iso(t()) });
+        return { ok: true, victoires_7j: st.duels.filter((d) => d.gagnant_id === gagnant && Date.parse(d.cree_le) > t() - 7 * DAY).length };
+      });
+    },
+
+    async getPlusDrolesSemaine(limite = 5) {
+      const st = load();
+      const lim = Math.max(1, Math.min(20, Number.isInteger(limite) ? limite : 5));
+      const nb = new Map();
+      for (const d of st.duels || []) if (Date.parse(d.cree_le) > t() - 7 * DAY) nb.set(d.gagnant_id, (nb.get(d.gagnant_id) || 0) + 1);
+      return [...nb.entries()].map(([id, n]) => ({ p: st.problems.find((x) => x.id === id), n }))
+        .filter(({ p }) => p && visibleProblem(p) && typeDe(p) === 'pauvre' && st.profiles.some((x) => x.id === p.user_id && !x.bloque))
+        .sort((a, b) => b.n - a.n || a.p.id.localeCompare(b.p.id)).slice(0, lim)
+        .map(({ p, n }) => ({ carte: problemRow(st, p), victoires: n }));
     },
 
     /* ===== Follow a profile (= 019, R-047) ===== */
@@ -944,6 +982,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         st.couronnes = (st.couronnes || []).filter((c) => c.riche_id !== id && !myProblems.has(c.problem_id));
         st.notifications = (st.notifications || []).filter((n) => n.user_id !== id);
         st.suivis = (st.suivis || []).filter((s) => s.suiveur_id !== id && s.suivi_id !== id);
+        st.duels = (st.duels || []).filter((d) => !myProblems.has(d.gagnant_id) && !myProblems.has(d.perdant_id));
         st.problems = st.problems.filter((p) => p.user_id !== id);
         st.verifications = st.verifications.filter((v) => v.user_id !== id);
         st.moderateurs = (st.moderateurs || []).filter((m) => m !== id);

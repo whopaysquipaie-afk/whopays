@@ -3,7 +3,7 @@
 
 const VERSION = 'whopays-__BUILD__';
 const STATIC = [
-  './', 'index.html', 'p.html', 'chiffres.html', 'palmares.html', 'club.html', 'espace.html', 'aide.html', 'desinscription.html', 'profil.html', '404.html',
+  './', 'index.html', 'p.html', 'chiffres.html', 'palmares.html', 'club.html', 'espace.html', 'aide.html', 'desinscription.html', 'profil.html', 'duel.html', '404.html',
   'manifest.webmanifest',
   'assets/css/style.css',
   'assets/js/config.js', 'assets/js/api.js', 'assets/js/api-demo.js', 'assets/js/demo-data.js', 'assets/js/demo-ui.js', 'assets/js/mots-sensibles.js', 'assets/js/api-supabase.js',
@@ -13,7 +13,7 @@ const STATIC = [
   'assets/js/partage.js', 'assets/js/reactions.js', 'assets/js/commentaires.js', 'assets/js/signalement.js', 'assets/js/story.js',
   'assets/js/club.js', 'assets/js/espace.js', 'assets/js/palmares.js', 'assets/js/riche-attente.js', 'assets/js/annonces.js', 'assets/js/auth-textes.js', 'assets/js/piege.js', 'assets/js/themes.js', 'assets/js/notifications.js', 'assets/js/couronne.js', 'assets/js/badges.js', 'assets/js/suivi.js',
   'assets/js/pages/accueil.js', 'assets/js/pages/probleme.js', 'assets/js/pages/chiffres.js', 'assets/js/pages/palmares.js', 'assets/js/pages/club.js',
-  'assets/js/pages/espace.js', 'assets/js/pages/aide.js', 'assets/js/pages/desinscription.js', 'assets/js/pages/profil.js',
+  'assets/js/pages/espace.js', 'assets/js/pages/aide.js', 'assets/js/pages/desinscription.js', 'assets/js/pages/profil.js', 'assets/js/pages/duel.js',
   'assets/img/logo.svg', 'assets/img/favicon.svg', 'assets/img/couronne.svg', 'assets/img/couronne-noire.svg',
   'assets/img/tirelire.svg', 'assets/img/tirelire-violette.svg', 'assets/img/pinceau.svg', 'assets/img/mascotte.svg',
   'assets/img/question.svg', 'assets/img/icone-192.png', 'assets/img/icone-512.png',

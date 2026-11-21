@@ -60,6 +60,10 @@ export function createSupabaseApi() {
     getProblemeDuMoment: () => rpc('get_probleme_du_moment').then((d) => d || null),
     // R-037 (015). Pages hide the feature when the function is missing (code « configuration »).
     getRicheDeLaSemaine: () => rpc('get_riche_de_la_semaine').then((d) => d || null),
+    // R-041 (020): the duel, visitors included
+    getDuel: (sauf = []) => rpc('get_duel', { p_sauf: sauf.length ? sauf : null }).then((d) => d || []),
+    voterDuel: (gagnant, perdant) => rpc('voter_duel', { p_gagnant: gagnant, p_perdant: perdant }),
+    getPlusDrolesSemaine: (limite = 5) => rpc('get_plus_droles_semaine', { p_limite: limite }).then((d) => d || []),
     getBadges: (code) => rpc('get_badges', { p_code: code }).then((d) => d || null),
     getProfilPublic: (code) => rpc('get_profil_public', { p_code: code }).then((d) => d || null),
     seDesinscrire: (jeton) => (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(jeton || ''))

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com https://cloudflareinsights.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <title>Le duel : lequel est le plus drôle ? — Qui paie ?</title>
+  <meta name="description" content="Deux problèmes de pauvres, un seul gagnant : touche le plus drôle. Sans compte, sans fin, sans argent.">
+  <meta name="theme-color" content="#0B0B0B">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:site_name" content="Qui paie ?">
+  <meta property="og:title" content="Le duel : lequel est le plus drôle ? — Qui paie ?">
+  <meta property="og:description" content="Deux problèmes de pauvres, un seul gagnant. Toi, tu votes pour lequel ?">
+  <meta property="og:image" content="https://whopaysquipaie-afk.github.io/whopays/assets/img/og-image.png">
+  <meta property="og:url" content="https://whopaysquipaie-afk.github.io/whopays/duel.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Qui paie ?">
+  <link rel="preload" href="assets/fonts/Montserrat-BlackItalic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script type="module" src="assets/js/pages/duel.js"></script>
+</head>
+<body>
+  <main id="contenu" aria-busy="true">
+    <section class="section" aria-labelledby="titre-duel">
+      <div class="container">
+        <h1 class="section-titre" id="titre-duel">Lequel est le plus drôle ?</h1>
+        <p class="gris mt-8">Deux problèmes de pauvres. Touche le plus drôle. Le duel suivant arrive tout seul, sans fin.</p>
+        <p class="duel-compteur mt-8" id="duel-compteur" aria-live="polite"></p>
+        <div class="duel-arene" id="duel-arene" aria-live="polite"></div>
+        <div class="hero-actions">
+          <button type="button" class="btn btn-fantome" id="duel-passer">Aucun des deux, suivant</button>
+          <button type="button" class="btn btn-secondaire" id="duel-partager"><i data-icon="share"></i> Partager ce duel</button>
+        </div>
+      </div>
+    </section>
+    <section class="section" aria-labelledby="titre-plus-droles" id="plus-droles-zone" hidden>
+      <div class="container container-etroit">
+        <h2 class="section-titre" id="titre-plus-droles">Les plus drôles de la semaine</h2>
+        <ol class="plus-droles" id="plus-droles"></ol>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

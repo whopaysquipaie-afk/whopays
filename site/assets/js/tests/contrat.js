@@ -1446,6 +1446,29 @@ test('S. Suivre un profil', 'suivre par code : visiteur refusé, soi-même refus
   eq((await api.getFilSuivis()).length, 0);
 });
 
+/* ---------------- T. Le duel (R-041) ---------------- */
+
+test('T. Le duel', 'un visiteur joue : deux problèmes de pauvres différents, vote, « les plus drôles de la semaine », problème du moment', async () => {
+  const { api, join, advance } = fresh();
+  await api.getCompteurs();
+  advance(10 * DAY);  // seeded reactions and crowns out of the 7-day window
+  await join('pauvre', 'Champion du Rire');
+  const a = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon chat commande des croquettes', texte: 'Il a trouvé ma carte. Il a bon goût.', montant: 50 });
+  const b = await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon chat se tait', texte: 'Et c’est tout. Vraiment tout.', montant: 40 });
+  await api.seDeconnecter();
+  const d = await api.getDuel();
+  eq(d.length, 2); assert(d[0].id !== d[1].id); assert(d.every((p) => p.type === 'pauvre'));
+  const d2 = await api.getDuel([d[0].id, d[1].id]);
+  assert(!d2.some((p) => p.id === d[0].id || p.id === d[1].id), 'évite les problèmes vus');
+  for (let i = 0; i < 3; i++) await api.voterDuel(a.id, b.id);
+  eq((await api.voterDuel(a.id, b.id)).victoires_7j, 4);
+  await rejects(api.voterDuel(a.id, a.id), 'invalide');
+  const top = await api.getPlusDrolesSemaine(5);
+  eq(top[0].carte.id, a.id); eq(top[0].victoires, 4);
+  assertNoEmail(top, 'plus drôles');
+  eq((await api.getProblemeDuMoment()).id, a.id, '2 points par victoire');
+});
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {

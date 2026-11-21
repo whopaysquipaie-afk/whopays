@@ -2179,6 +2179,65 @@ begin
       perform pg_temp.wp_jouer(null);
     end;
 
+    -- =================================================================
+    -- 020. The duel (R-041)
+    -- =================================================================
+    declare
+      v_d   uuid := gen_random_uuid();
+      v_a   uuid;
+      v_b   uuid;
+      v_pr  uuid;
+    begin
+      perform pg_temp.wp_jouer(null);
+      insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_anonymous)
+      values ('00000000-0000-0000-0000-000000000000'::uuid, v_d, 'authenticated', 'authenticated',
+              'd1-' || v_suffixe || '@exemple.invalid', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb, false);
+      perform pg_temp.wp_jouer('authenticated', v_d);
+      perform public.creer_profil('pauvre', 'Pauvre duelliste', 'd1-' || v_suffixe || '@exemple.invalid');
+      perform pg_temp.wp_jouer(null);
+      insert into public.problems (user_id, type, categorie, titre, texte, montant, statut)
+      values (v_d, 'pauvre', 'quotidien', 'Le plus drôle du monde', 'Mon chat a appris à commander des croquettes.', 50, 'publie')
+      returning id into v_a;
+      insert into public.problems (user_id, type, categorie, titre, texte, montant, statut)
+      values (v_d, 'pauvre', 'quotidien', 'Le moins drôle', 'Mon chat a appris à se taire, c''est tout.', 40, 'publie')
+      returning id into v_b;
+      select p.id into v_pr from public.problems p where p.type = 'riche' and p.statut = 'publie' limit 1;
+
+      perform pg_temp.wp_jouer('anon');
+      v_j := public.get_duel(null);
+      v_res := v_res || pg_temp.wp_ligne(jsonb_array_length(v_j) = 2 and v_j -> 0 ->> 'id' <> v_j -> 1 ->> 'id'
+          and v_j -> 0 ->> 'type' = 'pauvre' and v_j -> 1 ->> 'type' = 'pauvre' and v_j::text !~ '@',
+        '020 : un visiteur reçoit un duel de deux problèmes de pauvres différents', left(v_j::text, 200));
+      v_j := public.get_duel(array[v_a]);
+      v_res := v_res || pg_temp.wp_ligne(v_j -> 0 ->> 'id' <> v_a::text and v_j -> 1 ->> 'id' <> v_a::text,
+        '020 : le duel évite les problèmes qu''on vient de voir');
+      -- 8 wins for A (visitor, with and without an IP)
+      for v_i in 1 .. 7 loop
+        perform public.voter_duel(v_a, v_b);
+      end loop;
+      perform set_config('request.headers', '{"cf-connecting-ip": "192.0.2.44"}', true);
+      v_j := public.voter_duel(v_a, v_b);
+      perform set_config('request.headers', '', true);
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'victoires_7j')::int = 8, '020 : un visiteur vote (8 victoires)', v_j::text);
+      v_res := v_res || pg_temp.wp_attendre_erreur(format('select public.voter_duel(%L, %L)', v_a, v_a), 'invalide',
+        '020 : un problème ne se bat pas contre lui-même');
+      v_res := v_res || pg_temp.wp_attendre_erreur(format('select public.voter_duel(%L, %L)', v_a, v_pr), 'invalide',
+        '020 : un problème de riche n''entre pas dans le duel');
+      v_j := public.get_plus_droles_semaine(5);
+      v_res := v_res || pg_temp.wp_ligne(v_j -> 0 -> 'carte' ->> 'id' = v_a::text and (v_j -> 0 ->> 'victoires')::int = 8,
+        '020 : « Les plus drôles de la semaine » classés par victoires', left(v_j::text, 200));
+      v_res := v_res || pg_temp.wp_ligne(public.get_probleme_du_moment() ->> 'id' = v_a::text,
+        '020 : les victoires des 7 derniers jours comptent dans « Le problème du moment »');
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne(
+        (select count(*) from public.duels d where d.votant_empreinte ~ '^[0-9a-f]{64}$') = 1
+        and not exists (select 1 from public.duels d where d.votant_empreinte like '%192.0.2%')
+        and (select c.relforcerowsecurity from pg_class c where c.oid = 'public.duels'::regclass)
+        and not has_table_privilege('anon', 'public.duels', 'select,insert,update,delete'),
+        '020 : votant gardé en empreinte seulement (jamais l''IP), table duels en RLS forcée sans droit');
+    end;
+
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';
   exception
