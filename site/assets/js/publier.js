@@ -37,7 +37,7 @@ async function ecranEnLigne(id, titreSaisi) {
     h('div', { class: 'actions-probleme' },
       h('a', { class: 'btn btn-primaire', href: `p.html?id=${encodeURIComponent(id)}` }, p && p.type === 'publication' ? 'Voir ma publication' : 'Voir mon problème', icon('arrow-right', { className: 'fleche' })),
       p && p.type !== 'publication' ? story : null),
-    barrePartage({ texte: texteProbleme(titre, url), url, titre }));
+    barrePartage({ texte: texteProbleme(titre, url, p && p.categorie), url, titre }));
 }
 
 /** Success screen when the problem waits for a human review (sensitive words or pre-moderation). */

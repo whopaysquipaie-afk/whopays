@@ -9,6 +9,10 @@ import { initMur } from '../mur.js';
 import { afficherAnnonces } from '../annonces.js';
 import { badgeCamp, filigrane } from '../carte.js';
 import { montantAffiche } from '../riens.js';
+import { themeDuJour, texteTheme } from '../themes.js';
+import { intent } from '../layout.js';
+import { partageNatif, copierLien } from '../partage.js';
+import { siteUrl } from '../config.js';
 
 await initPage('accueil');
 
@@ -94,6 +98,32 @@ const categorieUrl = new URLSearchParams(location.search).get('categorie');
 mur = initMur({ grille: $('#grille-mur'), filtres: $('#filtres'), voirPlus: $('#voir-plus'), categorieInitiale: categorieUrl, typeInitial: new URLSearchParams(location.search).get('type') });
 document.addEventListener('wp:probleme-soumis', () => chargerCompteurs());
 document.addEventListener('wp:session-maj', () => chargerCompteurs());
+
+/* ---------- Theme of the day (R-036, Paris time, no database) ---------- */
+// Top of the page: one compact line. Above the wall: the full banner (tell, see, share).
+function bandeauTheme(complet) {
+  const t = themeDuJour();
+  const url = siteUrl(`index.html?categorie=${t.categorie}#mur`);
+  const raconter = () => intent('publier', { categorie: t.categorie });
+  if (!complet) {
+    return h('p', { class: 'theme-jour theme-jour-compact' }, icon(category(t.categorie).icon),
+      h('span', {}, 'Thème du jour : ', h('strong', {}, t.label), ' — ',
+        h('button', { type: 'button', class: 'lien', onclick: raconter }, 'raconte-nous')));
+  }
+  return h('div', { class: 'theme-jour', role: 'note' },
+    h('p', { class: 'theme-jour-texte' }, icon(category(t.categorie).icon), h('span', {}, 'Thème du jour : ', h('strong', {}, t.label), ' — raconte-nous')),
+    h('div', { class: 'theme-jour-actions' },
+      h('button', { type: 'button', class: 'btn btn-primaire btn-petit', onclick: raconter }, 'Je raconte'),
+      h('button', { type: 'button', class: 'btn btn-fantome btn-petit', onclick: () => { if (mur) mur.choisir(t.categorie); } }, 'Les voir'),
+      h('button', {
+        type: 'button', class: 'btn-icone', 'aria-label': 'Partager le thème du jour', title: 'Partager le thème du jour',
+        onclick: async () => { if (!(await partageNatif({ title: 'Qui paie ?', text: texteTheme(t, url), url }))) copierLien(url); }
+      }, icon('share'))));
+}
+for (const [id, complet] of [['theme-haut', false], ['theme-mur', true]]) {
+  const zone = document.getElementById(id);
+  if (zone) { zone.replaceChildren(bandeauTheme(complet)); zone.hidden = false; }
+}
 
 // R-031: « Un nouveau riche vient d'arriver » (72 h)
 afficherAnnonces([$('#annonces-haut'), $('#annonces-mur')]);

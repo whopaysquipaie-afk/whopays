@@ -184,7 +184,7 @@ function ligneProbleme(p, e, recharger) {
     const url = urlProbleme(p.id, e.code_partage);
     actions.append(
       h('a', { class: 'btn btn-fantome btn-petit', href: `p.html?id=${encodeURIComponent(p.id)}` }, 'Voir'),
-      h('button', { type: 'button', class: 'btn btn-primaire btn-petit', onclick: async () => { const ok = await partageNatif({ title: p.titre, text: texteProbleme(p.titre, url), url }); if (!ok) openPartage(p, url); } }, icon('share'), 'Partager'));
+      h('button', { type: 'button', class: 'btn btn-primaire btn-petit', onclick: async () => { const ok = await partageNatif({ title: p.titre, text: texteProbleme(p.titre, url, p.categorie), url }); if (!ok) openPartage(p, url); } }, icon('share'), 'Partager'));
   }
   if (p.statut === 'reoriente') actions.append(h('a', { class: 'lien petit', href: 'aide.html' }, 'Besoin d’une vraie aide ?'));
   if (p.statut === 'recu' && CONFIG.MODE === 'demo') {
@@ -202,7 +202,7 @@ function ligneProbleme(p, e, recharger) {
 
 function openPartage(p, url) {
   const ok = h('button', { type: 'button', class: 'btn btn-primaire' }, 'Fermer');
-  const { close } = openDialog({ title: 'Partager', content: [h('p', {}, p.titre), barrePartage({ texte: texteProbleme(p.titre, url), url, titre: p.titre })], footer: [ok] });
+  const { close } = openDialog({ title: 'Partager', content: [h('p', {}, p.titre), barrePartage({ texte: texteProbleme(p.titre, url, p.categorie), url, titre: p.titre })], footer: [ok] });
   ok.addEventListener('click', () => close());
 }
 

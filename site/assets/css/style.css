@@ -1090,6 +1090,20 @@ body.page-club .club-fil { padding-bottom: 24px; }
 
 /* ---------- « Un nouveau riche est arrivé » (R-031) ---------- */
 .annonces-zone { display: grid; gap: 8px; }
+/* R-036: theme of the day */
+#theme-haut { margin-top: 12px; }
+#theme-mur { margin-bottom: 16px; }
+.theme-jour { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 16px; border-radius: var(--r-carte); border: 2px dashed var(--citron); background: rgba(255, 255, 255, .04); }
+.theme-jour-texte { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 600; line-height: 1.35; min-width: 0; overflow-wrap: anywhere; }
+.theme-jour-texte svg { flex: none; width: 22px; height: 22px; color: var(--citron); }
+.theme-jour-texte strong { font-family: var(--f-titre, inherit); font-style: italic; font-weight: 900; color: var(--citron); }
+.theme-jour-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.theme-jour-compact { justify-content: flex-start; flex-wrap: nowrap; gap: 8px; margin: 0; padding: 8px 12px; font-size: 14px; font-weight: 600; line-height: 1.35; border-width: 1px; }
+.theme-jour-compact svg { flex: none; width: 18px; height: 18px; color: var(--citron); }
+.theme-jour-compact strong { color: var(--citron); }
+.theme-jour-compact .lien { font: inherit; font-weight: 800; }
+.filtre-theme { border-color: var(--citron); }
+.filtre-theme-marque { font-size: .8em; opacity: .8; }
 #annonces-haut { padding-top: 16px; }
 #annonces-mur { margin: 16px 0; }
 .annonce-riche { margin: 0; padding: 12px 16px; border-radius: var(--r-carte); background: var(--citron); color: var(--noir); font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }

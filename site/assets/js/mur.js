@@ -6,6 +6,7 @@ import { icon } from './icons.js';
 import { CATEGORIES, category, isCategory } from './categories.js';
 import { carteProbleme, carteSquelette, TYPES_POST } from './carte.js';
 import { intent } from './layout.js';
+import { themeDuJour } from './themes.js';
 
 const PAGE = 12;
 
@@ -55,6 +56,14 @@ export function initMur({ grille, filtres, voirPlus, categorieInitiale = null, t
   };
   addChip(null, 'Tout voir', null);
   for (const c of CATEGORIES) addChip(c.id, c.label, c.icon);
+  // R-036: the chip of the theme of the day
+  const theme = themeDuJour();
+  const chipTheme = chips.find((b) => b.dataset.categorie === theme.categorie);
+  if (chipTheme) {
+    chipTheme.classList.add('filtre-theme');
+    chipTheme.title = 'Thème du jour';
+    chipTheme.appendChild(h('span', { class: 'filtre-theme-marque' }, ' · thème du jour'));
+  }
 
   function majChips() {
     for (const b of chips) b.setAttribute('aria-pressed', String((b.dataset.categorie || null) === state.categorie));

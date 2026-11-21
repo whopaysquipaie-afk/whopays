@@ -78,7 +78,7 @@ function afficher(brut) {
   const partageZone = h('div', {});
   const renderPartage = () => {
     const url = urlPartage(p);
-    clear(partageZone).appendChild(barrePartage({ texte: texteProbleme(p.titre, url), url, titre: p.titre }));
+    clear(partageZone).appendChild(barrePartage({ texte: texteProbleme(p.titre, url, p.categorie), url, titre: p.titre }));
   };
   renderPartage();
   document.addEventListener('wp:session-maj', renderPartage);

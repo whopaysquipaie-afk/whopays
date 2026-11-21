@@ -4,14 +4,14 @@
 import { siteUrl } from './config.js';
 import { h, toast, copyText } from './ui.js';
 import { icon } from './icons.js';
+// texteProbleme lives in themes.js (pure, unit-tested in Node); re-exported here for the pages
+export { texteProbleme } from './themes.js';
 
 export function urlProbleme(id, codeRef = null) {
   return siteUrl(`p.html?id=${encodeURIComponent(id)}${codeRef ? `&ref=${encodeURIComponent(codeRef)}` : ''}`);
 }
 
-export function texteProbleme(titre, url) {
-  return `« ${titre} » — Qui paie ? ${url}`;
-}
+
 
 export function liensReseaux(texte, url) {
   const t = encodeURIComponent(texte);

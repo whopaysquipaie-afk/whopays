@@ -9,6 +9,7 @@ import { isSafeUrl, checkAttribute } from '../dom-safe.js';
 import { EXEMPLES, PROBLEMES, POSTS_RICHES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES, MEMBRES } from '../demo-data.js';
 import { CATEGORY_IDS } from '../categories.js';
 import { enRiens, phraseRiens, montantAffiche, enEuros } from '../riens.js';
+import { themeDuJour, texteTheme, texteProbleme } from '../themes.js';
 import { estRobot, DELAI_MIN_MS } from '../piege.js';
 
 const HOUR = 3600 * 1000;
@@ -1199,6 +1200,35 @@ test('M. Anti-robots', 'migration 014 : plafonds par IP réglables, IP jamais st
   for (const f of ['creer_profil', 'soumettre_probleme', 'publier_riche', 'commenter', 'envoyer_message_club', 'reagir']) {
     assert(new RegExp(`function public\\.${f}\\(`).test(sql), f);
   }
+});
+
+/* ---------------- N. Thèmes du jour (R-036) ---------------- */
+
+test('N. Thèmes du jour', 'un thème par jour, à l’heure de Paris (lundi « Mon patron » … dimanche « Mon défi »)', () => {
+  // 2026-11-23 is a Monday
+  const attendus = ['Mon patron', 'J\'ai des factures à payer', 'Ma vie amoureuse', 'Je veux aider ma famille', 'Je veux me faire plaisir', 'J\'ai un rêve', 'Mon défi'];
+  const jours = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  for (let i = 0; i < 7; i++) {
+    const t = themeDuJour(new Date(Date.UTC(2026, 10, 23 + i, 11, 0)));
+    eq(t.label, attendus[i], jours[i]);
+    eq(t.jour, jours[i]);
+    assert(CATEGORY_IDS.includes(t.categorie), t.categorie);
+  }
+  // Paris time, not UTC: Sunday 23:30 UTC is already Monday 00:30 in Paris (winter time)
+  eq(themeDuJour(new Date('2026-11-22T23:30:00Z')).label, 'Mon patron', 'minuit à Paris');
+  eq(themeDuJour(new Date('2026-11-22T22:30:00Z')).label, 'Mon défi', 'encore dimanche à Paris');
+  // summer time (UTC+2): Monday 22:30 UTC is Tuesday in Paris
+  eq(themeDuJour(new Date('2026-06-22T22:30:00Z')).label, 'J\'ai des factures à payer', 'heure d’été');
+});
+
+test('N. Thèmes du jour', 'texte de partage adapté : thème du jour et problème de la catégorie du jour', () => {
+  const lundi = new Date('2026-11-23T10:00:00Z');
+  const url = 'https://exemple.test/p.html?id=1';
+  eq(texteProbleme('Mon boss me juge', url, 'patron', lundi), '« Mon boss me juge » — Thème du jour : Mon patron · Qui paie ? https://exemple.test/p.html?id=1');
+  eq(texteProbleme('Mon frigo', url, 'quotidien', lundi), '« Mon frigo » — Qui paie ? https://exemple.test/p.html?id=1');
+  eq(texteProbleme('Sans catégorie', url), '« Sans catégorie » — Qui paie ? https://exemple.test/p.html?id=1');
+  const t = themeDuJour(lundi);
+  assert(texteTheme(t, url).includes('« Mon patron »') && texteTheme(t, url).endsWith(url));
 });
 
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
