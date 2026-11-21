@@ -100,7 +100,7 @@ document.addEventListener('wp:probleme-soumis', () => chargerCompteurs());
 document.addEventListener('wp:session-maj', () => chargerCompteurs());
 
 /* ---------- Theme of the day (R-036, Paris time, no database) ---------- */
-// Top of the page: one compact line. Above the wall: the full banner (tell, see, share).
+// R-048: one compact line right after the hero (never above it). Under the wall filters: the full banner (tell, see, share).
 function bandeauTheme(complet) {
   const t = themeDuJour();
   const url = siteUrl(`index.html?categorie=${t.categorie}#mur`);
@@ -120,7 +120,7 @@ function bandeauTheme(complet) {
         onclick: async () => { if (!(await partageNatif({ title: 'Qui paie ?', text: texteTheme(t, url), url }))) copierLien(url); }
       }, icon('share'))));
 }
-for (const [id, complet] of [['theme-haut', false], ['theme-mur', true]]) {
+for (const [id, complet] of [['theme-du-jour', false], ['theme-mur', true]]) {
   const zone = document.getElementById(id);
   if (zone) { zone.replaceChildren(bandeauTheme(complet)); zone.hidden = false; }
 }
