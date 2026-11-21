@@ -2238,6 +2238,73 @@ begin
         '020 : votant gardé en empreinte seulement (jamais l''IP), table duels en RLS forcée sans droit');
     end;
 
+    -- =================================================================
+    -- 021. La Gazette des pauvres (R-043) — reservations only, nothing is ever sent from SQL
+    -- =================================================================
+    declare
+      v_avant24 integer;
+      v_gid     uuid;
+      v_n       integer;
+      v_mg      uuid := gen_random_uuid();
+    begin
+      perform pg_temp.wp_jouer(null);
+      insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_anonymous)
+      values ('00000000-0000-0000-0000-000000000000'::uuid, v_mg, 'authenticated', 'authenticated',
+              'mg-' || v_suffixe || '@exemple.invalid', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb, false);
+      perform pg_temp.wp_jouer('authenticated', v_mg);
+      perform public.creer_profil('pauvre', 'Modo gazette', 'mg-' || v_suffixe || '@exemple.invalid');
+      perform pg_temp.wp_jouer(null);
+      insert into public.moderateurs (user_id) values (v_mg);
+      update public.profiles pr set newsletter = true, bloque = false where pr.id in (v_pauvre2, v_pauvre3);
+      perform pg_temp.wp_jouer('authenticated', v_pauvre2);
+      v_res := v_res || pg_temp.wp_attendre_erreur('select public.mod_gazette_apercu()', 'interdit',
+        '021 : l''aperçu de la gazette est réservé aux modérateurs');
+      perform pg_temp.wp_jouer('authenticated', v_mg);
+      v_j := public.mod_gazette_apercu();
+      v_res := v_res || pg_temp.wp_ligne(v_j -> 'contenu' ? 'top' and v_j -> 'contenu' ? 'pauvre_du_mois'
+          and v_j -> 'contenu' ? 'nouveaux_riches' and jsonb_array_length(v_j -> 'contenu' -> 'themes') = 7
+          and jsonb_array_length(v_j -> 'contenu' -> 'top') between 1 and 5
+          and not (v_j ->> 'figee')::boolean and (v_j ->> 'destinataires')::int >= 1
+          and (v_j -> 'contenu')::text !~ '@',
+        '021 : aperçu modérateur (top 5, pauvre du mois, nouveaux riches, thèmes), sans e-mail', left(v_j::text, 300));
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne(
+        not has_function_privilege('anon', 'public.srv_gazette_reserver(integer)', 'execute')
+        and not has_function_privilege('authenticated', 'public.srv_gazette_reserver(integer)', 'execute')
+        and not has_function_privilege('authenticated', 'public.srv_gazette_annuler(uuid, uuid[])', 'execute')
+        and has_function_privilege('service_role', 'public.srv_gazette_reserver(integer)', 'execute')
+        and not has_function_privilege('anon', 'public.mod_gazette_apercu()', 'execute')
+        and (select bool_and(c.relforcerowsecurity) from pg_class c
+             where c.oid in ('public.gazettes'::regclass, 'public.gazette_envois'::regclass)),
+        '021 : envois de la gazette réservés à service_role ; tables en RLS forcée');
+
+      v_avant24 := public.wp_envois_24h();
+      perform pg_temp.wp_jouer('service_role');
+      v_j := public.srv_gazette_reserver(100);
+      perform pg_temp.wp_jouer(null);
+      v_gid := (v_j -> 'gazette' ->> 'id')::uuid;
+      v_n := jsonb_array_length(v_j -> 'destinataires');
+      v_res := v_res || pg_temp.wp_ligne(v_n >= 1 and (v_j ->> 'reste_a_envoyer')::int = 0
+          and public.wp_envois_24h() = v_avant24 + v_n
+          and not exists (select 1 from jsonb_array_elements(v_j -> 'destinataires') d
+                          join public.profiles pr on pr.id = (d ->> 'user_id')::uuid where not pr.newsletter or pr.bloque),
+        '021 : la gazette réserve les membres qui ont coché la case (budget de 250 / 24 h partagé avec les annonces)', v_n::text);
+      perform pg_temp.wp_jouer('service_role');
+      v_j := public.srv_gazette_reserver(100);
+      v_res := v_res || pg_temp.wp_ligne(jsonb_array_length(v_j -> 'destinataires') = 0 and (v_j -> 'gazette' ->> 'id')::uuid = v_gid,
+        '021 : jamais deux fois le même numéro (gazette figée pour la semaine)');
+      v_n := public.srv_gazette_annuler(v_gid, array[v_pauvre2]);
+      v_j := public.srv_gazette_reserver(100);
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne(v_n = 1 and jsonb_array_length(v_j -> 'destinataires') = 1,
+        '021 : un envoi refusé par Brevo est libéré et repris plus tard');
+      perform pg_temp.wp_jouer('authenticated', v_mg);
+      v_res := v_res || pg_temp.wp_ligne((public.mod_gazette_apercu() ->> 'figee')::boolean,
+        '021 : après le premier envoi, l''aperçu montre le numéro figé de la semaine');
+      perform pg_temp.wp_jouer(null);
+    end;
+
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';
   exception

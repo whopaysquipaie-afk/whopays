@@ -25,6 +25,7 @@ const mod = await createModerationApi();
 let onglet = 'a-relire';
 let donnees = { 'a-relire': [], recents: [], signales: [], masques: [], riches: [] };
 let annoncesModo = [];
+let gazette = null;
 
 await afficher();
 document.addEventListener('wp:session-maj', () => afficher());
@@ -105,6 +106,8 @@ async function chargerTout() {
   ]);
   donnees = { 'a-relire': aRelire, recents, signales, masques, riches };
   annoncesModo = annonces;
+  // R-043: the gazette block appears only when 021 is applied
+  gazette = mod.gazetteApercu ? await mod.gazetteApercu().catch(() => null) : null;
   dessiner();
 }
 
@@ -145,6 +148,7 @@ function dessiner() {
   const liste = donnees[onglet];
   const def = ONGLETS.find((o) => o.id === onglet);
   if (onglet === 'riches') for (const a of annoncesModo) panneau.appendChild(carteAnnonce(a));
+  if (onglet === 'riches' && gazette) panneau.appendChild(carteGazette(gazette));
   if (!liste.length) panneau.appendChild(h('p', { class: 'modo-vide' }, def.vide));
   for (const item of liste) {
     panneau.appendChild(onglet === 'riches' ? carteRiche(item)
@@ -287,6 +291,57 @@ async function refuserRiche(r) {
     confirmLabel: 'Refuser', danger: true
   });
   if (ok) await action(() => mod.refuserRiche(r.user_id), `${r.pseudo} repasse chez les pauvres.`);
+}
+
+/* ---------------- « La Gazette des pauvres » (R-043, 021_gazette.sql + Edge Function « gazette ») ---------------- */
+
+/** The issue rendered with DOM APIs only (pseudos and titles come from the database). */
+function apercuGazette(c) {
+  const lien = (l, txt) => h('a', { href: l, target: '_blank', rel: 'noopener' }, txt);
+  return h('div', { class: 'gazette-apercu' },
+    h('p', { class: 'gazette-titre' }, '🗞️ La Gazette des pauvres'),
+    h('h3', {}, 'Le top 5 de la semaine'),
+    c.top && c.top.length ? h('ol', {}, c.top.map((p) => h('li', {}, lien(p.lien, p.titre), h('span', { class: 'gris' }, ` · ${enRiens(p.montant) || 'sans montant'} · par ${p.pseudo}`))))
+      : h('p', { class: 'gris' }, 'Aucun problème cette semaine.'),
+    h('h3', {}, '🥇 Le pauvre du mois'),
+    h('p', {}, c.pauvre_du_mois ? [lien(c.pauvre_du_mois.lien, c.pauvre_du_mois.pseudo), ` · ${enRiens(c.pauvre_du_mois.total)}`] : 'Personne encore. La place est libre.'),
+    h('h3', {}, '👑 Les nouveaux riches'),
+    h('p', {}, c.nouveaux_riches && c.nouveaux_riches.length ? c.nouveaux_riches.map((r) => r.pseudo).join(', ') : 'Aucun cette semaine. Ils sont sur leur yacht.'),
+    h('h3', {}, '📅 Les thèmes de la semaine prochaine'),
+    h('ul', {}, (c.themes || []).map((t) => h('li', {}, `${t.jour} : `, h('strong', {}, t.theme)))));
+}
+
+function carteGazette(g) {
+  const voir = h('button', { type: 'button', class: 'btn btn-fantome' }, 'Aperçu de la gazette');
+  const envoyer = h('button', { type: 'button', class: 'btn btn-primaire' }, 'Envoyer la gazette');
+  const zoneApercu = h('div', { hidden: true });
+  voir.addEventListener('click', () => {
+    zoneApercu.hidden = !zoneApercu.hidden;
+    if (!zoneApercu.hidden && !zoneApercu.firstChild) zoneApercu.appendChild(apercuGazette(g.contenu));
+    voir.textContent = zoneApercu.hidden ? 'Aperçu de la gazette' : 'Masquer l’aperçu';
+  });
+  envoyer.addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: 'Envoyer la gazette ?',
+      message: `Les membres qui ont coché la case (${g.destinataires}) recevront le numéro de la semaine. 250 e-mails par 24 h au plus, partagés avec les annonces (${g.restant_24h} disponibles maintenant) ; personne ne reçoit deux fois le même numéro.`,
+      confirmLabel: 'Envoyer'
+    });
+    if (!ok) return;
+    envoyer.disabled = true;
+    await action(async () => {
+      const r = await mod.envoyerGazette();
+      toast(r.demo
+        ? `Mode démo : aucun e-mail envoyé (${r.envoyes} destinataire${r.envoyes > 1 ? 's' : ''} simulé${r.envoyes > 1 ? 's' : ''}).`
+        : `${r.envoyes} e-mail${r.envoyes > 1 ? 's' : ''} envoyé${r.envoyes > 1 ? 's' : ''}${r.echecs ? `, ${r.echecs} en échec` : ''}${r.reste_a_envoyer ? `, ${r.reste_a_envoyer} à envoyer plus tard` : ''}.`);
+    }, 'Gazette traitée.');
+  });
+  return h('article', { class: 'modo-item modo-annonce' },
+    h('div', { class: 'modo-badges' }, h('span', { class: 'badge badge-sombre' }, 'Gazette'),
+      h('span', { class: `badge badge-statut ${g.figee ? 'publie' : ''}` }, g.figee ? 'Numéro de la semaine figé' : 'Pas encore envoyée')),
+    h('h3', { class: 'modo-titre' }, '🗞️ La Gazette des pauvres'),
+    h('p', { class: 'modo-meta' }, `Cette semaine : ${g.envoyes} e-mail${g.envoyes > 1 ? 's' : ''} envoyé${g.envoyes > 1 ? 's' : ''} · ${g.destinataires} inscrits · ${g.restant_24h} envois disponibles sur 24 h`),
+    h('div', { class: 'modo-actions' }, voir, envoyer),
+    zoneApercu);
 }
 
 /* ---------------- « Un nouveau riche est arrivé » (R-031, 012_annonces_riches.sql) ---------------- */

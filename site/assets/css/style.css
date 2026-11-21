@@ -1134,6 +1134,11 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .profil-stats li { padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .05); display: grid; gap: 2px; min-width: 0; }
 .profil-stats strong { font-family: var(--f-titre); font-style: italic; font-weight: 900; font-size: 24px; color: var(--citron); overflow-wrap: anywhere; }
 .profil-stats small { color: var(--gris); }
+/* R-043: preview of the gazette (moderation) */
+.gazette-apercu { margin-top: 12px; padding: 16px; border-radius: 14px; background: #0B0B0B; border: 1px solid #2A2A2A; overflow-wrap: anywhere; }
+.gazette-apercu h3 { margin: 14px 0 6px; font-size: 16px; }
+.gazette-apercu ol, .gazette-apercu ul { padding-left: 20px; display: grid; gap: 6px; list-style: revert; }
+.gazette-titre { margin: 0; font-family: var(--f-titre); font-style: italic; font-weight: 900; font-size: 24px; color: var(--citron); }
 /* R-041: the duel */
 .duel-compteur { font-weight: 800; color: var(--citron); min-height: 1.4em; }
 .duel-arene { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 18px; align-items: stretch; }

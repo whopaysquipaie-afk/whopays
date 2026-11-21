@@ -63,8 +63,9 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 18. `supabase/migrations/018_profil_public.sql` (profil public « Mon CV de pauvre » : `get_profil_public(p_code)`, code de l'auteur dans les cartes ; après 017)
 19. `supabase/migrations/019_suivis.sql` (suivre un profil, fil « Mes suivis », les plus suivis, notification à la publication ; après 018)
 20. `supabase/migrations/020_duel.sql` (le duel « Lequel est le plus drôle ? », ouvert aux visiteurs dans le plafond IP ; après 019)
-21. `supabase/seed/mots_interdits.sql`
-22. `supabase/seed/exemples.sql`
+21. `supabase/migrations/021_gazette.sql` (« La Gazette des pauvres » : contenu, aperçu modérateur, réservations ; budget d'envoi partagé avec les annonces ; voir 4.4)
+22. `supabase/seed/mots_interdits.sql`
+23. `supabase/seed/exemples.sql`
 
 Pour modérer depuis un téléphone, inscrire son propre compte de membre dans `public.moderateurs` (voir `docs/MODERATION.md`, « Page de modération »).
 
@@ -190,6 +191,34 @@ Fonctionnement : `GET https://<projet>.supabase.co/functions/v1/partage?id=<prob
 4. **Seulement ensuite**, renseigner `CONFIG.URL_PARTAGE = 'https://<projet>.supabase.co/functions/v1/partage'` dans `site/assets/js/config.js`, committer et pousser : tous les boutons de partage d'un problème (page problème, « C'est en ligne ! », Mon espace) utiliseront ce lien. Vide = comportement d'avant (lien `p.html?id=…`).
 
 > Attention : sur le domaine par défaut `*.supabase.co`, Supabase peut servir les réponses HTML des fonctions Edge en `text/plain`. Les humains ne sont pas concernés (redirection 302), mais certains robots d'aperçu exigent `text/html` : si l'aperçu reste générique après le test du point 3, il faut un **domaine personnalisé** pour les fonctions (offre payante) ou héberger cette redirection ailleurs (ex. Cloudflare Worker, même code). Dans le doute, laisser `URL_PARTAGE` vide : le site fonctionne comme avant.
+
+### 4.4 « La Gazette des pauvres » : fonction Edge `gazette` (R-043) — envoi activé plus tard par Hassen
+
+Un e-mail par semaine aux membres (riches et pauvres) qui ont coché la case « Préviens-moi par e-mail… » (même consentement et même lien de désinscription que l'annonce des nouveaux riches) : le top 5 de la semaine, le pauvre du mois, les nouveaux riches, les thèmes de la semaine prochaine. Le numéro est **figé** au premier envoi de la semaine (tout le monde reçoit le même) ; personne ne le reçoit deux fois ; **250 e-mails par 24 h glissantes, partagés avec les annonces** (offre gratuite Brevo : 300 / jour).
+
+1. Appliquer `021_gazette.sql` (après 020). Dans `moderation.html`, onglet **Riches** : bloc « 🗞️ La Gazette des pauvres » avec **« Aperçu de la gazette »** (le numéro tel qu'il partirait) et **« Envoyer la gazette »** (modérateurs seulement).
+2. Déployer **sans vérification de JWT** (la fonction vérifie elle-même le modérateur, ou le secret du job hebdomadaire) :
+   `supabase functions deploy gazette --no-verify-jwt`
+3. Secrets : `BREVO_API_KEY`, `SENDER_EMAIL`, `SITE_URL` (les mêmes que pour `annoncer-riche`) ; pour le job hebdomadaire seulement, `GAZETTE_SECRET` = une longue chaîne aléatoire (`openssl rand -hex 32`).
+4. Tester avec un compte modérateur : « Envoyer la gazette » → « N e-mails envoyés ». Si plus de 250 inscrits, relancer le lendemain : la suite part, jamais deux fois.
+
+**Envoi automatique chaque lundi (documenté, NON activé)** — à exécuter seulement quand Hassen le décide, dans le *SQL Editor*, après avoir activé les extensions `pg_cron` et `pg_net` (*Database → Extensions*) :
+
+```sql
+-- 1. Le secret, rangé dans le coffre de Supabase (jamais en clair dans un job)
+select vault.create_secret('<la même valeur que GAZETTE_SECRET>', 'gazette_secret');
+-- 2. Lundi, mardi et mercredi à 8 h UTC (9 h ou 10 h à Paris) : le lundi envoie les 250 premiers,
+--    les jours suivants la suite s'il reste des inscrits (jamais deux fois le même numéro).
+select cron.schedule('gazette-hebdo', '0 8 * * 1,2,3', $$
+  select net.http_post(
+    url := 'https://<projet>.supabase.co/functions/v1/gazette',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-gazette-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'gazette_secret')),
+    body := '{}'::jsonb);
+$$);
+-- Arrêter : select cron.unschedule('gazette-hebdo');
+```
 
 ## 5. Brancher le site
 

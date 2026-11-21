@@ -1506,6 +1506,43 @@ test('U. Aperçus de partage', 'les 10 images de partage existent (une par caté
   }
 });
 
+/* ---------------- V. La Gazette des pauvres (R-043) ---------------- */
+
+test('V. La Gazette des pauvres', 'aperçu réservé aux modérateurs ; envoi de démo sans e-mail, jamais deux fois, budget partagé avec les annonces', async () => {
+  const { api, join, admin } = fresh();
+  const membre = await join('pauvre', 'Lecteur Assidu', { newsletter: true });
+  await rejects(api.moderation.gazetteApercu(), 'interdit', 'non modérateur');
+  await admin.setModerateur(membre.userId);
+  const g = await api.moderation.gazetteApercu();
+  eq(g.figee, false); eq(g.contenu.themes.length, 7); eq(g.contenu.themes[0].theme, 'Mon patron');
+  assert(g.contenu.top.length >= 1 && g.contenu.top.length <= 5, 'top 5');
+  assert(g.destinataires >= 1, 'destinataires'); eq(g.restant_24h, 250);
+  assertNoEmail(g.contenu, 'contenu de la gazette');
+  const r = await api.moderation.envoyerGazette();
+  eq(r.demo, true); eq(r.envoyes, g.destinataires); eq(r.echecs, 0);
+  eq((await api.moderation.envoyerGazette()).envoyes, 0, 'jamais deux fois');
+  const g2 = await api.moderation.gazetteApercu();
+  eq(g2.figee, true); eq(g2.envoyes, g.destinataires); eq(g2.restant_24h, 250 - g.destinataires, 'budget partagé sur 24 h');
+});
+
+test('V. La Gazette des pauvres', 'fonction Edge « gazette » : e-mail échappé, lien de désinscription personnel, montants en Riens', async () => {
+  if (typeof process === 'undefined') return;
+  const m = await import('../../../../supabase/functions/gazette/index.ts').catch(() => null);
+  if (!m) return;
+  const c = {
+    top: [{ titre: 'Mon <b>patron</b> & moi', montant: 4500, pseudo: 'Gégé <script>', lien: 'p.html?id=1' }],
+    pauvre_du_mois: { pseudo: 'Jojo', total: 9500, lien: 'profil.html?c=ABCDEFGH' },
+    nouveaux_riches: [{ pseudo: 'Caviar', lien: 'p.html?id=2' }],
+    themes: [{ jour: 'lundi', theme: 'Mon patron' }]
+  };
+  const e = m.contenuGazette(c, { destinataire: 'Lili', jeton: 'abc-123', siteUrl: 'https://exemple.test/whopays/' });
+  assert(e.html.includes('Mon &lt;b&gt;patron&lt;/b&gt; &amp; moi') && !e.html.includes('<script>'), 'échappé');
+  assert(e.html.includes('4,5x Rien') && e.html.includes('9,5x Rien'), 'Riens');
+  eq(e.urlDesinscription, 'https://exemple.test/whopays/desinscription.html?jeton=abc-123');
+  assert(e.texte.includes('Ne plus recevoir ces e-mails : https://exemple.test/whopays/desinscription.html?jeton=abc-123'));
+  assert(e.texte.includes('aucun argent ne circule'), 'rappel humoristique');
+});
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {

@@ -406,6 +406,32 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       if (f && !f.bloque) notifier(st, f.id, 'suivi', `${a.pseudo} a publié : « ${String(pb.titre || pb.texte).slice(0, 80)} »`, `p.html?id=${pb.id}`);
     }
   }
+  /* ----- R-043 (= 021_gazette.sql) ----- */
+  const lundiParis = (ms) => {
+    const j = new Date(`${new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date(ms))}T12:00:00Z`);
+    j.setUTCDate(j.getUTCDate() - ((j.getUTCDay() + 6) % 7));
+    return j.toISOString().slice(0, 10);
+  };
+  const envois24h = (st) => (st.annonce_envois || []).filter((e) => Date.parse(e.envoye_le) > t() - DAY).length
+    + (st.gazette_envois || []).filter((e) => Date.parse(e.envoye_le) > t() - DAY).length;
+  const destinatairesGazette = (st) => st.profiles.filter((p) => p.newsletter && !p.bloque && (st.users.find((u) => u.id === p.id) || {}).email_confirme);
+  function contenuGazette(st) {
+    const depuis = t() - 7 * DAY;
+    const score = (p) => st.reactions.filter((r) => r.problem_id === p.id && Date.parse(r.cree_le) > depuis).length
+      + 10 * (st.couronnes || []).filter((c) => c.problem_id === p.id && !c.retiree && Date.parse(c.cree_le) > depuis).length
+      + 2 * (st.duels || []).filter((d) => d.gagnant_id === p.id && Date.parse(d.cree_le) > depuis).length;
+    const top = st.problems.filter((p) => visibleProblem(p) && typeDe(p) === 'pauvre' && !p.est_exemple && st.profiles.some((x) => x.id === p.user_id && !x.bloque))
+      .map((p) => ({ p, s: score(p) })).sort((a, b) => b.s - a.s || sortDate(b.p).localeCompare(sortDate(a.p))).slice(0, 5)
+      .map(({ p }) => ({ titre: p.titre, montant: p.montant, pseudo: pseudoOf(st, p.user_id).pseudo, lien: `p.html?id=${p.id}` }));
+    const n1 = classementPauvres(st, 'mois')[0];
+    const pdm = n1 ? { pseudo: n1.pseudo, total: n1.total, lien: `profil.html?c=${st.profiles.find((x) => x.id === n1.user_id).code_partage}` } : null;
+    const nouveaux = (st.annonces || []).filter((a) => Date.parse(a.cree_le) > depuis).sort((a, b) => b.cree_le.localeCompare(a.cree_le))
+      .map((a) => st.profiles.find((x) => x.id === a.user_id)).filter((p) => p && !p.bloque && richeActif(st, p))
+      .map((p) => ({ pseudo: p.pseudo, lien: lienAnnonce(st, p.id) }));
+    const themes = [['lundi', 'Mon patron'], ['mardi', 'J\'ai des factures à payer'], ['mercredi', 'Ma vie amoureuse'], ['jeudi', 'Je veux aider ma famille'],
+      ['vendredi', 'Je veux me faire plaisir'], ['samedi', 'J\'ai un rêve'], ['dimanche', 'Mon défi']].map(([jour, theme]) => ({ jour, theme }));
+    return { semaine: lundiParis(t()), top, pauvre_du_mois: pdm, nouveaux_riches: nouveaux, themes };
+  }
   const profilParCode = (st, code) => {
     const c = String(code || '').trim().toUpperCase();
     return /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/.test(c) ? st.profiles.find((x) => x.code_partage === c && !x.bloque) || null : null;
@@ -1303,10 +1329,40 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         const a = (st.annonces || []).find((x) => x.id === annonceId);
         if (!a) throw ERR.introuvable('Annonce introuvable.');
         st.annonce_envois = st.annonce_envois || [];
-        const budget = Math.max(0, 250 - st.annonce_envois.filter((e) => Date.parse(e.envoye_le) > t() - DAY).length);
+        const budget = Math.max(0, 250 - envois24h(st));  // R-043: budget shared with the gazette
         const restants = destinatairesAnnonce(st).filter((p) => !st.annonce_envois.some((e) => e.annonce_id === a.id && e.user_id === p.id));
         const lot = restants.slice(0, budget);
         for (const p of lot) st.annonce_envois.push({ annonce_id: a.id, user_id: p.id, envoye_le: iso(t()) });
+        return { envoyes: lot.length, echecs: 0, restant_24h: budget - lot.length, reste_a_envoyer: restants.length - lot.length, demo: true };
+      });
+    },
+
+    /** = mod_gazette_apercu (021): the issue of the week as it would be sent. */
+    async gazetteApercu() {
+      const st = load();
+      exigerModo(st);
+      const semaine = lundiParis(t());
+      const g = (st.gazettes || []).find((x) => x.semaine === semaine);
+      return {
+        contenu: g ? g.contenu : contenuGazette(st), figee: !!g,
+        envoyes: g ? (st.gazette_envois || []).filter((e) => e.gazette_id === g.id).length : 0,
+        destinataires: destinatairesGazette(st).length, restant_24h: Math.max(0, 250 - envois24h(st))
+      };
+    },
+
+    /** Demo of the Edge Function « gazette »: same recipients and shared budget, NO e-mail is ever sent. */
+    async envoyerGazette() {
+      return tx((st) => {
+        exigerModo(st);
+        st.gazettes = st.gazettes || [];
+        st.gazette_envois = st.gazette_envois || [];
+        const semaine = lundiParis(t());
+        let g = st.gazettes.find((x) => x.semaine === semaine);
+        if (!g) { g = { id: uuid(rand), semaine, contenu: contenuGazette(st), cree_le: iso(t()) }; st.gazettes.push(g); }
+        const budget = Math.max(0, 250 - envois24h(st));
+        const restants = destinatairesGazette(st).filter((p) => !st.gazette_envois.some((e) => e.gazette_id === g.id && e.user_id === p.id));
+        const lot = restants.slice(0, budget);
+        for (const p of lot) st.gazette_envois.push({ gazette_id: g.id, user_id: p.id, envoye_le: iso(t()) });
         return { envoyes: lot.length, echecs: 0, restant_24h: budget - lot.length, reste_a_envoyer: restants.length - lot.length, demo: true };
       });
     },
