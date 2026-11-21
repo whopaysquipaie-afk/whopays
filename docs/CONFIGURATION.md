@@ -109,9 +109,10 @@ Puis vérifier la sécurité : exécuter `supabase/tests/verif_securite.sql`. Ch
 
 Le code est prêt : tant que `CONFIG.TURNSTILE_SITE_KEY` est vide, aucun widget n'est chargé ni demandé. Le jour de l'activation, **respecter cet ordre**, sinon plus personne ne peut rejoindre un camp :
 
-1. Coller la **clé de site** (publique) dans `CONFIG.TURNSTILE_SITE_KEY` (`site/assets/js/config.js`), committer, pousser, et **attendre la fin du déploiement** GitHub Pages (onglet *Actions* au vert, puis recharger le site : le fichier `assets/js/config.js` servi doit contenir la clé).
+1. Coller la **clé de site** (publique) dans `CONFIG.TURNSTILE_SITE_KEY` (`site/assets/js/config.js`), committer, pousser, et **attendre la fin du déploiement** GitHub Pages (onglet *Actions* au vert, puis recharger le site : le fichier `assets/js/config.js` servi doit contenir la clé). **Fait le 21/11/2026 (R-052)** : widget « Qui paie ? » en mode Managed, noms d'hôte `whopaysquipaie-afk.github.io` et `localhost` (pour tester en local, ouvrir `http://localhost:…`, pas `127.0.0.1`).
 2. **Seulement ensuite**, dans Supabase *Authentication → Attack Protection*, activer **CAPTCHA** (Cloudflare Turnstile) et coller la **clé secrète**.
-3. Tester : « Rejoindre » un camp avec un nouvel e-mail, puis « Déjà membre ? ». Le widget est en mode `interaction-only` : invisible pour presque tout le monde, il n'apparaît (case à cocher) que si Cloudflare a un doute ; aucun espace vide ni clignotement sinon (`.turnstile-zone:empty` est masquée).
+3. Tester : « Rejoindre » un camp avec un nouvel e-mail, puis « Déjà membre ? ». Le widget est en mode `interaction-only` : invisible pour presque tout le monde, il n'apparaît (case à cocher) que si Cloudflare a un doute ; aucun espace vide ni clignotement sinon (la zone ne prend de la place qu'à l'apparition de la case, classe `interactif`). Un navigateur piloté par script (Chrome sans interface) reçoit la case puis « Échec de la vérification » : c'est normal, le test réel se fait dans un navigateur ordinaire.
+4. Une fois le CAPTCHA activé dans Supabase, `tools/e2e-supabase.mjs` ne peut plus créer ses comptes de test (`signInAnonymously` sans jeton est refusé) : le lancer avant l'étape 2, ou désactiver le CAPTCHA le temps du test.
 
 Pour désactiver : l'ordre inverse (d'abord le CAPTCHA dans Supabase, puis vider la clé dans `config.js`).
 

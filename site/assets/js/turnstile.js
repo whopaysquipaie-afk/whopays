@@ -37,6 +37,8 @@ export function creerTurnstile(container) {
       sitekey: CONFIG.TURNSTILE_SITE_KEY,
       appearance: 'interaction-only',
       language: 'fr',
+      // R-052: no empty gap while the widget stays invisible; once shown, it keeps its space (result, error)
+      'before-interactive-callback': () => container.classList.add('interactif'),
       callback: (t) => {
         if (waiting.length) waiting.shift().resolve(t);
         else token = t;

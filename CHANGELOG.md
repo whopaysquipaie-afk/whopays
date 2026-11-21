@@ -6,6 +6,7 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Versions fol
 ## [Unreleased]
 
 ### Security
+- Cloudflare Turnstile site key set (R-052, step 1 of 2): the anti-bot check now runs before joining a camp, signing back in and publishing as a visitor; the widget only takes room when Cloudflare asks for an interaction. CAPTCHA enforcement in Supabase is step 2.
 - Anti-bot protection (R-035, `014_anti_robots.sql`): per-IP hourly ceilings in the database (5 profiles, 30 posts, 60 comments or club messages, 300 reactions; adjustable in `reglages.limites_ip`), the IP is never stored (salted sha256 fingerprint, purged after 24 h) and nothing is blocked when it is unknown. « Rejoindre » and « Publier » forms get an invisible trap field and a 3-second minimum: bots get a fake success and nothing is sent. Exact Turnstile activation order in docs/CONFIGURATION.md §3.1. JavaScript budget: 150 KB loaded at start-up per page, 250 KB including on-demand modules.
 
 ### Fixed

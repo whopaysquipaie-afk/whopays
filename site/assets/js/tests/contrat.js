@@ -1629,6 +1629,25 @@ test('Z. Accords', 'compteurs accordés : singulier pour 0 et 1 (« 1 inscrit »
   }
 });
 
+test('AA. Turnstile', 'clé de site publique au bon format, CSP de chaque page ouverte à Cloudflare (script et frame), aucune zone vide tant que le widget est invisible', async () => {
+  const k = CONFIG.TURNSTILE_SITE_KEY;
+  assert(k === '' || /^0x4[A-Za-z0-9_-]{18,}$/.test(k), `clé de site : ${k}`);
+  const fs = await import('node:fs').catch(() => null);
+  if (!fs) return;
+  const lire = (f) => fs.readFileSync(new URL(`../../../${f}`, import.meta.url), 'utf8');
+  const pages = fs.readdirSync(new URL('../../../', import.meta.url)).filter((f) => f.endsWith('.html'));
+  assert(pages.length >= 10, 'pages');
+  for (const f of pages) {
+    const html = lire(f);
+    assert(/script-src[^;"]*https:\/\/challenges\.cloudflare\.com/.test(html), `${f} : script-src`);
+    assert(/frame-src[^;"]*https:\/\/challenges\.cloudflare\.com/.test(html), `${f} : frame-src`);
+  }
+  const ts = lire('assets/js/turnstile.js');
+  assert(ts.includes("appearance: 'interaction-only'") && ts.includes("'before-interactive-callback'"), 'widget interaction-only, place prise seulement à l’apparition');
+  const css = lire('assets/css/style.css');
+  assert(/\.turnstile-zone \{ margin-top: 0;/.test(css) && css.includes('.turnstile-zone.interactif { margin-top: 14px; }') && css.includes('.turnstile-zone:empty { display: none; }'), 'zone vide masquée');
+});
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {
