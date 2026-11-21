@@ -1,7 +1,7 @@
 // Public profile « Mon CV de pauvre / de riche » (profil.html?c=<code de partage>, R-040).
 import { api } from '../api.js';
 import { initPage, session } from '../page.js';
-import { $, h, formatNumber, formatJour, toastError } from '../ui.js';
+import { $, h, formatNumber, formatJour, toast, toastError } from '../ui.js';
 import { icon } from '../icons.js';
 import { CAMPS } from '../categories.js';
 import { carteProbleme } from '../carte.js';
@@ -36,6 +36,22 @@ export function phraseCV(r, moi) {
   if (r.rang_mois && r.rang_mois.rang) return `${sujet} ${ordinal(r.rang_mois.rang)} pauvre du mois avec ${riens} — et toi ?`;
   if (r.rang_general && r.rang_general.rang) return `${sujet} ${ordinal(r.rang_general.rang)} pauvre de Qui paie ? avec ${riens} — et toi ?`;
   return `${moi ? 'Mon' : 'Son'} CV de pauvre : ${riens} de problèmes. Pour l’instant. Et toi ?`;
+}
+
+/** R-044: « Je te défie de faire mieux » (another poor member's profile, 022 applied). */
+function boutonDefi(r) {
+  if (!r.peut_defier) return null;
+  const b = h('button', { type: 'button', class: 'btn btn-lavande' }, '⚔️ Je te défie de faire mieux');
+  b.addEventListener('click', async () => {
+    b.setAttribute('aria-busy', 'true');
+    try {
+      await api.defier(r.code);
+      b.disabled = true;
+      b.textContent = '⚔️ Défi envoyé';
+      toast(`${r.pseudo} est prévenu. Maintenant, publie un problème à la hauteur.`);
+    } catch (e) { toastError(e); } finally { b.removeAttribute('aria-busy'); }
+  });
+  return b;
 }
 
 async function charger() {
@@ -111,7 +127,7 @@ async function charger() {
       ? h('ul', { class: 'badges-grille' }, badges.map((b) => h('li', { class: 'badge-tuile' },
         h('span', { class: 'badge-emoji', 'aria-hidden': 'true' }, b.emoji), h('span', {}, h('strong', {}, b.nom), h('small', {}, b.description)))))
       : h('p', { class: 'gris mt-16' }, 'Aucun badge pour l’instant.'),
-    h('div', { class: 'hero-actions' }, partager, story));
+    h('div', { class: 'hero-actions' }, partager, story, boutonDefi(r)));
 
   const posts = r.problemes || [];
   $('#titre-profil-posts').textContent = r.camp === 'riche' ? 'Ses publications' : (moi ? 'Mes problèmes' : 'Ses problèmes');

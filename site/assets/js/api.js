@@ -32,7 +32,7 @@ const METHODS = [
   'creerProfil', 'majProfil', 'soumettreProbleme', 'publierRiche', 'reagir', 'getMesReactions', 'commenter',
   'supprimerMonCommentaire', 'masquerCommentaire', 'getClubMessages', 'envoyerMessageClub', 'signaler',
   'getMonEspace', 'supprimerMonCompte', 'couronner', 'retirerCouronne', 'getMesNotifications', 'marquerNotificationsLues',
-  'suivre', 'nePlusSuivre', 'getMesSuivis', 'getFilSuivis', 'getPlusSuivis',
+  'defier', 'suivre', 'nePlusSuivre', 'getMesSuivis', 'getFilSuivis', 'getPlusSuivis',
   // auth
   'rejoindre', 'seReconnecter', 'seDeconnecter', 'getSession', 'renvoyerConfirmation'
 ];

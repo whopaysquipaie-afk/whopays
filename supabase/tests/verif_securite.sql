@@ -2305,6 +2305,52 @@ begin
       perform pg_temp.wp_jouer(null);
     end;
 
+    -- =================================================================
+    -- 022. Challenges between poor members (R-044)
+    -- =================================================================
+    declare
+      v_x1 uuid := gen_random_uuid();
+      v_x2 uuid := gen_random_uuid();
+      v_c1 text;
+      v_c2 text;
+      v_cr text;
+    begin
+      perform pg_temp.wp_jouer(null);
+      insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_anonymous)
+      select '00000000-0000-0000-0000-000000000000'::uuid, u.id, 'authenticated', 'authenticated',
+             u.nom || '-' || v_suffixe || '@exemple.invalid', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb, false
+      from (values (v_x1, 'x1'), (v_x2, 'x2')) as u(id, nom);
+      perform pg_temp.wp_jouer('authenticated', v_x1);
+      v_c1 := public.creer_profil('pauvre', 'Pauvre provocateur', 'x1-' || v_suffixe || '@exemple.invalid') ->> 'code_partage';
+      perform pg_temp.wp_jouer('authenticated', v_x2);
+      v_c2 := public.creer_profil('pauvre', 'Pauvre défié', 'x2-' || v_suffixe || '@exemple.invalid') ->> 'code_partage';
+      perform pg_temp.wp_jouer(null);
+      select pr.code_partage into v_cr from public.profiles pr where pr.id = v_riche;
+
+      perform pg_temp.wp_jouer('authenticated', v_x1);
+      v_res := v_res || pg_temp.wp_ligne((public.get_profil_public(v_c2) ->> 'peut_defier')::boolean
+          and not (public.get_profil_public(v_c1) ->> 'peut_defier')::boolean
+          and not (public.get_profil_public(v_cr) ->> 'peut_defier')::boolean,
+        '022 : peut_defier seulement sur le profil d''un autre pauvre');
+      v_res := v_res || pg_temp.wp_attendre_erreur(format('select public.defier(%L)', v_c1), 'invalide', '022 : se défier soi-même refusé');
+      v_res := v_res || pg_temp.wp_attendre_erreur(format('select public.defier(%L)', v_cr), 'introuvable', '022 : on ne défie pas un riche');
+      v_j := public.defier(lower(v_c2));
+      v_res := v_res || pg_temp.wp_attendre_erreur(format('select public.defier(%L)', v_c2), 'limite', '022 : un défi par jour et par adversaire');
+      perform pg_temp.wp_jouer('authenticated', v_riche);
+      v_res := v_res || pg_temp.wp_attendre_erreur(format('select public.defier(%L)', v_c2), 'interdit', '022 : un riche ne défie pas (il couronne)');
+      perform pg_temp.wp_jouer('authenticated', v_x2);
+      v_j := public.mes_notifications();
+      v_res := v_res || pg_temp.wp_ligne(exists (select 1 from jsonb_array_elements(v_j -> 'liste') n
+          where n ->> 'type' = 'defi' and n ->> 'texte' like 'Pauvre provocateur te défie de faire mieux%'
+            and n ->> 'lien' = 'profil.html?c=' || v_c1),
+        '022 : le défié reçoit une notification avec le lien du profil du provocateur', left(v_j::text, 250));
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne(not has_function_privilege('anon', 'public.defier(text)', 'execute')
+          and (select c.relforcerowsecurity from pg_class c where c.oid = 'public.defis'::regclass),
+        '022 : défier réservé aux membres ; table defis en RLS forcée');
+    end;
+
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';
   exception

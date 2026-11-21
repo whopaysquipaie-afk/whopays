@@ -122,7 +122,7 @@ function buildSeed(now) {
     reglages: { publication_auto: true },
     moderateurs: [],
     annonces: [], annonce_envois: [],
-    couronnes: [], notifications: [], suivis: [], duels: []
+    couronnes: [], notifications: [], suivis: [], duels: [], defis: []
   };
   const codes = new Set();
   // Members, registered over the last 30 days
@@ -241,6 +241,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
           if (!st.notifications) st.notifications = [];
           if (!st.suivis) st.suivis = [];
           if (!st.duels) st.duels = [];
+          if (!st.defis) st.defis = [];
           if (st.profiles.some((p) => !p.jeton_desinscription)) {
             for (const p of st.profiles) if (!p.jeton_desinscription) p.jeton_desinscription = uuid(Math.random);
             save(st);
@@ -599,6 +600,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         pseudo: p.pseudo, camp: p.camp, code: p.code_partage, statut_riche: statutRiche(st, p),
         arrive_le: new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date(p.cree_le)),
         badges: badgesDe(st, p.id),
+        peut_defier: p.camp === 'pauvre' && !!me(st) && me(st).camp === 'pauvre' && !me(st).bloque && me(st).id !== p.id,
         abonnes: nbAbonnes(st, p.id), je_suis: !!uid(st) && (st.suivis || []).some((s) => s.suiveur_id === uid(st) && s.suivi_id === p.id),
         problemes: st.problems.filter((x) => x.user_id === p.id && visibleProblem(x) && !x.est_exemple)
           .sort((a, b) => sortDate(b).localeCompare(sortDate(a)) || b.id.localeCompare(a.id)).slice(0, 24).map((x) => problemRow(st, x)),
@@ -650,6 +652,24 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         .filter(({ p }) => p && visibleProblem(p) && typeDe(p) === 'pauvre' && st.profiles.some((x) => x.id === p.user_id && !x.bloque))
         .sort((a, b) => b.n - a.n || a.p.id.localeCompare(b.p.id)).slice(0, lim)
         .map(({ p, n }) => ({ carte: problemRow(st, p), victoires: n }));
+    },
+
+    /* ===== Challenges between poor members (= 022, R-044) ===== */
+    async defier(code) {
+      return tx((st) => {
+        const p = writer(st);
+        if (p.camp !== 'pauvre') throw ERR.interdit('Les défis, c’est entre pauvres. Un riche, lui, couronne.');
+        const c = profilParCode(st, code);
+        if (!c || c.camp !== 'pauvre') throw ERR.introuvable('Ce pauvre est introuvable.');
+        if (c.id === p.id) throw ERR.invalide('Te défier toi-même ? Tu gagnerais et tu perdrais à la fois.');
+        if (st.defis.some((d) => d.defieur_id === p.id && d.defie_id === c.id && jourParis(Date.parse(d.cree_le)) === jourParis(t()))) {
+          throw ERR.limite('Tu l’as déjà défié aujourd’hui. Laisse-lui le temps de souffrir.');
+        }
+        st.defis.push({ defieur_id: p.id, defie_id: c.id, cree_le: iso(t()) });
+        const l = classementPauvres(st, 'mois').find((x) => x.user_id === p.id);
+        notifier(st, c.id, 'defi', `${p.pseudo} te défie de faire mieux${l ? ` : ${l.rang}${l.rang === 1 ? 'ᵉʳ' : 'ᵉ'} du mois. À toi de faire mieux !` : '. À toi de faire mieux !'}`, `profil.html?c=${p.code_partage}`);
+        return { ok: true };
+      });
     },
 
     /* ===== Follow a profile (= 019, R-047) ===== */
@@ -1008,6 +1028,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         st.couronnes = (st.couronnes || []).filter((c) => c.riche_id !== id && !myProblems.has(c.problem_id));
         st.notifications = (st.notifications || []).filter((n) => n.user_id !== id);
         st.suivis = (st.suivis || []).filter((s) => s.suiveur_id !== id && s.suivi_id !== id);
+        st.defis = (st.defis || []).filter((d) => d.defieur_id !== id && d.defie_id !== id);
         st.duels = (st.duels || []).filter((d) => !myProblems.has(d.gagnant_id) && !myProblems.has(d.perdant_id));
         st.problems = st.problems.filter((p) => p.user_id !== id);
         st.verifications = st.verifications.filter((v) => v.user_id !== id);

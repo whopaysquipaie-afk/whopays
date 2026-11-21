@@ -100,6 +100,8 @@ export function createSupabaseApi() {
     retirerCouronne: (problemId) => rpc('retirer_couronne', { p_problem_id: problemId }),
     getMesNotifications: () => rpc('mes_notifications').then((d) => d || { non_lues: 0, liste: [] }),
     marquerNotificationsLues: () => rpc('marquer_notifications_lues'),
+    // R-044 (022)
+    defier: (code) => rpc('defier', { p_code: code }),
     // R-047 (019)
     suivre: (code) => rpc('suivre', { p_code: code }),
     nePlusSuivre: (code) => rpc('ne_plus_suivre', { p_code: code }),

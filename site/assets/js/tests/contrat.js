@@ -1543,6 +1543,30 @@ test('V. La Gazette des pauvres', 'fonction Edge « gazette » : e-mail échapp�
   assert(e.texte.includes('aucun argent ne circule'), 'rappel humoristique');
 });
 
+/* ---------------- W. Défis entre pauvres (R-044) ---------------- */
+
+test('W. Défis entre pauvres', 'défier depuis un profil : pauvres seulement, pas soi-même, une fois par jour, notification au défié', async () => {
+  const { api, join, as, advance } = fresh();
+  const defie = await join('pauvre', 'Défié du Jour');
+  const codeD = (await api.getSession()).profil.code_partage;
+  const prov = await join('pauvre', 'Provocateur');
+  const codeP = (await api.getSession()).profil.code_partage;
+  eq((await api.getProfilPublic(codeD)).peut_defier, true);
+  eq((await api.getProfilPublic(codeP)).peut_defier, false, 'son propre profil');
+  await rejects(api.defier(codeP), 'invalide', 'soi-même');
+  eq((await api.defier(codeD.toLowerCase())).ok, true);
+  await rejects(api.defier(codeD), 'limite', 'deux fois le même jour');
+  advance(DAY);
+  eq((await api.defier(codeD)).ok, true, 'le lendemain');
+  await join('riche', 'Riche Pacifiste');
+  await rejects(api.defier(codeD), 'interdit', 'un riche ne défie pas');
+  eq((await api.getProfilPublic(codeD)).peut_defier, false, 'pas de bouton pour un riche');
+  await as(defie.userId);
+  const n = (await api.getMesNotifications()).liste.filter((x) => x.type === 'defi');
+  eq(n.length, 2); assert(n[0].texte.startsWith('Provocateur te défie de faire mieux'), n[0].texte); eq(n[0].lien, `profil.html?c=${codeP}`);
+  void prov;
+});
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {

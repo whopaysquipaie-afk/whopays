@@ -64,8 +64,9 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 19. `supabase/migrations/019_suivis.sql` (suivre un profil, fil « Mes suivis », les plus suivis, notification à la publication ; après 018)
 20. `supabase/migrations/020_duel.sql` (le duel « Lequel est le plus drôle ? », ouvert aux visiteurs dans le plafond IP ; après 019)
 21. `supabase/migrations/021_gazette.sql` (« La Gazette des pauvres » : contenu, aperçu modérateur, réservations ; budget d'envoi partagé avec les annonces ; voir 4.4)
-22. `supabase/seed/mots_interdits.sql`
-23. `supabase/seed/exemples.sql`
+22. `supabase/migrations/022_defis.sql` (défis entre pauvres : `defier(p_code)`, notification au défié ; après 021)
+23. `supabase/seed/mots_interdits.sql`
+24. `supabase/seed/exemples.sql`
 
 Pour modérer depuis un téléphone, inscrire son propre compte de membre dans `public.moderateurs` (voir `docs/MODERATION.md`, « Page de modération »).
 
