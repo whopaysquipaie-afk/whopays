@@ -14,7 +14,7 @@ export const CONFIG = {
   SUPPORT_EMAIL: 'whopays.quipaie@gmail.com',
   // R-042: address of the Edge Function « partage » (link previews of a problem), e.g.
   // 'https://<projet>.supabase.co/functions/v1/partage'. Empty = share the plain p.html?id=… link.
-  URL_PARTAGE: '',
+  URL_PARTAGE: 'https://jitjbwlxwyeiqyruezkz.supabase.co/functions/v1/partage',
   // Cloudflare Web Analytics token (cookieless). Empty = no analytics.
   CF_ANALYTICS_TOKEN: ''
 };

@@ -1479,7 +1479,9 @@ test('U. Aperçus de partage', 'URL_PARTAGE renseignée → lien de la fonction 
   eq(urlProbleme(id, 'ABCDEFGH', { urlPartage: '' }), siteUrl(`p.html?id=${id}&ref=ABCDEFGH`));
   eq(urlProbleme(id, 'ABCDEFGH', { urlPartage: 'https://projet.supabase.co/functions/v1/partage' }), `https://projet.supabase.co/functions/v1/partage?id=${id}&ref=ABCDEFGH`);
   eq(urlProbleme(id, null, { urlPartage: 'javascript:alert(1)' }), siteUrl(`p.html?id=${id}`), 'jamais autre chose que https');
-  eq(CONFIG.URL_PARTAGE, '', 'vide par défaut');
+  // R-049: activated (deployed and tested by Claude chat); always empty or an https address of the Edge Function
+  assert(CONFIG.URL_PARTAGE === '' || /^https:\/\/[a-z0-9]+\.supabase\.co\/functions\/v1\/partage$/.test(CONFIG.URL_PARTAGE), CONFIG.URL_PARTAGE);
+  if (CONFIG.URL_PARTAGE) eq(urlProbleme(id), `${CONFIG.URL_PARTAGE}?id=${id}`, 'les boutons de partage passent par la fonction Edge');
 });
 
 test('U. Aperçus de partage', 'fonction Edge « partage » : og:title = titre, og:description en Riens, image de la catégorie, tout échappé', async () => {
