@@ -19,7 +19,7 @@ const plur = (n, mot) => `${formatNumber(n)} ${mot}${n > 1 ? 's' : ''}`;
 function ligne(l, { moi = false } = {}) {
   return h('tr', { class: moi ? 'moi' : null, 'aria-current': moi ? 'true' : null },
     h('td', { class: 'rang' }, ordinal(l.rang)),
-    h('td', { class: 'pseudo' }, l.pseudo, moi ? h('span', { class: 'badge badge-pauvre' }, 'toi') : null, rangeeBadges(l.badges)),
+    h('td', { class: 'pseudo' }, l.code ? h('a', { class: 'lien-profil', href: `profil.html?c=${encodeURIComponent(l.code)}` }, l.pseudo) : l.pseudo, moi ? h('span', { class: 'badge badge-pauvre' }, 'toi') : null, rangeeBadges(l.badges)),
     h('td', {}, formatNumber(l.nb)),
     h('td', { class: 'total' }, ...totalRiens(l.total)));
 }
@@ -69,7 +69,7 @@ async function charger() {
       h('span', { class: 'marche-rang', 'aria-hidden': 'true' }, String(l.rang)),
       icon(i === 0 ? 'crown' : 'trophy', { className: 'marche-icone' }),
       h('p', { class: 'marche-titre' }, d.titre),
-      h('p', { class: 'marche-pseudo' }, h('span', { class: 'visually-hidden' }, `${ordinal(l.rang)} : `), l.pseudo),
+      h('p', { class: 'marche-pseudo' }, h('span', { class: 'visually-hidden' }, `${ordinal(l.rang)} : `), l.code ? h('a', { class: 'lien-profil', href: `profil.html?c=${encodeURIComponent(l.code)}` }, l.pseudo) : l.pseudo),
       rangeeBadges(l.badges, { max: 3 }),
       h('p', { class: 'marche-total' }, ...totalRiens(l.total)),
       h('p', { class: 'marche-sous' }, d.sous)));

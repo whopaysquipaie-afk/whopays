@@ -50,15 +50,30 @@ export function titreDe(p) {
 }
 
 /** p = public problem row; large = p.html version; lien = wrap in a link. */
+/** R-040: link to the public profile of a share code. */
+export const lienProfil = (code) => `profil.html?c=${encodeURIComponent(code)}`;
+
+/** Author name: a link to the profile when the share code is known. */
+export function nomAuteur(p) {
+  return p.code_auteur && /^[A-Z2-9]{8}$/.test(p.code_auteur)
+    ? h('a', { class: 'nom lien-profil', href: lienProfil(p.code_auteur) }, p.pseudo)
+    : h('span', { class: 'nom' }, p.pseudo);
+}
+
 export function carteProbleme(p, { large = false, lien = !large, titreNiveau = large ? 'h1' : 'h3' } = {}) {
   const type = TYPES_POST[p.type] && p.type !== 'pauvre' ? p.type : null;
   const cat = type ? { label: TYPES_POST[type].court, icon: 'crown' } : category(p.categorie) || { label: 'Problème', icon: 'help' };
-  const tag = lien ? 'a' : 'article';
+  // R-040: with a profile link inside, the card cannot be one big <a> (no nested links):
+  // it becomes an <article> with a stretched link to the problem, the pseudo link sits above it.
+  const etendu = lien && !!p.code_auteur;
+  const tag = lien && !etendu ? 'a' : 'article';
+  const href = `p.html?id=${encodeURIComponent(p.id)}`;
   const card = h(tag, {
-    class: `carte${large ? ' carte-large' : ''}${type ? ` carte-riche carte-${type}` : ''}`,
-    href: lien ? `p.html?id=${encodeURIComponent(p.id)}` : null,
-    'aria-label': lien ? `${titreDe(p)} — ${cat.label}` : null
+    class: `carte${large ? ' carte-large' : ''}${type ? ` carte-riche carte-${type}` : ''}${etendu ? ' carte-cliquable' : ''}`,
+    href: lien && !etendu ? href : null,
+    'aria-label': lien && !etendu ? `${titreDe(p)} — ${cat.label}` : null
   },
+    etendu ? h('a', { class: 'carte-lien-etendu', href, 'aria-label': `${titreDe(p)} — ${cat.label}` }) : null,
     h('div', { class: 'carte-haut' },
       h('div', { class: 'carte-tuile', 'aria-hidden': 'true' }, icon(cat.icon)),
       h('div', { class: 'carte-entete' },
@@ -71,7 +86,7 @@ export function carteProbleme(p, { large = false, lien = !large, titreNiveau = l
     blocMontant(p.montant, { large }),
     ligneCouronne(p),
     h('div', { class: 'carte-meta' },
-      h('span', { class: 'carte-auteur' }, h('span', { class: 'nom' }, p.pseudo), p.camp ? badgeCamp(p.camp) : null),
+      h('span', { class: 'carte-auteur' }, nomAuteur(p), p.camp ? badgeCamp(p.camp) : null),
       large ? h('span', {}, 'Milliardaires intéressés : 0') : null
     ),
     large ? null : statsCompactes(p),

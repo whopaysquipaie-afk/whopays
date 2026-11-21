@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com https://cloudflareinsights.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <title>Mon CV de pauvre — Qui paie ?</title>
+  <meta name="description" content="Le CV d’un membre de Qui paie ? : son camp, son rang, ses badges et tous ses problèmes. Aucun argent ne circule, seulement de la gloire.">
+  <meta name="theme-color" content="#0B0B0B">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:site_name" content="Qui paie ?">
+  <meta property="og:title" content="Mon CV de pauvre — Qui paie ?">
+  <meta property="og:description" content="Rang, badges, total en Riens et tous ses problèmes. Et toi, tu es à combien de Riens ?">
+  <meta property="og:image" content="https://whopaysquipaie-afk.github.io/whopays/assets/img/og-image.png">
+  <meta property="og:url" content="https://whopaysquipaie-afk.github.io/whopays/profil.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Qui paie ?">
+  <link rel="preload" href="assets/fonts/Montserrat-BlackItalic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script type="module" src="assets/js/pages/profil.js"></script>
+</head>
+<body>
+  <main id="contenu" aria-busy="true">
+    <section class="section" aria-labelledby="titre-profil">
+      <div class="container container-etroit" id="profil">
+        <h1 class="section-titre" id="titre-profil">Chargement du CV…</h1>
+      </div>
+    </section>
+    <section class="section" aria-labelledby="titre-profil-posts" id="profil-posts-zone" hidden>
+      <div class="container">
+        <h2 class="section-titre" id="titre-profil-posts">Ses problèmes</h2>
+        <div class="grille-cartes" id="profil-posts"></div>
+      </div>
+    </section>
+    <section class="section" aria-labelledby="titre-profil-couronnes" id="profil-couronnes-zone" hidden>
+      <div class="container">
+        <h2 class="section-titre" id="titre-profil-couronnes">Ses couronnes</h2>
+        <div class="grille-cartes" id="profil-couronnes"></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

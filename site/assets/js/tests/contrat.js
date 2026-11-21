@@ -1385,6 +1385,33 @@ test('Q. Titres et badges', 'badges calculés : podium du mois, roi du découver
   eq(libelleBadges(['plafond']), '🔟 Plafond atteint');
 });
 
+/* ---------------- R. Profil public (R-040) ---------------- */
+
+test('R. Profil public', 'CV d’un pauvre et d’un riche par code de partage, sans id ni e-mail ; pseudo des cartes relié au profil', async () => {
+  const { api, join, as } = fresh();
+  const pauvre = await join('pauvre', 'CV Impeccable');
+  await api.soumettreProbleme({ categorie: 'reve', titre: 'Mon rêve de CV', texte: 'Un CV de pauvre, mais un CV quand même.', montant: 2500 });
+  const codeP = (await api.getSession()).profil.code_partage;
+  const riche = await join('riche', 'Monocle CV');
+  const pb = (await api.getProblemesPublics({ type: 'pauvre', limite: 1 }))[0];
+  eq(pb.code_auteur, codeP, 'code_auteur dans la projection');
+  await api.couronner(pb.id);
+  const codeR = (await api.getSession()).profil.code_partage;
+  await api.seDeconnecter();
+  const cv = await api.getProfilPublic(codeP.toLowerCase());
+  eq(cv.pseudo, 'CV Impeccable'); eq(cv.camp, 'pauvre'); eq(cv.nb, 1); eq(cv.total, 2500);
+  assert(cv.rang_mois.rang >= 1 && cv.rang_general.rang >= 1, 'rangs');
+  eq(cv.problemes.length, 1); assert(cv.badges.includes('premier') && cv.badges.includes('couronne'), cv.badges.join());
+  assert(/^\d{4}-\d{2}-\d{2}$/.test(cv.arrive_le), cv.arrive_le);
+  assertNoEmail(cv, 'profil public'); assert(!('id' in cv) && !('user_id' in cv.problemes[0]));
+  const cvR = await api.getProfilPublic(codeR);
+  eq(cvR.camp, 'riche'); eq(cvR.statut_riche, 'actif'); eq(cvR.couronnes_donnees.length, 1); assert(!('rang_mois' in cvR));
+  eq(await api.getProfilPublic('ZZZZZZZZ'), null); eq(await api.getProfilPublic('<script>'), null);
+  await as(pauvre.userId); await api.supprimerMonCompte();
+  eq(await api.getProfilPublic(codeP), null, 'membre parti');
+  void riche;
+});
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {

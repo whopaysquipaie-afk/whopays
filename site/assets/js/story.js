@@ -134,7 +134,7 @@ export async function dessinerStory(p) {
   y = 470;
   const cat = category(p.categorie);
   ctx.font = `600 38px ${TEXTE}`;
-  const label = cat ? cat.label : 'Problème';
+  const label = p.etiquette || (cat ? cat.label : 'Problème');
   const pw = ctx.measureText(label).width + 64;
   ctx.fillStyle = C.lavande;
   roundRect(ctx, M, y, pw, 76, 38);

@@ -2074,6 +2074,38 @@ begin
         '017 : get_badges public, wp_badges interne');
     end;
 
+    -- =================================================================
+    -- 018. Public profile (R-040)
+    -- =================================================================
+    declare
+      v_cp text;
+      v_cr text;
+      v_cb text;
+    begin
+      perform pg_temp.wp_jouer(null);
+      select pr.code_partage into v_cp from public.profiles pr where pr.pseudo = 'Pauvre médaillé';
+      select pr.code_partage into v_cr from public.profiles pr where pr.id = v_riche;
+      select pr.code_partage into v_cb from public.profiles pr where pr.id = v_bloque;
+      perform pg_temp.wp_jouer('anon');
+      v_j := public.get_profil_public(lower(v_cp));
+      v_res := v_res || pg_temp.wp_ligne(v_j ->> 'pseudo' = 'Pauvre médaillé' and v_j ->> 'camp' = 'pauvre'
+          and (v_j -> 'rang_mois' ->> 'rang') is not null and (v_j -> 'rang_general' ->> 'rang') is not null
+          and (v_j ->> 'nb')::int = 10 and jsonb_array_length(v_j -> 'problemes') = 10
+          and v_j -> 'badges' ? 'premier' and v_j ->> 'arrive_le' ~ '^\d{4}-\d{2}-\d{2}$'
+          and v_j::text !~ '@' and not (v_j ? 'id') and not (v_j -> 'problemes' -> 0 ? 'user_id'),
+        '018 : profil public d''un pauvre (rangs, total, badges, problèmes visibles seulement), sans id ni e-mail', left(v_j::text, 400));
+      v_res := v_res || pg_temp.wp_ligne(v_j -> 'problemes' -> 0 ->> 'code_auteur' = v_cp,
+        '018 : la projection publique porte le code de partage de l''auteur (lien vers son profil)');
+      v_j := public.get_profil_public(v_cr);
+      v_res := v_res || pg_temp.wp_ligne(v_j ->> 'camp' = 'riche' and not (v_j ? 'rang_mois')
+          and jsonb_array_length(v_j -> 'couronnes_donnees') = 10 and v_j ->> 'statut_riche' = 'actif',
+        '018 : profil public d''un riche : publications et couronnes données, pas de rang', left(v_j::text, 300));
+      v_res := v_res || pg_temp.wp_ligne(public.get_profil_public(v_cb) is null and public.get_profil_public('xx') is null
+          and public.get_profil_public(null) is null,
+        '018 : code inconnu, invalide ou membre bloqué → null');
+      perform pg_temp.wp_jouer(null);
+    end;
+
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';
   exception

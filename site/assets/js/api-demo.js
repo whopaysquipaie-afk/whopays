@@ -305,6 +305,12 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
   function visibleProblem(p) {
     return p && p.statut === 'publie' && !p.masque;
   }
+  /** R-040 (018): share code of the author (null for the team's examples, a gone or blocked member). */
+  const codeAuteur = (st, p) => {
+    if (p.est_exemple || !p.user_id) return null;
+    const a = st.profiles.find((x) => x.id === p.user_id);
+    return a && !a.bloque ? a.code_partage : null;
+  };
   function problemRow(st, p) {
     const author = p.est_exemple || !p.user_id ? { pseudo: TEAM_PSEUDO, camp: null } : pseudoOf(st, p.user_id);
     const count = (type) => st.reactions.filter((r) => r.problem_id === p.id && r.type === type).length;
@@ -312,7 +318,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     const cour = couronnesVisibles(st, p.id);
     return {
       id: p.id, type: p.type || 'pauvre', premiere: !!p.premiere, categorie: p.categorie, titre: p.titre, texte: p.texte, montant: p.montant,
-      pseudo: author.pseudo, camp: author.camp, est_exemple: !!p.est_exemple, cree_le: p.modere_le || p.cree_le,
+      pseudo: author.pseudo, camp: author.camp, code_auteur: codeAuteur(st, p), est_exemple: !!p.est_exemple, cree_le: p.modere_le || p.cree_le,
       rire: count('rire'), courage: count('courage'), paierais: count('paierais'), yacht: count('yacht'), majordome: count('majordome'),
       couronnes: cour.length, couronne_par: cour.length === 1 ? pseudoOf(st, cour[0].riche_id).pseudo : null,
       ma_couronne: !!myId && cour.some((c) => c.riche_id === myId),
@@ -537,6 +543,31 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
       // R-039 (017): the new signature also carries the badges and the share code of each line
       const extra = (id) => (periode ? { code: st.profiles.find((x) => x.id === id).code_partage, badges: badgesDe(st, id) } : {});
       return { ...(periode ? { periode: per } : {}), classes: c.length, lignes: c.slice(0, lim).map(({ user_id, ...l }) => ({ ...l, ...extra(user_id) })) };
+    },
+
+    /** R-040 (= get_profil_public, 018): the « CV » of a member by share code, or null. */
+    async getProfilPublic(code) {
+      const st = load();
+      const p = profilParCode(st, code);
+      if (!p) return null;
+      const r = {
+        pseudo: p.pseudo, camp: p.camp, code: p.code_partage, statut_riche: statutRiche(st, p),
+        arrive_le: new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date(p.cree_le)),
+        badges: badgesDe(st, p.id),
+        problemes: st.problems.filter((x) => x.user_id === p.id && visibleProblem(x) && !x.est_exemple)
+          .sort((a, b) => sortDate(b).localeCompare(sortDate(a)) || b.id.localeCompare(a.id)).slice(0, 24).map((x) => problemRow(st, x)),
+        couronnes_donnees: p.camp !== 'riche' ? [] : (st.couronnes || []).filter((c) => c.riche_id === p.id && !c.retiree)
+          .sort((a, b) => b.cree_le.localeCompare(a.cree_le))
+          .map((c) => st.problems.find((x) => x.id === c.problem_id)).filter((x) => visibleProblem(x)).slice(0, 12).map((x) => problemRow(st, x))
+      };
+      if (p.camp === 'pauvre') {
+        const m = classementPauvres(st, 'mois');
+        const g = classementPauvres(st, 'toujours');
+        const lm = m.find((x) => x.user_id === p.id);
+        const lg = g.find((x) => x.user_id === p.id);
+        Object.assign(r, { rang_mois: { rang: lm ? lm.rang : null, sur: m.length }, rang_general: { rang: lg ? lg.rang : null, sur: g.length }, total: lg ? lg.total : 0, nb: lg ? lg.nb : 0 });
+      }
+      return r;
     },
 
     /** R-039 (= get_badges, 017): { pseudo, badges } by share code, or null. */

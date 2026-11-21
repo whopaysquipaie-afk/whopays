@@ -1118,6 +1118,22 @@ body.page-club .club-fil { padding-bottom: 24px; }
 .notif { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); overflow-wrap: anywhere; }
 .notif.non-lue { box-shadow: inset 3px 0 0 #F5C518; background: rgba(245, 197, 24, .08); }
 .notif time { font-size: 12px; color: var(--gris); }
+/* R-040: public profile, links of the pseudos */
+.carte-cliquable { cursor: pointer; }
+.carte-lien-etendu { position: absolute; inset: 0; z-index: 1; border-radius: var(--r-carte); }
+.carte-lien-etendu:focus-visible { outline: 3px solid var(--citron); outline-offset: 4px; }
+.carte-cliquable:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0, 0, 0, .5), 0 0 0 2px var(--citron); }
+.carte .lien-profil { position: relative; z-index: 2; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.lien-profil { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.lien-profil:hover { text-decoration-thickness: 2px; }
+.profil-entete { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.profil-entete .avatar { width: 72px; height: 72px; border-radius: 22px; display: grid; place-items: center; flex: none; }
+.profil-entete .avatar svg { width: 40px; height: 40px; }
+.profil-pseudo { margin: 0; font-family: var(--f-titre); font-style: italic; font-weight: 900; font-size: clamp(30px, 8vw, 48px); line-height: 1.05; overflow-wrap: anywhere; min-width: 0; }
+.profil-stats { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 10px; }
+.profil-stats li { padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .05); display: grid; gap: 2px; min-width: 0; }
+.profil-stats strong { font-family: var(--f-titre); font-style: italic; font-weight: 900; font-size: 24px; color: var(--citron); overflow-wrap: anywhere; }
+.profil-stats small { color: var(--gris); }
 /* R-039: badges */
 .badges-ligne { display: inline-flex; gap: 2px; margin-left: 6px; font-size: 15px; vertical-align: middle; white-space: nowrap; }
 .badges-plus { font-size: 12px; font-weight: 700; color: var(--gris); align-self: center; }
