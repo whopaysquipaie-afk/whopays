@@ -4,6 +4,9 @@ import { siteUrl } from './config.js';
 import { h, formatNumber } from './ui.js';
 import { enRiens, montantAffiche } from './riens.js';
 import { partageNatif, copierLien } from './partage.js';
+import { deMois } from './themes.js';
+
+export { deMois };
 
 /** 1 → "1ᵉʳ", 42 → "42ᵉ". */
 export const ordinal = (n) => `${formatNumber(n)}${n === 1 ? 'ᵉʳ' : 'ᵉ'}`;
@@ -24,7 +27,7 @@ export function phraseRang(mon) {
 export async function partagerRang(mon, codeRef = null) {
   const url = siteUrl(`palmares.html${codeRef ? `?ref=${encodeURIComponent(codeRef)}` : ''}`);
   const riens = enRiens(mon.total);
-  const texte = `Je suis ${ordinal(mon.rang)} sur ${formatNumber(mon.sur)} au palmarès des pauvres de Qui paie ?${riens ? `, avec ${riens} de problèmes` : ''}. Et toi, tu es à combien de Riens ? ${url}`;
+  const texte = `Je suis ${ordinal(mon.rang)} sur ${formatNumber(mon.sur)} au palmarès des pauvres ${mon.periode === 'mois' ? `${deMois()} ` : ''}de Qui paie ?${riens ? `, avec ${riens} de problèmes` : ''}. Et toi, tu es à combien de Riens ? ${url}`;
   const ok = await partageNatif({ title: 'Le palmarès des pauvres — Qui paie ?', text: texte, url });
   if (!ok) await copierLien(texte);
 }

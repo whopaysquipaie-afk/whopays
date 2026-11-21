@@ -3,7 +3,7 @@ import { api } from '../api.js';
 import { initPage, session } from '../page.js';
 import { $, h, clear, formatNumber, toastError } from '../ui.js';
 import { icon } from '../icons.js';
-import { ordinal, totalRiens, partagerRang } from '../palmares.js';
+import { ordinal, totalRiens, partagerRang, deMois } from '../palmares.js';
 
 await initPage('palmares');
 
@@ -24,15 +24,40 @@ function ligne(l, { moi = false } = {}) {
     h('td', { class: 'total' }, ...totalRiens(l.total)));
 }
 
+/* R-038: « Ce mois-ci » (default) / « Depuis toujours »; tabs hidden while 016 is not applied. */
+let periode = new URLSearchParams(location.search).get('periode') === 'toujours' ? 'toujours' : 'mois';
+let saisons = true;
+const onglets = $('#palmares-onglets');
+for (const b of onglets.querySelectorAll('button')) {
+  b.addEventListener('click', () => { periode = b.dataset.periode; charger(); });
+}
+function majOnglets() {
+  onglets.hidden = !saisons;
+  for (const b of onglets.querySelectorAll('button')) b.setAttribute('aria-pressed', String(saisons && b.dataset.periode === periode));
+  const mois = saisons && periode === 'mois';
+  $('#titre-palmares').textContent = mois ? `Le palmarès des pauvres ${deMois()}` : 'Le palmarès des pauvres';
+  $('#titre-classement').textContent = mois ? 'Le top 100 du mois' : 'Le top 100';
+  $('#palmares-note-mois').hidden = !mois;
+}
+
 async function charger() {
   let p;
   let mon = null;
   try {
-    [p, mon] = await Promise.all([api.getPalmares({ limite: 100 }), api.getMonRang().catch(() => null)]);
+    if (saisons) {
+      try {
+        [p, mon] = await Promise.all([api.getPalmares({ limite: 100, periode }), api.getMonRang(periode).catch(() => null)]);
+      } catch (e) {
+        if (e.code !== 'configuration') throw e;
+        saisons = false;  // 016 not applied yet: the all-time leaderboard only
+      }
+    }
+    if (!saisons) [p, mon] = await Promise.all([api.getPalmares({ limite: 100 }), api.getMonRang().catch(() => null)]);
   } catch (e) {
     toastError(e);
     return;
   }
+  majOnglets();
   $('#palmares-classes').textContent = p.classes
     ? `${plur(p.classes, 'pauvre')} classé${p.classes > 1 ? 's' : ''}.`
     : '';

@@ -125,6 +125,24 @@ for (const [id, complet] of [['theme-haut', false], ['theme-mur', true]]) {
   if (zone) { zone.replaceChildren(bandeauTheme(complet)); zone.hidden = false; }
 }
 
+/* ---------- « Le pauvre du mois » (R-038; hidden while 016 is not applied or when nobody is ranked) ---------- */
+async function chargerPauvreDuMois() {
+  const zone = document.getElementById('pauvre-du-mois');
+  if (!zone) return;
+  let p = null;
+  try { p = await api.getPalmares({ limite: 1, periode: 'mois' }); } catch { return; }
+  const l = p && p.lignes && p.lignes[0];
+  if (!l) return;
+  const { deMois, totalRiens } = await import('../palmares.js');
+  zone.querySelector('.pauvre-mois-corps').replaceChildren(
+    h('p', { class: 'pauvre-mois-titre' }, h('span', { 'aria-hidden': 'true' }, '🥇 '), `Le pauvre ${deMois()}`),
+    h('p', { class: 'riche-semaine-nom' }, h('strong', {}, l.pseudo)),
+    h('p', { class: 'pauvre-mois-total' }, ...totalRiens(l.total), h('span', { class: 'gris' }, ` · ${formatNumber(l.nb)} problème${l.nb > 1 ? 's' : ''} ce mois-ci`)),
+    h('a', { class: 'btn btn-lavande btn-petit', href: 'palmares.html' }, 'Voir le palmarès du mois', icon('arrow-right', { className: 'fleche' })));
+  zone.hidden = false;
+}
+chargerPauvreDuMois();
+
 /* ---------- « Le riche de la semaine » (R-037; hidden while 015 is not applied or without rich member) ---------- */
 async function chargerRicheSemaine() {
   const zone = document.getElementById('riche-semaine');

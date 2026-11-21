@@ -35,6 +35,11 @@
         <h1 class="section-titre" id="titre-palmares">Le palmarès des pauvres</h1>
         <p class="gris mt-8">Classés par le total de leurs problèmes publiés. Le premier n'a rien gagné, à part le droit d'en parler.</p>
         <p class="gris mt-8" id="palmares-classes"></p>
+        <div class="filtres onglets-palmares" id="palmares-onglets" role="group" aria-label="Période du palmarès" hidden>
+          <button type="button" class="filtre" data-periode="mois" aria-pressed="true">Ce mois-ci</button>
+          <button type="button" class="filtre" data-periode="toujours" aria-pressed="false">Depuis toujours</button>
+        </div>
+        <p class="gris petit mt-8" id="palmares-note-mois" hidden>Remise à zéro le 1er de chaque mois (heure de Paris). Le général, lui, n'oublie rien.</p>
         <div class="hero-actions">
           <button type="button" class="btn btn-primaire" id="partager-rang" hidden><i data-icon="share"></i> Partager mon rang</button>
           <button type="button" class="btn btn-secondaire" data-action="publier">Publier un problème <i data-icon="arrow-right" class="fleche"></i></button>

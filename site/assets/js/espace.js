@@ -10,7 +10,7 @@ import { lienParrainage } from './parrainage.js';
 import { barrePartage, urlProbleme, texteProbleme, partageNatif, copierLien } from './partage.js';
 import { intent } from './layout.js';
 import { CLUBS } from './club.js';
-import { phraseRang, partagerRang } from './palmares.js';
+import { phraseRang, partagerRang, deMois, ordinal } from './palmares.js';
 import { LIBELLE_NEWSLETTER } from './auth-textes.js';
 import { FORMULES, richeEnAttente, ecranPrixRiche, ouvrirPrixRiche } from './riche-attente.js';
 import { montantAffiche } from './riens.js';
@@ -127,10 +127,11 @@ export async function monterEspace(zone) {
 function blocRang(e) {
   const total = h('p', { class: 'total-pauvre' }, '…');
   const rang = h('p', { class: 'gris mt-8' });
+  const rangMois = h('p', { class: 'mt-8 rang-mois', hidden: true });
   const partager = h('button', { type: 'button', class: 'btn btn-secondaire btn-petit', hidden: true }, icon('share'), 'Partager mon rang');
   const bloc = h('section', { class: 'bloc mon-rang', 'aria-labelledby': 'titre-rang' },
     h('h2', { id: 'titre-rang' }, 'Mon palmarès'),
-    total, rang,
+    total, rangMois, rang,
     h('div', { class: 'hero-actions' },
       h('a', { class: 'btn btn-lavande btn-petit', href: 'palmares.html' }, 'Voir le palmarès', icon('arrow-right', { className: 'fleche' })),
       partager));
@@ -142,6 +143,16 @@ function blocRang(e) {
     rang.textContent = phraseRang(mon);
     partager.hidden = !mon.rang;
     partager.onclick = () => partagerRang(mon, e.code_partage);
+    // R-038: rank of the month (nothing while 016 is not applied)
+    api.getMonRang('mois').then((m) => {
+      if (!m) return;
+      rangMois.textContent = m.rang
+        ? `Ce mois-ci : ${ordinal(m.rang)} sur ${formatNumber(m.sur)} — le palmarès ${deMois()} repart de zéro le 1er.`
+        : `Ce mois-ci : pas encore classé. Un problème publié ${deMois().replace(/^de /, 'en ').replace(/^d’/, 'en ')} et tu entres au palmarès du mois.`;
+      rangMois.hidden = false;
+      if (m.rang) { partager.hidden = false; partager.onclick = () => partagerRang(m, e.code_partage); }
+      rang.textContent = `Depuis toujours : ${phraseRang(mon).replace(/^Ton rang : /, '')}`;
+    }, () => {});
   }, () => { bloc.hidden = true; });
   return bloc;
 }

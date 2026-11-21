@@ -9,6 +9,7 @@ import { isSafeUrl, checkAttribute } from '../dom-safe.js';
 import { EXEMPLES, PROBLEMES, POSTS_RICHES, COMMENTAIRES, CLUB_RICHES, CLUB_PAUVRES, MEMBRES } from '../demo-data.js';
 import { CATEGORY_IDS } from '../categories.js';
 import { enRiens, phraseRiens, montantAffiche, enEuros } from '../riens.js';
+import { deMois } from '../themes.js';
 import { themeDuJour, texteTheme, texteProbleme } from '../themes.js';
 import { estRobot, DELAI_MIN_MS } from '../piege.js';
 
@@ -1317,6 +1318,42 @@ test('O. Pouvoirs des riches', 'le riche de la semaine (le plus de couronnes sur
   const sansCouronne = await problemeDePauvre(api, join, { titre: 'Le plus récent, sans couronne' });
   const moment = (await api.getProblemeDuMoment()).id;
   assert(moment !== sansCouronne.id && [pb.id, ...autres.map((x) => x.id)].includes(moment), 'une couronne (= 10 réactions) passe devant le plus récent');
+});
+
+/* ---------------- P. Saisons du palmarès (R-038) ---------------- */
+
+test('P. Saisons du palmarès', 'palmarès du mois (heure de Paris, remise à zéro le 1er) et palmarès général', async () => {
+  const { api, join, as, advance, clock } = fresh();
+  clock.now = Date.parse('2026-11-30T22:30:00Z');  // 30 November, 23:30 in Paris
+  const vieux = await join('pauvre', 'Gros Découvert');
+  await api.soumettreProbleme({ categorie: 'factures', titre: 'Mon découvert de novembre', texte: 'Un découvert qui date de novembre, encore là.', montant: 10000 });
+  advance(HOUR);  // 1 December, 00:30 in Paris
+  const neuf = await join('pauvre', 'Petit Nouveau');
+  await api.soumettreProbleme({ categorie: 'quotidien', titre: 'Mon premier problème de décembre', texte: 'Il fait froid et le radiateur boude.', montant: 1 });
+  const mois = await api.getPalmares({ periode: 'mois' });
+  eq(mois.periode, 'mois');
+  eq(mois.lignes.length, 1, 'remise à zéro le 1er à minuit (Paris)');
+  eq(mois.lignes[0].pseudo, 'Petit Nouveau');
+  const general = await api.getPalmares({ periode: 'toujours' });
+  const rang = (l, pseudo) => l.lignes.find((x) => x.pseudo === pseudo).rang;
+  assert(rang(general, 'Gros Découvert') < rang(general, 'Petit Nouveau'), 'général');
+  eq(JSON.stringify((await api.getPalmares()).lignes), JSON.stringify(general.lignes), 'ancienne signature = général');
+  await rejects(api.getPalmares({ periode: 'semaine' }), 'invalide');
+  assertNoEmail(mois, 'palmarès du mois');
+  await as(vieux.userId);
+  const m = await api.getMonRang('mois');
+  eq(m.rang, null); eq(m.total, 0); eq(m.periode, 'mois');
+  eq((await api.getMonRang('toujours')).rang, rang(general, 'Gros Découvert'));
+  await as(neuf.userId);
+  eq((await api.getMonRang('mois')).rang, 1);
+});
+
+test('P. Saisons du palmarès', '« de novembre », « d’avril », « d’août », « d’octobre » (mois de Paris)', () => {
+  eq(deMois(new Date('2026-11-15T12:00:00Z')), 'de novembre');
+  eq(deMois(new Date('2026-04-15T12:00:00Z')), 'd’avril');
+  eq(deMois(new Date('2026-08-15T12:00:00Z')), 'd’août');
+  eq(deMois(new Date('2026-10-15T12:00:00Z')), 'd’octobre');
+  eq(deMois(new Date('2026-11-30T23:30:00Z')), 'de décembre', 'heure de Paris');
 });
 
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {

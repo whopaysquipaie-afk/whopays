@@ -52,8 +52,9 @@ export function createSupabaseApi() {
     getProblemePublic: (id) => rpc('get_probleme_public', { p_id: id }),
     getProblemeHasard: () => rpc('get_probleme_hasard'),
     getCommentaires: (problemId, avant = null) => rpc('get_commentaires', { p_problem_id: problemId, p_avant: avant }).then((d) => d || []),
-    getPalmares: ({ limite = 100 } = {}) => rpc('get_palmares', { p_limite: limite }),
-    getMonRang: () => rpc('get_mon_rang'),
+    // R-038 (016): with a period → new signatures; without → the 009 ones (all time)
+    getPalmares: ({ limite = 100, periode = null } = {}) => rpc('get_palmares', periode ? { p_limite: limite, p_periode: periode } : { p_limite: limite }),
+    getMonRang: (periode = null) => rpc('get_mon_rang', periode ? { p_periode: periode } : {}),
     getAnnonces: () => rpc('get_annonces').then((d) => d || []),
     // R-034: hero card of the home page (null when nothing can be shown)
     getProblemeDuMoment: () => rpc('get_probleme_du_moment').then((d) => d || null),

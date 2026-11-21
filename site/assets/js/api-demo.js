@@ -324,11 +324,20 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
   /** Problems stored before R-030 have no type: problems of the poor (= default of 011). */
   const typeDe = (p) => p.type || 'pauvre';
 
-  /** Ranked poor (not blocked, ≥ 1 published non-masked problem): total desc, nb desc, oldest member. */
-  function classementPauvres(st) {
+  /** R-038: 'YYYY-MM' of a date in Paris. */
+  const moisParis = (ms) => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit' }).format(new Date(ms));
+  /** = wp_depuis_periode (016): 'mois' | 'toujours' (null = toujours, old signature). */
+  function periodeValide(periode) {
+    if (periode === null || periode === undefined || periode === 'toujours' || periode === 'mois') return periode || 'toujours';
+    throw ERR.invalide('Période inconnue : « mois » ou « toujours ».');
+  }
+  /** Ranked poor (not blocked, ≥ 1 published non-masked problem): total desc, nb desc, oldest member. 'mois' = shown this month (Paris). */
+  function classementPauvres(st, periode = 'toujours') {
     const parId = new Map();
+    const ceMois = moisParis(t());
     for (const pb of st.problems) {
       if (!visibleProblem(pb) || pb.est_exemple || !pb.user_id || typeDe(pb) !== 'pauvre') continue;
+      if (periode === 'mois' && moisParis(Date.parse(sortDate(pb))) !== ceMois) continue;
       const l = parId.get(pb.user_id) || { nb: 0, total: 0 };
       l.nb++; l.total += pb.montant || 0;
       parId.set(pb.user_id, l);
@@ -481,19 +490,22 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
 
     /* ===== Leaderboard of the poor (= 009_palmares.sql, R-028) ===== */
 
-    async getPalmares({ limite = 100 } = {}) {
+    // R-038 (016): periode 'mois' | 'toujours' (absent = the old all-time version)
+    async getPalmares({ limite = 100, periode = null } = {}) {
+      const per = periodeValide(periode);
       const lim = Math.max(1, Math.min(100, Number.isInteger(limite) ? limite : 100));
-      const c = classementPauvres(load());
-      return { classes: c.length, lignes: c.slice(0, lim).map(({ user_id, ...l }) => l) };
+      const c = classementPauvres(load(), per);
+      return { ...(periode ? { periode: per } : {}), classes: c.length, lignes: c.slice(0, lim).map(({ user_id, ...l }) => l) };
     },
 
-    async getMonRang() {
+    async getMonRang(periode = null) {
+      const per = periodeValide(periode);
       const st = load();
       const p = me(st);
       if (!p || p.camp !== 'pauvre') return null;
-      const c = classementPauvres(st);
+      const c = classementPauvres(st, per);
       const l = c.find((x) => x.user_id === p.id);
-      return { rang: l ? l.rang : null, sur: c.length, pseudo: p.pseudo, camp: p.camp, nb: l ? l.nb : 0, total: l ? l.total : 0 };
+      return { ...(periode ? { periode: per } : {}), rang: l ? l.rang : null, sur: c.length, pseudo: p.pseudo, camp: p.camp, nb: l ? l.nb : 0, total: l ? l.total : 0 };
     },
 
     /* ================= Members ================= */

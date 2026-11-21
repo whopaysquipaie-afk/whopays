@@ -58,8 +58,9 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 13. `supabase/migrations/013_probleme_du_moment.sql` (carte « Le problème du moment » de l'accueil : `get_probleme_du_moment()`, publique, lecture seule)
 14. `supabase/migrations/014_anti_robots.sql` (limites par adresse IP : 5 profils, 30 publications, 60 commentaires ou messages, 300 réactions par heure ; IP jamais stockée en clair ; voir 3.1)
 15. `supabase/migrations/015_pouvoirs_riches.sql` (couronnes des riches, notifications sur le site, réactions « yacht » et « majordome », « Le riche de la semaine » ; après 014)
-16. `supabase/seed/mots_interdits.sql`
-17. `supabase/seed/exemples.sql`
+16. `supabase/migrations/016_saisons_palmares.sql` (palmarès du mois et général : `get_palmares(p_limite, p_periode)`, `get_mon_rang(p_periode)`)
+17. `supabase/seed/mots_interdits.sql`
+18. `supabase/seed/exemples.sql`
 
 Pour modérer depuis un téléphone, inscrire son propre compte de membre dans `public.moderateurs` (voir `docs/MODERATION.md`, « Page de modération »).
 

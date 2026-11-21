@@ -33,3 +33,9 @@ export function texteProbleme(titre, url, categorie = null, date = new Date()) {
 export function texteTheme(theme, url) {
   return `Thème du jour sur Qui paie ? : « ${theme.label} ». Raconte le tien, avec humour 👉 ${url}`;
 }
+
+/** R-038: « de novembre », « d’avril », « d’août », « d’octobre » (month in Paris). */
+export function deMois(date = new Date()) {
+  const m = new Intl.DateTimeFormat('fr-FR', { month: 'long', timeZone: 'Europe/Paris' }).format(date);
+  return /^[aeiouéèêâîôû]/i.test(m) ? `d’${m}` : `de ${m}`;
+}

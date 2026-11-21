@@ -1954,6 +1954,67 @@ begin
         '015 : couronnes et notifications en RLS forcée sans aucun droit direct');
     end;
 
+    -- =================================================================
+    -- 016. Seasons of the leaderboard (R-038)
+    -- =================================================================
+    declare
+      v_m1 uuid := gen_random_uuid();
+      v_m2 uuid := gen_random_uuid();
+      v_r1 integer;
+      v_r2 integer;
+    begin
+      perform pg_temp.wp_jouer(null);
+      insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_anonymous)
+      select '00000000-0000-0000-0000-000000000000'::uuid, u.id, 'authenticated', 'authenticated',
+             u.nom || '-' || v_suffixe || '@exemple.invalid', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb, false
+      from (values (v_m1, 'm1'), (v_m2, 'm2')) as u(id, nom);
+      perform pg_temp.wp_jouer('authenticated', v_m1);
+      perform public.creer_profil('pauvre', 'Pauvre du mois dernier', 'm1-' || v_suffixe || '@exemple.invalid');
+      perform pg_temp.wp_jouer('authenticated', v_m2);
+      perform public.creer_profil('pauvre', 'Pauvre de ce mois', 'm2-' || v_suffixe || '@exemple.invalid');
+      perform pg_temp.wp_jouer(null);
+      -- m1: a huge problem shown last month (Paris); m2: a small one this month
+      insert into public.problems (user_id, type, categorie, titre, texte, montant, statut, cree_le)
+      values (v_m1, 'pauvre', 'factures', 'Le mois dernier', 'Un problème du mois dernier, déjà loin.', 10000, 'publie',
+              public.wp_debut_mois_paris() - interval '2 days'),
+             (v_m2, 'pauvre', 'factures', 'Ce mois-ci', 'Un petit problème de ce mois-ci.', 1, 'publie', now());
+
+      perform pg_temp.wp_jouer('anon');
+      v_j := public.get_palmares(100, 'mois');
+      v_res := v_res || pg_temp.wp_ligne(
+        v_j ->> 'periode' = 'mois'
+        and exists (select 1 from jsonb_array_elements(v_j -> 'lignes') l where l ->> 'pseudo' = 'Pauvre de ce mois')
+        and not exists (select 1 from jsonb_array_elements(v_j -> 'lignes') l where l ->> 'pseudo' = 'Pauvre du mois dernier'),
+        '016 : palmarès du mois = seulement les problèmes du mois en cours (heure de Paris)', left(v_j::text, 300));
+      v_j := public.get_palmares(100, 'toujours');
+      select (l ->> 'rang')::int into v_r1 from jsonb_array_elements(v_j -> 'lignes') l where l ->> 'pseudo' = 'Pauvre du mois dernier';
+      select (l ->> 'rang')::int into v_r2 from jsonb_array_elements(v_j -> 'lignes') l where l ->> 'pseudo' = 'Pauvre de ce mois';
+      v_res := v_res || pg_temp.wp_ligne(v_r1 is not null and v_r2 is not null and v_r1 < v_r2
+          and v_j::text !~ '@' and v_j::text !~ v_m1::text,
+        '016 : palmarès « depuis toujours » = tous les mois, sans id ni e-mail', v_r1 || ' / ' || v_r2);
+      v_res := v_res || pg_temp.wp_ligne(public.get_palmares(100) -> 'lignes' = v_j -> 'lignes',
+        '016 : l''ancienne signature get_palmares(p_limite) renvoie toujours le général');
+      v_res := v_res || pg_temp.wp_attendre_erreur('select public.get_palmares(10, ''semaine'')', 'invalide',
+        '016 : période inconnue refusée');
+      perform pg_temp.wp_jouer('authenticated', v_m1);
+      v_j := public.get_mon_rang('mois');
+      v_res := v_res || pg_temp.wp_ligne(v_j ? 'rang' and v_j -> 'rang' = 'null'::jsonb and (v_j ->> 'total')::int = 0
+          and (public.get_mon_rang('toujours') ->> 'rang')::int = v_r1 and (public.get_mon_rang() ->> 'rang')::int = v_r1,
+        '016 : mon rang du mois (pas classé ce mois-ci) et mon rang général', v_j::text);
+      perform pg_temp.wp_jouer('authenticated', v_m2);
+      v_res := v_res || pg_temp.wp_ligne((public.get_mon_rang('mois') ->> 'rang') is not null,
+        '016 : un pauvre qui a publié ce mois-ci est classé dans le palmarès du mois');
+      perform pg_temp.wp_jouer(null);
+      v_res := v_res || pg_temp.wp_ligne(
+        has_function_privilege('anon', 'public.get_palmares(integer, text)', 'execute')
+        and has_function_privilege('anon', 'public.get_mon_rang(text)', 'execute')
+        and (select bool_and(p.prosecdef and coalesce(p.proconfig, '{}') @> array['search_path=""'] and p.provolatile = 's')
+             from pg_proc p where p.oid in ('public.get_palmares(integer, text)'::regprocedure, 'public.get_mon_rang(text)'::regprocedure))
+        and (select coalesce(p.pronargdefaults, 0) from pg_proc p where p.oid = 'public.get_palmares(integer, text)'::regprocedure) = 0,
+        '016 : nouvelles signatures publiques, SECURITY DEFINER, lecture seule, sans valeur par défaut (pas d''ambiguïté PostgREST)');
+    end;
+
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';
   exception
