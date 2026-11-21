@@ -4,6 +4,7 @@ import { initPage, session } from '../page.js';
 import { $, h, clear, formatNumber, toastError } from '../ui.js';
 import { icon } from '../icons.js';
 import { ordinal, totalRiens, partagerRang, deMois, rangeeBadges } from '../palmares.js';
+import { listePlusSuivis } from '../suivi.js';
 
 await initPage('palmares');
 
@@ -91,6 +92,15 @@ async function charger() {
   btn.onclick = () => partagerRang(mon, session() && session().profil ? session().profil.code_partage : null);
   $('main').setAttribute('aria-busy', 'false');
 }
+
+// R-047: « Les plus suivis » (hidden while 019 is not applied or when nobody is followed)
+api.getPlusSuivis().then((r) => {
+  const p = listePlusSuivis(r.pauvres, { titre: 'Top 10 des pauvres', max: 10 });
+  const ri = listePlusSuivis(r.riches, { titre: 'Top 5 des riches', max: 5 });
+  if (!p && !ri) return;
+  $('#plus-suivis-listes').replaceChildren(...[p, ri].filter(Boolean));
+  $('#plus-suivis').hidden = false;
+}, () => {});
 
 document.addEventListener('wp:session-maj', charger);
 document.addEventListener('wp:probleme-soumis', charger);

@@ -96,6 +96,12 @@ export function createSupabaseApi() {
     retirerCouronne: (problemId) => rpc('retirer_couronne', { p_problem_id: problemId }),
     getMesNotifications: () => rpc('mes_notifications').then((d) => d || { non_lues: 0, liste: [] }),
     marquerNotificationsLues: () => rpc('marquer_notifications_lues'),
+    // R-047 (019)
+    suivre: (code) => rpc('suivre', { p_code: code }),
+    nePlusSuivre: (code) => rpc('ne_plus_suivre', { p_code: code }),
+    getMesSuivis: () => rpc('mes_suivis').then((d) => d || []),
+    getFilSuivis: ({ limite = 12, avant = null } = {}) => rpc('get_fil_suivis', { p_limite: limite, p_avant: avant }).then((d) => d || []),
+    getPlusSuivis: () => rpc('get_plus_suivis').then((d) => d || { pauvres: [], riches: [] }),
     supprimerMonCompte: async () => {
       await rpc('supprimer_mon_compte');
       const sb = await getClient();

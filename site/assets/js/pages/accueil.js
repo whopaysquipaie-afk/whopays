@@ -143,6 +143,16 @@ async function chargerPauvreDuMois() {
 }
 chargerPauvreDuMois();
 
+/* ---------- « Les plus suivis » (R-047; preview, hidden while 019 is not applied) ---------- */
+api.getPlusSuivis().then(async (r) => {
+  const zone = document.getElementById('plus-suivis-accueil');
+  if (!zone || !(r.pauvres.length || r.riches.length)) return;
+  const { listePlusSuivis } = await import('../suivi.js');
+  zone.querySelector('.plus-suivis-listes').replaceChildren(...[
+    listePlusSuivis(r.pauvres, { titre: 'Pauvres', max: 3 }), listePlusSuivis(r.riches, { titre: 'Riches', max: 2 })].filter(Boolean));
+  zone.hidden = false;
+}, () => {});
+
 /* ---------- « Le riche de la semaine » (R-037; hidden while 015 is not applied or without rich member) ---------- */
 async function chargerRicheSemaine() {
   const zone = document.getElementById('riche-semaine');

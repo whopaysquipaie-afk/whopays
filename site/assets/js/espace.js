@@ -15,7 +15,8 @@ import { LIBELLE_NEWSLETTER } from './auth-textes.js';
 import { FORMULES, richeEnAttente, ecranPrixRiche, ouvrirPrixRiche } from './riche-attente.js';
 import { montantAffiche } from './riens.js';
 import { blocNotifications } from './notifications.js';
-import { BADGES, ORDRE_BADGES } from './badges.js';
+import { BADGES, ORDRE_BADGES, badgesConnus } from './badges.js';
+import { lienProfil, carteProbleme } from './carte.js';
 
 const STATUTS = {
   recu: { label: 'En relecture', classe: '' },
@@ -80,6 +81,14 @@ export async function monterEspace(zone) {
   grille.appendChild(zoneBadges);
   api.getBadges(e.code_partage).then((r) => { if (r) zoneBadges.replaceWith(blocBadges(r.badges, e.camp)); }, () => {});
 
+  /* ---------- Followed accounts (R-047; hidden while 019 is not applied) ---------- */
+  const zoneSuivis = h('div', { class: 'pleine', hidden: true });
+  grille.appendChild(zoneSuivis);
+  api.getMesSuivis().then((liste) => {
+    const blocs = ['pauvre', 'riche'].map((c) => blocSuivis(liste.filter((x) => x.camp === c), c));
+    zoneSuivis.replaceWith(...blocs);
+  }, () => {});
+
   /* ---------- Referral ---------- */
   const lien = lienParrainage(e.code_partage);
   grille.appendChild(h('section', { class: 'bloc', 'aria-labelledby': 'titre-parrainage' },
@@ -127,6 +136,20 @@ export async function monterEspace(zone) {
       h('button', { type: 'button', class: 'btn btn-fantome', onclick: deconnexion }, icon('logout'), 'Se déconnecter'),
       h('button', { type: 'button', class: 'btn btn-danger', onclick: () => supprimer(e) }, icon('trash'), 'Supprimer mon compte'))));
   zone.closest('main').setAttribute('aria-busy', 'false');
+}
+
+/** R-047: « Mes pauvres suivis » / « Mes riches suivis » with their last post. */
+function blocSuivis(liste, camp) {
+  const titre = camp === 'riche' ? 'Mes riches suivis' : 'Mes pauvres suivis';
+  return h('section', { class: 'bloc pleine', 'aria-label': titre },
+    h('h2', {}, titre),
+    liste.length ? h('div', { class: 'grille-suivis' }, liste.map((x) => h('div', { class: 'suivi-item' },
+      h('p', { class: 'suivi-nom' }, h('a', { class: 'lien-profil', href: lienProfil(x.code) }, x.pseudo),
+        h('span', { 'aria-hidden': 'true' }, ` ${badgesConnus(x.badges).slice(0, 3).map((b) => b.emoji).join('')}`)),
+      x.dernier ? carteProbleme(x.dernier) : h('p', { class: 'gris petit' }, 'Rien de publié pour l’instant.'))))
+      : h('p', { class: 'gris mt-8' }, camp === 'riche'
+        ? 'Tu ne suis aucun riche. Ils ont pourtant des problèmes passionnants (de yacht).'
+        : 'Tu ne suis aucun pauvre. Touche « Suivre » sur un profil qui te fait rire.'));
 }
 
 /** R-039: earned badges, then the ones left to unlock (podium and poor-only badges hidden for the rich, and the reverse). */

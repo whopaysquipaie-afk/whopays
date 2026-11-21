@@ -61,8 +61,9 @@ Noter la version de `supabase-js` dans un commentaire en tête du fichier et dan
 16. `supabase/migrations/016_saisons_palmares.sql` (palmarès du mois et général : `get_palmares(p_limite, p_periode)`, `get_mon_rang(p_periode)`)
 17. `supabase/migrations/017_badges.sql` (titres et badges calculés : `get_badges(p_code)`, badges et code dans le palmarès ; après 016)
 18. `supabase/migrations/018_profil_public.sql` (profil public « Mon CV de pauvre » : `get_profil_public(p_code)`, code de l'auteur dans les cartes ; après 017)
-19. `supabase/seed/mots_interdits.sql`
-20. `supabase/seed/exemples.sql`
+19. `supabase/migrations/019_suivis.sql` (suivre un profil, fil « Mes suivis », les plus suivis, notification à la publication ; après 018)
+20. `supabase/seed/mots_interdits.sql`
+21. `supabase/seed/exemples.sql`
 
 Pour modérer depuis un téléphone, inscrire son propre compte de membre dans `public.moderateurs` (voir `docs/MODERATION.md`, « Page de modération »).
 

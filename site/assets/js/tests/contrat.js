@@ -1412,6 +1412,40 @@ test('R. Profil public', 'CV d’un pauvre et d’un riche par code de partage, 
   void riche;
 });
 
+/* ---------------- S. Suivre un profil (R-047) ---------------- */
+
+test('S. Suivre un profil', 'suivre par code : visiteur refusé, soi-même refusé, double suivi sans effet, notification, fil « Mes suivis », plus suivis', async () => {
+  const { api, join, as } = fresh();
+  const star = await join('pauvre', 'Star du Découvert');
+  const codeStar = (await api.getSession()).profil.code_partage;
+  await api.seDeconnecter();
+  await rejects(api.suivre(codeStar), 'non_connecte', 'visiteur');
+  const fan = await join('pauvre', 'Fan Numéro Un');
+  const codeFan = (await api.getSession()).profil.code_partage;
+  await rejects(api.suivre(codeFan), 'invalide', 'soi-même');
+  await rejects(api.suivre('ZZZZZZZZ'), 'introuvable');
+  eq((await api.suivre(codeStar.toLowerCase())).abonnes, 1);
+  eq((await api.suivre(codeStar)).abonnes, 1, 'double suivi sans effet');
+  const cv = await api.getProfilPublic(codeStar);
+  eq(cv.abonnes, 1); eq(cv.je_suis, true);
+  await as(star.userId);
+  const r = await api.soumettreProbleme({ categorie: 'amour', titre: 'Mon ex garde le chat', texte: 'Et le canapé. Et le chat dort sur le canapé.', montant: 300 });
+  await as(fan.userId);
+  const n = await api.getMesNotifications();
+  assert(n.liste.some((x) => x.type === 'suivi' && x.texte === 'Star du Découvert a publié : « Mon ex garde le chat »' && x.lien === `p.html?id=${r.id}`), JSON.stringify(n.liste[0]));
+  const fil = await api.getFilSuivis({ limite: 12 });
+  eq(fil.length, 1); eq(fil[0].id, r.id);
+  const suivis = await api.getMesSuivis();
+  eq(suivis.length, 1); eq(suivis[0].pseudo, 'Star du Découvert'); eq(suivis[0].dernier.id, r.id); assert(Array.isArray(suivis[0].badges));
+  assertNoEmail(suivis, 'mes suivis'); assertNoEmail(fil, 'fil suivis');
+  const top = await api.getPlusSuivis();
+  assert(top.pauvres.some((x) => x.pseudo === 'Star du Découvert' && x.abonnes === 1), 'plus suivis');
+  assert(top.pauvres.length <= 10 && top.riches.length <= 5);
+  assertNoEmail(top, 'plus suivis');
+  eq((await api.nePlusSuivre(codeStar)).abonnes, 0);
+  eq((await api.getFilSuivis()).length, 0);
+});
+
 export async function runContractTests({ onResult = () => {}, filter = null } = {}) {
   const results = [];
   for (const t of tests) {

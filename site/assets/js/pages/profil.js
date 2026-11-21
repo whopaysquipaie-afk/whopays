@@ -10,6 +10,7 @@ import { badgesConnus } from '../badges.js';
 import { ordinal } from '../palmares.js';
 import { partageNatif, copierLien } from '../partage.js';
 import { siteUrl } from '../config.js';
+import { boutonSuivre, libelleAbonnes } from '../suivi.js';
 
 await initPage('profil');
 
@@ -99,6 +100,11 @@ async function charger() {
         h('h1', { class: 'profil-pseudo', id: 'titre-profil' }, r.pseudo),
         h('p', { class: 'mt-8' }, h('span', { class: `badge badge-${camp.id}` }, icon(camp.icon), `Camp des ${camp.plural}`),
           r.arrive_le ? h('span', { class: 'gris petit' }, ` · arrivé le ${formatJour(r.arrive_le)}`) : null))),
+    // R-047: followers + follow button (when 019 is applied)
+    'abonnes' in r ? h('div', { class: 'profil-suivi' },
+      h('span', { class: 'profil-abonnes' }, libelleAbonnes(r.abonnes)),
+      moi ? null : boutonSuivre({ code: r.code, je_suis: r.je_suis, abonnes: r.abonnes, pseudo: r.pseudo },
+        { onChange: (n) => { zone.querySelector('.profil-abonnes').textContent = libelleAbonnes(n); } })) : null,
     h('p', { class: 'mt-16 grand' }, phrase),
     h('ul', { class: 'profil-stats' }, stats),
     badges.length

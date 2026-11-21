@@ -2106,6 +2106,79 @@ begin
       perform pg_temp.wp_jouer(null);
     end;
 
+    -- =================================================================
+    -- 019. Follow a profile (R-047)
+    -- =================================================================
+    declare
+      v_s1  uuid := gen_random_uuid();
+      v_s2  uuid := gen_random_uuid();
+      v_c1  text;
+      v_c2  text;
+      v_cr  text;
+      v_id  uuid;
+    begin
+      perform pg_temp.wp_jouer(null);
+      insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_anonymous)
+      select '00000000-0000-0000-0000-000000000000'::uuid, u.id, 'authenticated', 'authenticated',
+             u.nom || '-' || v_suffixe || '@exemple.invalid', '', now(), now(), now(), '{}'::jsonb, '{}'::jsonb, false
+      from (values (v_s1, 's1'), (v_s2, 's2')) as u(id, nom);
+      perform pg_temp.wp_jouer('authenticated', v_s1);
+      v_c1 := public.creer_profil('pauvre', 'Pauvre fan', 's1-' || v_suffixe || '@exemple.invalid') ->> 'code_partage';
+      perform pg_temp.wp_jouer('authenticated', v_s2);
+      v_c2 := public.creer_profil('pauvre', 'Pauvre star', 's2-' || v_suffixe || '@exemple.invalid') ->> 'code_partage';
+      perform pg_temp.wp_jouer(null);
+      select pr.code_partage into v_cr from public.profiles pr where pr.id = v_riche;
+      v_res := v_res || pg_temp.wp_ligne(
+        not has_function_privilege('anon', 'public.suivre(text)', 'execute')
+        and not has_function_privilege('anon', 'public.ne_plus_suivre(text)', 'execute')
+        and not has_function_privilege('anon', 'public.mes_suivis()', 'execute')
+        and not has_function_privilege('anon', 'public.get_fil_suivis(integer, timestamptz)', 'execute')
+        and has_function_privilege('anon', 'public.get_plus_suivis()', 'execute')
+        and (select c.relforcerowsecurity from pg_class c where c.oid = 'public.suivis'::regclass)
+        and not has_table_privilege('authenticated', 'public.suivis', 'select,insert,update,delete'),
+        '019 : suivre réservé aux membres (anon refusé), suivis en RLS forcée sans droit, plus suivis public');
+
+      perform pg_temp.wp_jouer('authenticated', v_s1);
+      v_res := v_res || pg_temp.wp_attendre_erreur(format('select public.suivre(%L)', v_c1), 'invalide',
+        '019 : se suivre soi-même refusé');
+      v_res := v_res || pg_temp.wp_attendre_erreur('select public.suivre(''ZZZZZZZZ'')', 'introuvable',
+        '019 : code inconnu → introuvable');
+      v_j := public.suivre(lower(v_c2));
+      v_j := public.suivre(v_c2);
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'suivi')::boolean and (v_j ->> 'abonnes')::int = 1,
+        '019 : double suivi sans effet (1 abonné)', v_j::text);
+      perform public.suivre(v_cr);
+      v_j := public.get_profil_public(v_c2);
+      v_res := v_res || pg_temp.wp_ligne((v_j ->> 'abonnes')::int = 1 and (v_j ->> 'je_suis')::boolean,
+        '019 : le profil public montre le nombre d''abonnés et si je le suis', v_j ->> 'abonnes');
+
+      -- the followed account publishes → notification + wall « Mes suivis »
+      perform pg_temp.wp_jouer('authenticated', v_s2);
+      v_id := (public.soumettre_probleme('amour', 'Mon ex garde le chat', 'Il a aussi gardé le canapé, et le chat dort dessus.', 300) ->> 'id')::uuid;
+      perform pg_temp.wp_jouer('authenticated', v_s1);
+      v_j := public.mes_notifications();
+      v_res := v_res || pg_temp.wp_ligne(exists (select 1 from jsonb_array_elements(v_j -> 'liste') n
+          where n ->> 'type' = 'suivi' and n ->> 'texte' = 'Pauvre star a publié : « Mon ex garde le chat »' and n ->> 'lien' = 'p.html?id=' || v_id),
+        '019 : notification au suiveur quand un compte suivi publie', left(v_j::text, 300));
+      v_j := public.get_fil_suivis(12, null);
+      v_res := v_res || pg_temp.wp_ligne(v_j -> 0 ->> 'id' = v_id::text and v_j::text !~ '@' and not (v_j -> 0 ? 'user_id'),
+        '019 : fil « Mes suivis » = publications des comptes suivis, du plus récent au plus ancien', left(v_j::text, 200));
+      v_j := public.mes_suivis();
+      v_res := v_res || pg_temp.wp_ligne(jsonb_array_length(v_j) = 2 and v_j -> 0 ->> 'pseudo' = 'Pauvre star'
+          and v_j -> 0 -> 'dernier' ->> 'id' = v_id::text and v_j -> 0 ? 'badges' and v_j::text !~ '@'
+          and v_j::text !~ v_s2::text,
+        '019 : mes_suivis (pseudo, camp, code, badges, dernière publication), sans id ni e-mail', left(v_j::text, 300));
+      v_j := public.get_plus_suivis();
+      v_res := v_res || pg_temp.wp_ligne(v_j -> 'pauvres' -> 0 ->> 'pseudo' = 'Pauvre star' and (v_j -> 'pauvres' -> 0 ->> 'abonnes')::int = 1
+          and jsonb_array_length(v_j -> 'riches') >= 1 and v_j::text !~ '@',
+        '019 : les plus suivis (pauvres et riches)', left(v_j::text, 300));
+      v_j := public.ne_plus_suivre(v_c2);
+      v_res := v_res || pg_temp.wp_ligne(not (v_j ->> 'suivi')::boolean and (v_j ->> 'abonnes')::int = 0,
+        '019 : ne plus suivre', v_j::text);
+      perform pg_temp.wp_jouer(null);
+    end;
+
     -- End: undo everything written above
     raise exception using errcode = 'P0999', message = 'wp_fin_des_tests';
   exception

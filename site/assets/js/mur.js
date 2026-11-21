@@ -7,6 +7,7 @@ import { CATEGORIES, category, isCategory } from './categories.js';
 import { carteProbleme, carteSquelette, TYPES_POST } from './carte.js';
 import { intent } from './layout.js';
 import { themeDuJour } from './themes.js';
+import { estMembre } from './page.js';
 
 const PAGE = 12;
 
@@ -18,7 +19,7 @@ const VIDES = [
 
 export function initMur({ grille, filtres, voirPlus, categorieInitiale = null, typeInitial = null }) {
   const state = {
-    categorie: isCategory(categorieInitiale) ? categorieInitiale : null, type: TYPES_POST[typeInitial] ? typeInitial : null,
+    categorie: isCategory(categorieInitiale) ? categorieInitiale : null, type: TYPES_POST[typeInitial] || typeInitial === 'suivis' ? typeInitial : null,
     avant: null, chargement: false, fini: false, jeton: 0
   };
 
@@ -33,11 +34,20 @@ export function initMur({ grille, filtres, voirPlus, categorieInitiale = null, t
     types.appendChild(b);
   }
   filtres.before(types);
-  const majCategories = () => { filtres.hidden = state.type === 'riche' || state.type === 'publication'; };
+  // R-047: « Mes suivis » for members, once the feed answers (019 applied)
+  if (estMembre()) {
+    api.getMesSuivis().then(() => {
+      const b = h('button', { type: 'button', class: 'filtre filtre-suivis', 'aria-pressed': String(state.type === 'suivis'), dataset: { type: 'suivis' } }, '★ Mes suivis');
+      b.addEventListener('click', () => choisirType('suivis'));
+      chipsTypes.push(b);
+      types.appendChild(b);
+    }, () => { if (state.type === 'suivis') choisirType(null); });
+  } else if (state.type === 'suivis') state.type = null;
+  const majCategories = () => { filtres.hidden = state.type === 'riche' || state.type === 'publication' || state.type === 'suivis'; };
   majCategories();
   function choisirType(id) {
     state.type = id;
-    if (id === 'riche' || id === 'publication') state.categorie = null;
+    if (id === 'riche' || id === 'publication' || id === 'suivis') state.categorie = null;
     for (const b of chipsTypes) b.setAttribute('aria-pressed', String((b.dataset.type || null) === state.type));
     majChips();
     majCategories();
@@ -102,11 +112,13 @@ export function initMur({ grille, filtres, voirPlus, categorieInitiale = null, t
     const squelettes = Array.from({ length: reset ? 6 : 3 }, () => carteSquelette());
     squelettes.forEach((s) => grille.appendChild(s));
     try {
-      const rows = await api.getProblemesPublics({ categorie: state.categorie, type: state.type, limite: PAGE, avant: state.avant });
+      const rows = state.type === 'suivis'
+        ? await api.getFilSuivis({ limite: PAGE, avant: state.avant })
+        : await api.getProblemesPublics({ categorie: state.categorie, type: state.type, limite: PAGE, avant: state.avant });
       if (jeton !== state.jeton) return; // a newer request won
       squelettes.forEach((s) => s.remove());
       if (reset && rows.length === 0) {
-        grille.appendChild(state.type === 'riche' || state.type === 'publication' ? etatVideRiche(state.type) : etatVide(state.categorie));
+        grille.appendChild(state.type === 'suivis' ? etatVideSuivis() : state.type === 'riche' || state.type === 'publication' ? etatVideRiche(state.type) : etatVide(state.categorie));
       }
       for (const p of rows) {
         const card = carteProbleme(p);
@@ -136,6 +148,13 @@ export function initMur({ grille, filtres, voirPlus, categorieInitiale = null, t
   voirPlus.addEventListener('click', () => charger(false));
   charger(true);
   return { choisir, choisirType, recharger: () => charger(true) };
+}
+
+function etatVideSuivis() {
+  return h('div', { class: 'etat-vide' },
+    h('p', { class: 'grand' }, 'Ton fil est vide. Comme ton frigo ?'),
+    h('p', {}, 'Touche « Suivre » sur le profil d’un pauvre (ou d’un riche) qui te fait rire : ses problèmes arriveront ici.'),
+    h('a', { class: 'btn btn-primaire', href: 'palmares.html#plus-suivis' }, 'Voir les plus suivis', icon('arrow-right', { className: 'fleche' })));
 }
 
 function etatVideRiche(type) {

@@ -122,7 +122,7 @@ function buildSeed(now) {
     reglages: { publication_auto: true },
     moderateurs: [],
     annonces: [], annonce_envois: [],
-    couronnes: [], notifications: []
+    couronnes: [], notifications: [], suivis: []
   };
   const codes = new Set();
   // Members, registered over the last 30 days
@@ -193,6 +193,12 @@ function buildSeed(now) {
   });
   club(CLUB_RICHES, 'riche');
   club(CLUB_PAUVRES, 'pauvre');
+  // R-047: a few follows (the first members follow some funny ones)
+  st.suivis = [];
+  const droles = st.profiles.filter((p) => p.camp === 'pauvre').slice(0, 4);
+  st.profiles.slice(0, 18).forEach((f, i) => droles.slice(0, 1 + (i % 4)).forEach((d) => {
+    if (d.id !== f.id) st.suivis.push({ suiveur_id: f.id, suivi_id: d.id, cree_le: iso(now - (i + 1) * HOUR) });
+  }));
   // R-037: a few crowns from the rich over the last 2 days, with the authors' notifications
   const riches = st.profiles.filter((p) => p.camp === 'riche').slice(0, 3);
   const recentsPauvres = st.problems.filter((p) => p.statut === 'publie' && p.type === 'pauvre' && !p.est_exemple).slice(-8);
@@ -233,6 +239,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
           // R-037: states saved before 015
           if (!st.couronnes) st.couronnes = [];
           if (!st.notifications) st.notifications = [];
+          if (!st.suivis) st.suivis = [];
           if (st.profiles.some((p) => !p.jeton_desinscription)) {
             for (const p of st.profiles) if (!p.jeton_desinscription) p.jeton_desinscription = uuid(Math.random);
             save(st);
@@ -387,6 +394,16 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
     if (st.comments.filter((c) => c.user_id === userId && !c.masque).length >= 30) b.push('pipelette');
     if (pauvres.length >= 1) b.push('premier');
     return b;
+  }
+  /* ----- R-047 (= 019_suivis.sql) ----- */
+  const nbAbonnes = (st, userId) => (st.suivis || []).filter((s) => s.suivi_id === userId && st.profiles.some((p) => p.id === s.suiveur_id && !p.bloque)).length;
+  function notifierSuiveurs(st, pb) {
+    const a = st.profiles.find((p) => p.id === pb.user_id);
+    if (!a) return;
+    for (const s of (st.suivis || []).filter((x) => x.suivi_id === pb.user_id).slice(0, 500)) {
+      const f = st.profiles.find((p) => p.id === s.suiveur_id);
+      if (f && !f.bloque) notifier(st, f.id, 'suivi', `${a.pseudo} a publié : « ${String(pb.titre || pb.texte).slice(0, 80)} »`, `p.html?id=${pb.id}`);
+    }
   }
   const profilParCode = (st, code) => {
     const c = String(code || '').trim().toUpperCase();
@@ -554,6 +571,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         pseudo: p.pseudo, camp: p.camp, code: p.code_partage, statut_riche: statutRiche(st, p),
         arrive_le: new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date(p.cree_le)),
         badges: badgesDe(st, p.id),
+        abonnes: nbAbonnes(st, p.id), je_suis: !!uid(st) && (st.suivis || []).some((s) => s.suiveur_id === uid(st) && s.suivi_id === p.id),
         problemes: st.problems.filter((x) => x.user_id === p.id && visibleProblem(x) && !x.est_exemple)
           .sort((a, b) => sortDate(b).localeCompare(sortDate(a)) || b.id.localeCompare(a.id)).slice(0, 24).map((x) => problemRow(st, x)),
         couronnes_donnees: p.camp !== 'riche' ? [] : (st.couronnes || []).filter((c) => c.riche_id === p.id && !c.retiree)
@@ -568,6 +586,64 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         Object.assign(r, { rang_mois: { rang: lm ? lm.rang : null, sur: m.length }, rang_general: { rang: lg ? lg.rang : null, sur: g.length }, total: lg ? lg.total : 0, nb: lg ? lg.nb : 0 });
       }
       return r;
+    },
+
+    /* ===== Follow a profile (= 019, R-047) ===== */
+    async suivre(code) {
+      return tx((st) => {
+        const p = writer(st);
+        const c = profilParCode(st, code);
+        if (!c) throw ERR.introuvable('Ce membre est introuvable.');
+        if (c.id === p.id) throw ERR.invalide('Tu ne peux pas te suivre toi-même. Même si tu es très drôle.');
+        if (!st.suivis.some((s) => s.suiveur_id === p.id && s.suivi_id === c.id)) st.suivis.push({ suiveur_id: p.id, suivi_id: c.id, cree_le: iso(t()) });
+        return { suivi: true, abonnes: nbAbonnes(st, c.id) };
+      });
+    },
+
+    async nePlusSuivre(code) {
+      return tx((st) => {
+        const p = writer(st);
+        const c = profilParCode(st, code);
+        if (!c) throw ERR.introuvable('Ce membre est introuvable.');
+        st.suivis = st.suivis.filter((s) => !(s.suiveur_id === p.id && s.suivi_id === c.id));
+        return { suivi: false, abonnes: nbAbonnes(st, c.id) };
+      });
+    },
+
+    async getMesSuivis() {
+      const st = load();
+      const id = uid(st);
+      if (!id) return [];
+      return (st.suivis || []).filter((s) => s.suiveur_id === id)
+        .map((s) => ({ s, p: st.profiles.find((x) => x.id === s.suivi_id) })).filter(({ p }) => p && !p.bloque)
+        .map(({ s, p }) => {
+          const d = st.problems.filter((x) => x.user_id === p.id && visibleProblem(x) && !x.est_exemple).sort((a, b) => sortDate(b).localeCompare(sortDate(a)) || b.id.localeCompare(a.id))[0];
+          return { cle: d ? sortDate(d) : s.cree_le, r: { pseudo: p.pseudo, camp: p.camp, code: p.code_partage, badges: badgesDe(st, p.id), dernier: d ? problemRow(st, d) : null } };
+        })
+        .sort((a, b) => b.cle.localeCompare(a.cle) || a.r.pseudo.localeCompare(b.r.pseudo)).map((x) => x.r);
+    },
+
+    async getFilSuivis({ limite = 12, avant = null } = {}) {
+      if (avant !== null && avant !== undefined && !isIsoDate(avant)) throw ERR.invalide('Curseur de pagination invalide.');
+      const st = load();
+      const id = uid(st);
+      if (!id) return [];
+      const suivis = new Set((st.suivis || []).filter((s) => s.suiveur_id === id).map((s) => s.suivi_id));
+      const lim = Math.max(1, Math.min(48, Number.isInteger(limite) ? limite : 12));
+      return st.problems
+        .filter((p) => visibleProblem(p) && !p.est_exemple && suivis.has(p.user_id) && st.profiles.some((x) => x.id === p.user_id && !x.bloque))
+        .filter((p) => !avant || sortDate(p) < avant)
+        .sort((a, b) => sortDate(b).localeCompare(sortDate(a)) || b.id.localeCompare(a.id))
+        .slice(0, lim).map((p) => problemRow(st, p));
+    },
+
+    async getPlusSuivis() {
+      const st = load();
+      const top = (camp, n) => st.profiles.filter((p) => p.camp === camp && !p.bloque && (camp === 'pauvre' || richeActif(st, p)))
+        .map((p) => ({ p, nb: nbAbonnes(st, p.id) })).filter((x) => x.nb > 0)
+        .sort((a, b) => b.nb - a.nb || a.p.cree_le.localeCompare(b.p.cree_le) || a.p.pseudo.localeCompare(b.p.pseudo))
+        .slice(0, n).map(({ p, nb }) => ({ pseudo: p.pseudo, camp: p.camp, code: p.code_partage, abonnes: nb }));
+      return { pauvres: top('pauvre', 10), riches: top('riche', 5) };
     },
 
     /** R-039 (= get_badges, 017): { pseudo, badges } by share code, or null. */
@@ -653,6 +729,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         const statut = auto && !sensible ? 'publie' : 'recu';
         const row = { id: uuid(rand), user_id: p.id, type: 'pauvre', premiere: false, categorie, titre: ti, texte: tx2, montant: mt, statut, est_exemple: false, masque: false, cree_le: iso(t()), modere_le: null };
         st.problems.push(row);
+        if (statut === 'publie') notifierSuiveurs(st, row);
         return { id: row.id, statut };
       });
     },
@@ -673,6 +750,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         const premiere = !st.problems.some((x) => x.user_id === p.id && typeDe(x) !== 'pauvre');
         const row = { id: uuid(rand), user_id: p.id, type, premiere, categorie: null, titre: ti, texte: tx2, montant: mt, statut, est_exemple: false, masque: false, cree_le: iso(t()), modere_le: null };
         st.problems.push(row);
+        if (statut === 'publie') notifierSuiveurs(st, row);
         return { id: row.id, statut, premiere };
       });
     },
@@ -865,6 +943,7 @@ export function createDemoApi({ storage = defaultStorage(), now = () => Date.now
         st.reports = st.reports.filter((r) => r.user_id !== id);
         st.couronnes = (st.couronnes || []).filter((c) => c.riche_id !== id && !myProblems.has(c.problem_id));
         st.notifications = (st.notifications || []).filter((n) => n.user_id !== id);
+        st.suivis = (st.suivis || []).filter((s) => s.suiveur_id !== id && s.suivi_id !== id);
         st.problems = st.problems.filter((p) => p.user_id !== id);
         st.verifications = st.verifications.filter((v) => v.user_id !== id);
         st.moderateurs = (st.moderateurs || []).filter((m) => m !== id);

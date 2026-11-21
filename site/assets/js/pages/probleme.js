@@ -9,6 +9,7 @@ import { sectionCommentaires } from '../commentaires.js';
 import { signaler, dejaSignale } from '../signalement.js';
 import { barrePartage, urlProbleme, texteProbleme } from '../partage.js';
 import { boutonCouronne } from '../couronne.js';
+import { boutonSuivre } from '../suivi.js';
 
 await initPage('problemes');
 
@@ -71,6 +72,15 @@ function afficher(brut) {
     } })
   }], { label: 'Plus d’actions sur ce problème' });
   if (!p.est_mon_probleme) zoneCarte.appendChild(menu());
+  // R-047: « Suivre » next to the author (only when 019 is applied: the profile then carries « abonnes »)
+  if (p.code_auteur && !p.est_mon_probleme) {
+    api.getProfilPublic(p.code_auteur).then((r) => {
+      const meta = carte.querySelector('.carte-auteur');
+      const s = session();
+      if (!r || !('abonnes' in r) || !meta || (s && s.profil && s.profil.code_partage === r.code)) return;
+      meta.after(boutonSuivre({ code: r.code, je_suis: r.je_suis, abonnes: r.abonnes, pseudo: r.pseudo }, { petit: true }));
+    }, () => {});
+  }
 
   // Comments under the card
   zoneCom.appendChild(sectionCommentaires(p));
